@@ -75,7 +75,7 @@ function CardList({
         // copies are exactly the same width and the -50% loop point is exact.
         <li key={d.city} className="shrink-0 pr-3.5">
           <div
-            className={`relative flex h-[170px] w-[264px] flex-col justify-end rounded-2xl bg-linear-to-b ${d.gradient} p-5 text-white shadow-[0_8px_24px_-12px_rgba(42,27,61,0.45)]`}
+            className={`relative flex h-42.5 w-66 flex-col justify-end rounded-2xl bg-linear-to-b ${d.gradient} p-5 text-white shadow-[0_8px_24px_-12px_rgba(42,27,61,0.45)]`}
           >
             <Link
               href={plannerHref(`Plan a trip to ${d.city}`)}

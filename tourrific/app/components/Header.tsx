@@ -9,7 +9,7 @@ const navLinks = [
 
 export default function Header() {
   return (
-    <header className="mx-auto flex w-full max-w-[1440px] items-center justify-between px-4 py-6 sm:px-10 lg:px-16">
+    <header className="mx-auto flex w-full max-w-360 items-center justify-between px-4 py-6 sm:px-10 lg:px-16">
       <Logo />
 
       <nav className="flex items-center gap-4 sm:gap-10">
