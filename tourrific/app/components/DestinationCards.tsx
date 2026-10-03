@@ -1,46 +1,51 @@
+import Image from "next/image";
 import Link from "next/link";
-import { plannerHref } from "@/app/lib/routes";
+import { destinationHref } from "@/app/lib/routes";
 
+// Photos are from Unsplash, stored in public/images/destinations so the cards
+// don't break if a photo is later removed from Unsplash.
 const destinations = [
   {
     city: "Barcelona",
     deal: "Sun 23 Nov from $43",
     meta: "Spain • 2h 50m avg",
-    gradient: "from-[#8a7d70] via-[#4f4945] to-[#141414]",
+    photo: "/images/destinations/barcelona.jpg",
   },
   {
     city: "London",
     deal: "Thu 31 Dec from $53",
     meta: "United Kingdom • 2h 10m avg",
-    gradient: "from-[#7486a3] via-[#3c4659] to-[#11141c]",
+    photo: "/images/destinations/london.jpg",
   },
   {
     city: "Palma",
+    // The name the flight search should use; "Palma" alone is ambiguous.
+    searchName: "Palma de Mallorca",
     deal: "Thu 5 Nov from $76",
     meta: "Majorca • 3h 15m avg",
-    gradient: "from-[#d7dade] via-[#8d9098] to-[#2b2c30]",
+    photo: "/images/destinations/palma.jpg",
   },
   {
     city: "Madrid",
     deal: "Sat 23 Jan from $80",
     meta: "Spain • 3h 30m avg",
-    gradient: "from-[#e5a452] via-[#5a3a3a] to-[#1a1320]",
+    photo: "/images/destinations/madrid.jpg",
   },
   {
     city: "Lisbon",
     deal: "Fri 14 Nov from $68",
     meta: "Portugal • 3h 05m avg",
-    gradient: "from-[#e8b27a] via-[#8a5a48] to-[#221716]",
+    photo: "/images/destinations/lisbon.jpg",
   },
   {
     city: "Paris",
     deal: "Wed 3 Dec from $49",
     meta: "France • 1h 55m avg",
-    gradient: "from-[#8795b5] via-[#48506a] to-[#15171f]",
+    photo: "/images/destinations/paris.jpg",
   },
 ];
 
-type Destination = (typeof destinations)[number];
+type Destination = { city: string; searchName?: string; deal: string; meta: string; photo: string };
 
 export default function DestinationCards() {
   return (
@@ -74,11 +79,20 @@ function CardList({
         // Spacing lives on each card (pr) rather than as a flex gap so both
         // copies are exactly the same width and the -50% loop point is exact.
         <li key={d.city} className="shrink-0 pr-3.5">
-          <div
-            className={`relative flex h-42.5 w-66 flex-col justify-end rounded-2xl bg-linear-to-b ${d.gradient} p-5 text-white shadow-[0_8px_24px_-12px_rgba(42,27,61,0.45)]`}
-          >
+          <div className="relative isolate flex h-42.5 w-66 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-5 text-white shadow-[0_8px_24px_-12px_rgba(42,27,61,0.45)] [text-shadow:0_1px_6px_rgb(0_0_0/0.45)]">
+            {/* Eager: the row is always moving, so a card must not arrive before its photo. */}
+            <Image
+              src={d.photo}
+              alt=""
+              fill
+              sizes="264px"
+              loading="eager"
+              className="-z-20 object-cover"
+            />
+            {/* Darkens the lower part so the white text stays readable on any photo. */}
+            <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-black/10 from-20% to-black/75" />
             <Link
-              href={plannerHref(`Plan a trip to ${d.city}`)}
+              href={destinationHref(d.searchName ?? d.city)}
               tabIndex={duplicate ? -1 : undefined}
               className="absolute inset-0 rounded-2xl"
             >

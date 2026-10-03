@@ -15,6 +15,7 @@ import FlightResults, { FLIGHTS_PAGE_SIZE, type FlightSearchStatus, type FlightS
 import HotelResults, { type HotelSort } from "./hotels/HotelResults";
 import MobileTabs from "./MobileTabs";
 import ResultsColumn from "./results/ResultsColumn";
+import SampleBadge from "./results/SampleBadge";
 
 const SEARCH_TIMEOUT_MS = 30_000;
 
@@ -34,12 +35,16 @@ const STARTER_SUGGESTIONS = [
   "Paris tomorrow",
 ];
 const FOLLOW_UP_SUGGESTIONS = ["A little later", "A little earlier", "Somewhere else"];
+// Answers to "When would you like to travel?" after picking a destination card.
+const DATE_SUGGESTIONS = ["Tomorrow", "Next Friday", "Next weekend"];
 
 type PlannerTab = "chat" | "flights" | "hotels";
 
 type Props = {
   /** The prompt the visitor arrived with from the landing page, if any. */
   initialPrompt: string;
+  /** The city of the destination card the visitor clicked, if they came that way. */
+  initialDestination: string;
 };
 
 let messageCount = 0;
@@ -72,12 +77,15 @@ function resultsMessage(result: FlightSearchResult) {
   return `I found ${count} ${route}${dates ? ` for ${dates}` : ""}.\nPrices start at **${formatPrice(cheapest.totalPrice, cheapest.currency)}** with ${cheapest.airline.name}.\nI've also listed sample hotels for ${destination.city}.`;
 }
 
-export default function PlannerView({ initialPrompt }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    initialPrompt
-      ? [{ id: "initial-user", role: "user", text: initialPrompt }]
-      : [{ id: "welcome", role: "assistant", text: WELCOME }],
-  );
+export default function PlannerView({ initialPrompt, initialDestination }: Props) {
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (initialPrompt) return [{ id: "initial-user", role: "user", text: initialPrompt }];
+    // A destination card was clicked: ask for dates straight away, as the old app did.
+    const text = initialDestination
+      ? `Great choice — **${initialDestination}**! When would you like to travel?`
+      : WELCOME;
+    return [{ id: "welcome", role: "assistant", text }];
+  });
   const [isSearching, setIsSearching] = useState(Boolean(initialPrompt));
   const [statusLines, setStatusLines] = useState<string[]>([]);
   const [result, setResult] = useState<FlightSearchResult | null>(null);
@@ -93,7 +101,9 @@ export default function PlannerView({ initialPrompt }: Props) {
 
   // What the backend learned so far, sent back with every message so follow-ups
   // like "a little later" build on the previous search.
-  const context = useRef<SearchContext>({});
+  // Starting it with the clicked destination means an answer like "next Friday"
+  // is searched as a trip there, while "Paris tomorrow" can still change it.
+  const context = useRef<SearchContext>(initialDestination ? { destination: initialDestination } : {});
   const activeSearch = useRef<AbortController | null>(null);
 
   // Hotels are still sample data; they follow the destination and dates of the flight search.
@@ -284,14 +294,16 @@ export default function PlannerView({ initialPrompt }: Props) {
             messages={messages}
             isTyping={isSearching}
             statusLines={statusLines}
-            suggestions={result ? FOLLOW_UP_SUGGESTIONS : STARTER_SUGGESTIONS}
+            suggestions={
+              result ? FOLLOW_UP_SUGGESTIONS : initialDestination ? DATE_SUGGESTIONS : STARTER_SUGGESTIONS
+            }
             onSend={send}
             footnote="AI-assisted travel planning. Hotels are sample data."
           />
         </div>
         <div id="panel-flights" role="tabpanel" aria-labelledby="tab-flights" className={`${panelClass("flights")} bg-white/40`}>
           <FlightResults
-            subtitle={result ? searchSummary(result) : isSearching ? "Looking for your flights" : "No search yet"}
+            subtitle={result ? searchSummary(result) : isSearching ? "Looking for your flights" : initialDestination ? `To ${initialDestination} · dates to be chosen` : "No search yet"}
             offers={result?.offers ?? []}
             status={flightStatus}
             errorMessage={searchError}
@@ -306,6 +318,7 @@ export default function PlannerView({ initialPrompt }: Props) {
         <div id="panel-hotels" role="tabpanel" aria-labelledby="tab-hotels" className={`${panelClass("hotels")} bg-white/40`}>
           {stay ? (
             <HotelResults
+              sample
               trip={stay}
               hotels={hotels}
               sort={hotelSort}
@@ -317,7 +330,8 @@ export default function PlannerView({ initialPrompt }: Props) {
             <ResultsColumn
               title="Hotels"
               icon={<BedIcon size={18} />}
-              subtitle="Sample data"
+              badge={<SampleBadge />}
+              subtitle="Follows your flight search"
               count={0}
               emptyState="Hotel ideas appear here once your flight search has results."
             >

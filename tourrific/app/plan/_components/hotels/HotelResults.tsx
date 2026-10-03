@@ -4,6 +4,7 @@ import SortTabs from "@/app/components/ui/SortTabs";
 import { formatDate, formatNights } from "@/app/lib/format";
 import type { Hotel, Trip } from "@/app/lib/types";
 import ResultsColumn from "../results/ResultsColumn";
+import SampleBadge from "../results/SampleBadge";
 import HotelCard from "./HotelCard";
 
 export type HotelSort = "recommended" | "price" | "rating";
@@ -30,14 +31,17 @@ type Props = {
   onSelect: (hotel: Hotel) => void;
   /** Rendered above the sort options, e.g. a stop picker on the road trip page. */
   toolbarExtra?: ReactNode;
+  /** Shows a "Sample" label by the title when the hotels are example data. */
+  sample?: boolean;
 };
 
-export default function HotelResults({ trip, hotels, sort, onSortChange, selectedId, onSelect, toolbarExtra }: Props) {
+export default function HotelResults({ trip, hotels, sort, onSortChange, selectedId, onSelect, toolbarExtra, sample = false }: Props) {
   return (
     <ResultsColumn
       title="Hotels"
       icon={<BedIcon size={18} />}
       count={hotels.length}
+      badge={sample ? <SampleBadge /> : undefined}
       subtitle={`${trip.destination.city} · ${formatDate(trip.departDate)} – ${formatDate(trip.returnDate)} · ${formatNights(trip.nights)}`}
       toolbar={
         <>

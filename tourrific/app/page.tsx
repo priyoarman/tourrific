@@ -29,7 +29,7 @@ export default function Home() {
             src="/images/hero-city.jpg"
             alt=""
             fill
-            priority
+            preload
             sizes="100vw"
             className="scale-105 object-cover blur-[2px]"
           />
