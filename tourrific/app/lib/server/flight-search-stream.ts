@@ -7,6 +7,7 @@ import type { TripQuery } from "../types/trip-query";
 import { compactOffer } from "./compact-offer.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
 import { searchFlights, type DuffelSearchSlice } from "./duffel.ts";
+import { duffelSearchOptions, filterOffers, passengerCount } from "./flight-filters.ts";
 import { isPlainObject, mentionsDestinationEdit, mergeFollowUpTripQuery, parseDateOnly } from "./follow-up.ts";
 import { extractTripQuery } from "./groq/extractor.ts";
 import { detectFallbackOrigin } from "./origin-fallback.ts";
@@ -44,12 +45,18 @@ function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean) {
     `Searching ${returnTrip ? "return " : ""}flights from ${origin} to ${extracted.destination_airport}...`,
   ];
 
+  const travellers = passengerCount(extracted);
+  if (travellers > 1) messages.push(`Pricing it for ${travellers} travellers...`);
+  if (extracted.cabin_class && extracted.cabin_class !== "economy") {
+    messages.push(`Looking in ${extracted.cabin_class.replace("_", " ")}...`);
+  }
   if (extracted.direct_only) messages.push("Checking direct routes...");
   if (extracted.baggage_required) messages.push("Filtering for flights with baggage included...");
   if (extracted.preferred_airlines?.length) {
-    messages.push(`Looking at ${extracted.preferred_airlines.join(", ")} flights...`);
+    messages.push("Looking at the airlines you asked for...");
   }
   if (extracted.departure_time) messages.push(`Narrowing to ${extracted.departure_time} departures...`);
+  if (extracted.max_price) messages.push("Keeping to your budget...");
 
   messages.push("Comparing prices across airlines...");
   return messages;
@@ -178,26 +185,26 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
       await delay(400);
     }
 
-    const flights = await searchFlights({
-      slices: buildSearchSlices(extracted, destination),
-      passengers: [{ type: "adult" }],
-      cabin_class: "economy",
-      // Duffel ignores this; the filters are not applied yet.
-      filters: {
-        direct_only: extracted.direct_only,
-        preferred_airlines: extracted.preferred_airlines,
-        baggage_required: extracted.baggage_required,
-        departure_time: extracted.departure_time,
-      },
-    });
-    const offers: DuffelOffer[] = flights?.data?.offers ?? [];
+    // Duffel narrows the search where it can; the rest is filtered once the offers are in.
+    const { outboundDepartureTime, ...searchOptions } = duffelSearchOptions(extracted);
+    const slices = buildSearchSlices(extracted, destination);
+    if (outboundDepartureTime) slices[0].departure_time = outboundDepartureTime;
+
+    const flights = await searchFlights({ slices, ...searchOptions });
+    const found: DuffelOffer[] = flights?.data?.offers ?? [];
+    const { offers, labels, unfilteredCount } = filterOffers(found, extracted);
     const count = offers.length;
 
     const limit = sendAll ? Math.max(count, 1) : PAGE_SIZE;
     const start = (page - 1) * limit;
     const end = start + limit;
 
-    if (count > 0) {
+    if (count < unfilteredCount) {
+      send("status", {
+        text: `Found ${unfilteredCount} flight${unfilteredCount === 1 ? "" : "s"}, ${count || "none"} of them match${count === 1 ? "es" : ""} what you asked for.`,
+      });
+      await delay(300);
+    } else if (count > 0) {
       send("status", { text: `Found ${count} possible flight${count === 1 ? "" : "s"}.` });
       await delay(300);
     } else {
@@ -217,6 +224,7 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
         hasNextPage: end < count,
         hasPreviousPage: page > 1,
       },
+      filters: { labels, unfilteredCount },
     });
     send("done", { needsInput: false });
   } catch (error) {

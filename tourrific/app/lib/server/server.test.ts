@@ -20,7 +20,8 @@ test("normalizes what the model returns", () => {
       origin_airport: " cph ",
       destination_airport: "lis",
       departure_date: "2026-07-15",
-      max_price_dkk: 1500,
+      max_price: 1500,
+      max_price_currency: "kr",
       vibe_tags: ["budget", "beach"],
     }),
     {
@@ -33,7 +34,10 @@ test("normalizes what the model returns", () => {
       destination_area: null,
       departure_date: "2026-07-15",
       return_date: null,
-      max_price_dkk: 1500,
+      max_price: 1500,
+      max_price_currency: "DKK",
+      cabin_class: null,
+      passengers: null,
       vibe_tags: ["budget", "beach"],
       direct_only: null,
       preferred_airlines: [],
@@ -49,7 +53,20 @@ test("normalizes what the model returns", () => {
     preferred_airlines: "SAS, Lufthansa",
     baggage_required: "true",
     departure_time: "Morning",
+    cabin_class: "Business class",
+    passengers: "2 adults",
+    max_price: "€150",
+    max_price_currency: "€",
   });
+  assert.equal(returnTrip.cabin_class, "business");
+  assert.equal(returnTrip.passengers, 2);
+  assert.equal(returnTrip.max_price, 150);
+  assert.equal(returnTrip.max_price_currency, "EUR");
+  // A currency without a price means nothing; odd values are dropped.
+  assert.equal(normalizeTripQuery({ max_price_currency: "DKK" }).max_price_currency, null);
+  assert.equal(normalizeTripQuery({ passengers: 40 }).passengers, 9);
+  assert.equal(normalizeTripQuery({ passengers: 0, cabin_class: "cargo", departure_time: "noon" }).passengers, null);
+  assert.equal(normalizeTripQuery({ cabin_class: "cargo" }).cabin_class, null);
   assert.equal(returnTrip.trip_type, "return");
   assert.equal(returnTrip.direct_only, true);
   assert.deepEqual(returnTrip.preferred_airlines, ["SAS", "Lufthansa"]);

@@ -8,12 +8,16 @@ export type DuffelSearchSlice = {
   destination?: string;
   /** YYYY-MM-DD */
   departure_date: string | null;
+  /** Only flights leaving in this window of the day, as "HH:MM". `from` must be before `to`. */
+  departure_time?: { from: string; to: string };
 };
 
 export type DuffelSearchPayload = {
   slices: DuffelSearchSlice[];
   passengers: { type: string }[];
   cabin_class: string;
+  /** Most stops allowed per direction. Duffel's default is 1; 0 means direct only. */
+  max_connections?: number;
   [extra: string]: unknown;
 };
 

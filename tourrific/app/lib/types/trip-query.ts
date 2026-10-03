@@ -6,6 +6,8 @@ export type TripType = "one_way" | "return";
 
 export type DepartureTime = "morning" | "afternoon" | "evening" | "night";
 
+export type CabinClass = "economy" | "premium_economy" | "business" | "first";
+
 export type TripQuery = {
   trip_type: TripType | null;
 
@@ -17,12 +19,21 @@ export type TripQuery = {
   departure_date: string | null;
   return_date: string | null;
 
-  max_price_dkk: number | null;
+  /** The most the whole trip may cost, as the user said it, e.g. 1000. */
+  max_price: number | null;
+  /** ISO 4217 code of that limit, e.g. "DKK". Null means the currency the offers are priced in. */
+  max_price_currency: string | null;
+
+  /** Null means economy. */
+  cabin_class: CabinClass | null;
+  /** Number of travellers, all searched as adults. Null means 1. */
+  passengers: number | null;
 
   /** Moods the user asked for instead of a place, e.g. ["beaches"]. */
   vibe_tags: string[] | null;
 
   direct_only: boolean | null;
+  /** 2-letter airline codes ("SK") or names ("SAS"). Empty means any airline. */
   preferred_airlines: string[] | null;
   baggage_required: boolean | null;
   departure_time: DepartureTime | null;

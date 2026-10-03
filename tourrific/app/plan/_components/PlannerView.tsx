@@ -37,7 +37,7 @@ const STARTER_SUGGESTIONS = [
   "Somewhere with beaches next weekend",
   "Paris tomorrow",
 ];
-const FOLLOW_UP_SUGGESTIONS = ["A little later", "A little earlier", "Somewhere else"];
+const FOLLOW_UP_SUGGESTIONS = ["A little later", "Direct flights only", "With a checked bag", "Somewhere else"];
 // Answers to "When would you like to travel?" after picking a destination card.
 const DATE_SUGGESTIONS = ["Tomorrow", "Next Friday", "Next weekend"];
 
@@ -61,7 +61,17 @@ function travelDates(result: FlightSearchResult) {
 
 function searchSummary(result: FlightSearchResult) {
   const route = `${result.origin.city} → ${result.destination.city}`;
-  return [route, travelDates(result), "1 adult"].filter(Boolean).join(" · ");
+  return [route, travelDates(result), travellers(result), ...result.filters].filter(Boolean).join(" · ");
+}
+
+function travellers(result: FlightSearchResult) {
+  const count = result.query.passengers ?? 1;
+  return count === 1 ? "1 adult" : `${count} adults`;
+}
+
+/** "13 of them", "none of them": how many of the found flights passed the filters. */
+function removedByFilters(result: FlightSearchResult) {
+  return result.unfilteredCount - result.offers.length;
 }
 
 /** What the assistant says once the results are in. */
@@ -70,14 +80,21 @@ function resultsMessage(result: FlightSearchResult) {
   const route = `from **${origin.city}** to **${destination.city}**`;
   const dates = travelDates(result);
 
+  const filters = result.filters.length > 0 ? ` (${result.filters.join(", ")})` : "";
+
   if (offers.length === 0) {
-    return `I couldn't find any flights ${route}${dates ? ` for ${dates}` : ""}. Want to try different dates?`;
+    return removedByFilters(result) > 0
+      ? `I found ${result.unfilteredCount.toLocaleString("en-US")} flights ${route}${dates ? ` for ${dates}` : ""}, but none match what you asked for${filters}. Want me to relax one of those?`
+      : `I couldn't find any flights ${route}${dates ? ` for ${dates}` : ""}${filters}. Want to try different dates?`;
   }
 
   const cheapest = offers.reduce((best, offer) => (offer.totalPrice < best.totalPrice ? offer : best));
   const count = `**${offers.length.toLocaleString("en-US")} flight${offers.length === 1 ? "" : "s"}**`;
 
-  return `I found ${count} ${route}${dates ? ` for ${dates}` : ""}.\nPrices start at **${formatPrice(cheapest.totalPrice, cheapest.currency)}** with ${cheapest.airline.name}.\nI've also listed sample hotels for ${destination.city}.`;
+  const party = (result.query.passengers ?? 1) > 1 ? ` for ${travellers(result)}` : "";
+  const matching = filters ? `\nFilters: **${result.filters.join(" · ")}**.` : "";
+
+  return `I found ${count} ${route}${dates ? ` for ${dates}` : ""}.${matching}\nPrices start at **${formatPrice(cheapest.totalPrice, cheapest.currency)}**${party} with ${cheapest.airline.name}.\nI've also listed sample hotels for ${destination.city}.`;
 }
 
 export default function PlannerView({ initialPrompt, initialDestination }: Props) {
@@ -324,6 +341,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             offers={result?.offers ?? []}
             status={flightStatus}
             errorMessage={searchError}
+            filteredOut={result ? removedByFilters(result) : 0}
             visibleCount={visibleFlights}
             onShowMore={() => setVisibleFlights((count) => count + FLIGHTS_PAGE_SIZE)}
             sort={flightSort}

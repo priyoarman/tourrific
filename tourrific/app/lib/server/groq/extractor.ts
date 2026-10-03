@@ -1,7 +1,7 @@
 // Asks Groq to turn a chat message into a structured flight search (a
 // TripQuery), then tidies the answer. Ported from api/src/groq/extractor.js.
 import { createGroq } from "@ai-sdk/groq";
-import type { DepartureTime, TripQuery, TripType } from "../../types/trip-query";
+import type { CabinClass, DepartureTime, TripQuery, TripType } from "../../types/trip-query";
 import { resolveDestination } from "../destination-resolver.ts";
 import TRIP_QUERY_SCHEMA from "./schema.ts";
 import SYSTEM_PROMPT from "./system-prompt.ts";
@@ -79,6 +79,40 @@ function normalizeDepartureTime(value: unknown): DepartureTime | null {
   return ["morning", "afternoon", "evening", "night"].includes(normalized)
     ? (normalized as DepartureTime)
     : null;
+}
+
+function normalizeCabinClass(value: unknown): CabinClass | null {
+  if (typeof value !== "string") return null;
+  const aliases: Record<string, CabinClass> = {
+    economy: "economy",
+    coach: "economy",
+    premium: "premium_economy",
+    premium_economy: "premium_economy",
+    business: "business",
+    business_class: "business",
+    first: "first",
+    first_class: "first",
+  };
+  return aliases[value.trim().toLowerCase().replace(/[-\s]/g, "_")] ?? null;
+}
+
+/** A whole number of travellers from 1 to 9, or null. */
+function normalizePassengers(value: unknown) {
+  const count = typeof value === "string" ? Number.parseInt(value, 10) : value;
+  return typeof count === "number" && Number.isFinite(count) && count >= 1 ? Math.min(Math.round(count), 9) : null;
+}
+
+function normalizeMaxPrice(value: unknown) {
+  const price = typeof value === "string" ? Number.parseFloat(value.replace(/[^\d.]/g, "")) : value;
+  return typeof price === "number" && Number.isFinite(price) && price > 0 ? price : null;
+}
+
+const CURRENCY_ALIASES: Record<string, string> = { "€": "EUR", EURO: "EUR", EUROS: "EUR", $: "USD", "£": "GBP", KR: "DKK", "KR.": "DKK", KRONER: "DKK" };
+
+function normalizeCurrency(value: unknown) {
+  if (typeof value !== "string") return null;
+  const code = value.trim().toUpperCase();
+  return CURRENCY_ALIASES[code] ?? (/^[A-Z]{3}$/.test(code) ? code : null);
 }
 
 const stringOrNull = (value: unknown) => (typeof value === "string" && value ? value : null);
@@ -178,7 +212,6 @@ export function parseNaturalTravelDates(text: unknown, referenceDate = new Date(
 /** Cleans up whatever the model returned into a well-formed TripQuery. */
 export function normalizeTripQuery(raw: unknown): TripQuery {
   const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const maxPrice = source.max_price_dkk;
 
   return {
     origin_airport: normalizeIataCode(source.origin_airport),
@@ -192,7 +225,10 @@ export function normalizeTripQuery(raw: unknown): TripQuery {
 
     trip_type: normalizeTripType(source.trip_type, source.return_date),
     return_date: stringOrNull(source.return_date),
-    max_price_dkk: typeof maxPrice === "number" && maxPrice ? maxPrice : null,
+    max_price: normalizeMaxPrice(source.max_price),
+    max_price_currency: normalizeMaxPrice(source.max_price) ? normalizeCurrency(source.max_price_currency) : null,
+    cabin_class: normalizeCabinClass(source.cabin_class),
+    passengers: normalizePassengers(source.passengers),
     vibe_tags: normalizeStringList(source.vibe_tags),
     direct_only: normalizeBoolean(source.direct_only),
     preferred_airlines: normalizeStringList(source.preferred_airlines),

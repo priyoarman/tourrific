@@ -52,6 +52,8 @@ type Props = {
   status: FlightSearchStatus;
   /** What went wrong, when `status` is "error". */
   errorMessage?: string | null;
+  /** How many flights the search found but the visitor's filters removed. */
+  filteredOut?: number;
   visibleCount: number;
   onShowMore: () => void;
   sort: FlightSort;
@@ -68,6 +70,7 @@ export default function FlightResults({
   offers,
   status,
   errorMessage,
+  filteredOut = 0,
   visibleCount,
   onShowMore,
   sort,
@@ -101,9 +104,16 @@ export default function FlightResults({
         {errorMessage ?? "Something went wrong. Please try again."}
       </ColumnMessage>
     ) : status === "ready" ? (
-      <ColumnMessage icon={<PlaneIcon size={26} />} title="No flights found">
-        Try different dates or a nearby airport.
-      </ColumnMessage>
+      filteredOut > 0 ? (
+        <ColumnMessage icon={<PlaneIcon size={26} />} title="No flights match your filters">
+          {filteredOut.toLocaleString("en-US")} flight{filteredOut === 1 ? " was" : "s were"} found, but none fit
+          everything you asked for. Try relaxing a filter, for example “stops are fine” or “any price”.
+        </ColumnMessage>
+      ) : (
+        <ColumnMessage icon={<PlaneIcon size={26} />} title="No flights found">
+          Try different dates or a nearby airport.
+        </ColumnMessage>
+      )
     ) : status === "idle" ? (
       <ColumnMessage icon={<PlaneIcon size={26} />} title="Ask me to find flights">
         Tell me where and when you want to travel, for example “Copenhagen to London next Friday”.

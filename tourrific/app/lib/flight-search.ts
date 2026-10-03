@@ -48,6 +48,10 @@ export type FlightSearchResult = {
   /** Every offer the search found, in the order Duffel returned them (cheapest first). */
   offers: FlightOffer[];
   query: TripQuery;
+  /** One short label per filter the search applied, e.g. "Direct", "Under €134". */
+  filters: string[];
+  /** How many flights the search found before those filters. */
+  unfilteredCount: number;
   origin: Place;
   destination: Place & { countryCode: string | null };
 };
@@ -62,6 +66,8 @@ export function toSearchResult(event: StreamComplete): FlightSearchResult {
   return {
     offers: offers.map(toFlightOffer),
     query: extracted,
+    filters: event.filters?.labels ?? [],
+    unfilteredCount: event.filters?.unfilteredCount ?? offers.length,
     origin: { city: firstSlice?.origin.city_name ?? originCode, airport: originCode },
     destination: {
       city: firstSlice?.destination.city_name ?? destinationCode,

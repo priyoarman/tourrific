@@ -43,6 +43,13 @@ export type StreamComplete = {
   offers: DuffelOffer[];
   extracted: TripQuery;
   pagination: Pagination;
+  /** The filters the search applied. `offers` and `pagination` only count flights that passed them. */
+  filters?: {
+    /** One short label per filter, e.g. "Direct", "Under €134". */
+    labels: string[];
+    /** How many flights there were before filtering. */
+    unfilteredCount: number;
+  };
 };
 
 /** The stream is over. */
