@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useAccount } from "@/app/components/account/AccountProvider";
 import { BedIcon, ChatIcon, PlaneIcon } from "@/app/components/ui/Icons";
 import { stayForSearch } from "@/app/lib/destinations";
 import { searchFlights, toSearchResult, type FlightSearchResult } from "@/app/lib/flight-search";
@@ -11,6 +12,7 @@ import { isRoadTripPrompt, plannerHref } from "@/app/lib/routes";
 import type { ChatMessage, FlightOffer, Hotel } from "@/app/lib/types";
 import type { SearchContext, StreamComplete } from "@/app/lib/types/stream-events";
 import ChatPanel from "./chat/ChatPanel";
+import { useChatHistory } from "./chat/useChatHistory";
 import FlightResults, { FLIGHTS_PAGE_SIZE, type FlightSearchStatus, type FlightSort } from "./flights/FlightResults";
 import HotelResults, { type HotelSort } from "./hotels/HotelResults";
 import MobileTabs from "./MobileTabs";
@@ -19,6 +21,7 @@ import SampleBadge from "./results/SampleBadge";
 
 const SEARCH_TIMEOUT_MS = 30_000;
 
+const WELCOME_ID = "welcome";
 const WELCOME =
   "Hi, I'm Tourrific AI ✦ Tell me where and when you want to travel, and I'll find flights.";
 const TIMEOUT_MESSAGE =
@@ -81,10 +84,11 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (initialPrompt) return [{ id: "initial-user", role: "user", text: initialPrompt }];
     // A destination card was clicked: ask for dates straight away, as the old app did.
-    const text = initialDestination
-      ? `Great choice — **${initialDestination}**! When would you like to travel?`
-      : WELCOME;
-    return [{ id: "welcome", role: "assistant", text }];
+    if (initialDestination) {
+      const text = `Great choice — **${initialDestination}**! When would you like to travel?`;
+      return [{ id: "greeting", role: "assistant", text }];
+    }
+    return [{ id: WELCOME_ID, role: "assistant", text: WELCOME }];
   });
   const [isSearching, setIsSearching] = useState(Boolean(initialPrompt));
   const [statusLines, setStatusLines] = useState<string[]>([]);
@@ -94,10 +98,15 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [visibleFlights, setVisibleFlights] = useState(FLIGHTS_PAGE_SIZE);
   const [flightSort, setFlightSort] = useState<FlightSort>("best");
   const [hotelSort, setHotelSort] = useState<HotelSort>("recommended");
+  /** The flight most recently saved from these results; the hotel messages refer to it. */
   const [selectedFlight, setSelectedFlight] = useState<FlightOffer | null>(null);
+  const [savingFlightId, setSavingFlightId] = useState<string | null>(null);
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [tab, setTab] = useState<PlannerTab>("chat");
   const router = useRouter();
+  const { token, isSaved, toggleSaved } = useAccount();
+  // Signed-in users get their earlier messages back, and this visit's messages stored.
+  const earlierMessages = useChatHistory(token, messages, [WELCOME_ID]);
 
   // What the backend learned so far, sent back with every message so follow-ups
   // like "a little later" build on the previous search.
@@ -230,18 +239,25 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       : `Your trip is taking shape: **${flight.airline.name}** (${flightPrice}) plus **${hotel.name}** (${formatPrice(stayCost)} for ${formatNights(nights)}).`;
   }
 
-  function selectFlight(offer: FlightOffer) {
-    if (selectedFlight?.id === offer.id) {
-      setSelectedFlight(null);
-      return;
+  // Select saves the flight to the account (or removes it again). Guests are asked to sign in.
+  async function selectFlight(offer: FlightOffer) {
+    if (savingFlightId) return;
+    setSavingFlightId(offer.id);
+    const outcome = await toggleSaved(offer);
+    setSavingFlightId(null);
+
+    if (outcome.status === "error") {
+      addMessage("assistant", outcome.message);
+    } else if (outcome.status === "removed") {
+      if (selectedFlight?.id === offer.id) setSelectedFlight(null);
+    } else if (outcome.status === "saved") {
+      setSelectedFlight(offer);
+      const saved = `Saved! **${offer.airline.name}** ${offer.flightNumber} at ${formatPrice(offer.totalPrice, offer.currency)} is in your saved trips.`;
+      addMessage(
+        "assistant",
+        selectedHotel && stay ? `${saved}\n${tripMessage(offer, selectedHotel, stay.nights)}` : `${saved} Now choose where to stay.`,
+      );
     }
-    setSelectedFlight(offer);
-    addMessage(
-      "assistant",
-      selectedHotel && stay
-        ? tripMessage(offer, selectedHotel, stay.nights)
-        : `Nice pick! **${offer.airline.name}** at ${formatPrice(offer.totalPrice, offer.currency)} is in your trip. Now choose where to stay.`,
-    );
   }
 
   function selectHotel(hotel: Hotel) {
@@ -292,6 +308,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
         <div id="panel-chat" role="tabpanel" aria-labelledby="tab-chat" className={panelClass("chat")}>
           <ChatPanel
             messages={messages}
+            earlier={earlierMessages}
             isTyping={isSearching}
             statusLines={statusLines}
             suggestions={
@@ -311,7 +328,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             onShowMore={() => setVisibleFlights((count) => count + FLIGHTS_PAGE_SIZE)}
             sort={flightSort}
             onSortChange={changeFlightSort}
-            selectedId={selectedFlight?.id ?? null}
+            isSaved={isSaved}
+            savingId={savingFlightId}
             onSelect={selectFlight}
           />
         </div>

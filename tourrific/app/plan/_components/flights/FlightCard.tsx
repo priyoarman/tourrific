@@ -8,11 +8,14 @@ import FlightLeg from "./FlightLeg";
 type Props = {
   offer: FlightOffer;
   tags: string[];
+  /** True when the flight is in the visitor's saved trips. */
   selected: boolean;
+  /** True while it is being saved or removed. */
+  busy?: boolean;
   onSelect: () => void;
 };
 
-export default function FlightCard({ offer, tags, selected, onSelect }: Props) {
+export default function FlightCard({ offer, tags, selected, busy, onSelect }: Props) {
   const price = formatPrice(offer.totalPrice, offer.currency);
 
   return (
@@ -71,6 +74,8 @@ export default function FlightCard({ offer, tags, selected, onSelect }: Props) {
       <div className="mt-4">
         <SelectButton
           selected={selected}
+          selectedText="Saved"
+          busy={busy}
           onClick={onSelect}
           label={`${offer.airline.name} flight, ${price}`}
         />

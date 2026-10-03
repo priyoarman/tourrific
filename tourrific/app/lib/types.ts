@@ -46,6 +46,8 @@ export type Airline = {
 export type FlightOffer = {
   id: string;
   airline: Airline;
+  /** The first flight of the trip, e.g. "BA811". Saved flights are stored under it. */
+  flightNumber: string;
   outbound: FlightSlice;
   /** Null for a one-way trip. */
   inbound: FlightSlice | null;
@@ -70,6 +72,21 @@ export type Hotel = {
   amenities: string[];
   gradient: string;
   freeCancellation: boolean;
+};
+
+/** A flight the signed-in user saved, as stored by /api/saved-flights. */
+export type SavedFlight = {
+  id: string;
+  flightNumber: string;
+  airline: Airline;
+  /** Airport codes, e.g. "CPH". */
+  origin: string;
+  destination: string;
+  /** Local time at the origin airport, e.g. "2026-11-12T08:30:00". */
+  departureTime: string;
+  price: number;
+  /** ISO 4217 code, or null when it was saved without one. */
+  currency: string | null;
 };
 
 export type ChatMessage = {

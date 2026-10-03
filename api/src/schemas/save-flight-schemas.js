@@ -20,6 +20,9 @@ export const saveFlightSchema = z.object({
 
   currency_id: z.number().int().optional().nullable(),
 
+  // ISO 4217 code, e.g. "EUR". Used when no currency_id is sent.
+  currency_code: z.string().length(3).toUpperCase().optional().nullable(),
+
   airline_code: z.string().max(3).optional().nullable(),
 
   airline_name: z.string().optional().nullable(),

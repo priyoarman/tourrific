@@ -56,7 +56,10 @@ type Props = {
   onShowMore: () => void;
   sort: FlightSort;
   onSortChange: (sort: FlightSort) => void;
-  selectedId: string | null;
+  /** Whether an offer is in the visitor's saved trips. */
+  isSaved: (offer: FlightOffer) => boolean;
+  /** The offer being saved or removed right now, if any. */
+  savingId: string | null;
   onSelect: (offer: FlightOffer) => void;
 };
 
@@ -69,7 +72,8 @@ export default function FlightResults({
   onShowMore,
   sort,
   onSortChange,
-  selectedId,
+  isSaved,
+  savingId,
   onSelect,
 }: Props) {
   const hasOffers = offers.length > 0;
@@ -146,7 +150,8 @@ export default function FlightResults({
           tags={[offer.id === cheapestId && "Cheapest", offer.id === fastestId && "Fastest"].filter(
             (t): t is string => Boolean(t),
           )}
-          selected={offer.id === selectedId}
+          selected={isSaved(offer)}
+          busy={offer.id === savingId}
           onSelect={() => onSelect(offer)}
         />
       ))}

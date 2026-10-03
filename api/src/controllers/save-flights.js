@@ -106,6 +106,7 @@ export async function saveFlight(req, res, next) {
       price,
       departure_time,
       currency_id,
+      currency_code,
       airline_code,
       airline_name,
     } = validation.data;
@@ -125,6 +126,8 @@ export async function saveFlight(req, res, next) {
       });
     }
 
+    let currencyId = currency_id ?? null;
+
     if (currency_id) {
       const currency = await prisma.currency.findUnique({
         where: { id: currency_id },
@@ -136,6 +139,12 @@ export async function saveFlight(req, res, next) {
           message: "Invalid currency_id",
         });
       }
+    } else if (currency_code) {
+      // An unknown code is saved without a currency rather than rejected.
+      const currency = await prisma.currency.findUnique({
+        where: { code: currency_code },
+      });
+      currencyId = currency?.id ?? null;
     }
 
     const savedFlight = await prisma.savedOffer.create({
@@ -145,11 +154,12 @@ export async function saveFlight(req, res, next) {
         origin: origin.toUpperCase(),
         destination: destination.toUpperCase(),
         price,
-        currencyId: currency_id ?? null,
+        currencyId,
         departureTime: new Date(departure_time),
         airlineCode: airline_code ?? null,
         airlineName: airline_name ?? null,
       },
+      include: { currency: true },
     });
 
     return res.status(201).json({

@@ -58,6 +58,10 @@ function describeBaggage(offer: DuffelOffer) {
   return "No baggage included";
 }
 
+function flightNumber(segment: DuffelSegment) {
+  return `${segment.marketing_carrier.iata_code ?? ""}${segment.marketing_carrier_flight_number}`;
+}
+
 /** Converts one Duffel offer into the shape the flight cards render. */
 export function toFlightOffer(offer: DuffelOffer): FlightOffer {
   const [outbound, inbound] = offer.slices;
@@ -69,6 +73,7 @@ export function toFlightOffer(offer: DuffelOffer): FlightOffer {
       code: offer.owner.iata_code ?? "",
       logoUrl: offer.owner.logo_symbol_url ?? null,
     },
+    flightNumber: flightNumber(outbound.segments[0]),
     outbound: toFlightSlice(outbound),
     inbound: inbound ? toFlightSlice(inbound) : null,
     totalPrice: Number.parseFloat(offer.total_amount),

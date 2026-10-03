@@ -32,6 +32,7 @@ test("converts a direct return flight", () => {
     code: "BA",
     logoUrl: "https://assets.duffel.com/img/airlines/for-light-background/full-color-logo/BA.svg",
   });
+  assert.match(flight.flightNumber, /^BA\d+$/);
   assert.equal(flight.totalPrice, 96.85);
   assert.equal(flight.currency, "EUR");
   assert.equal(flight.cabin, "Economy");
