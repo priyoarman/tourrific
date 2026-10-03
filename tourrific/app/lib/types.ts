@@ -53,6 +53,8 @@ export type FlightOffer = {
   /** ISO 4217 code, e.g. "EUR". */
   currency: string;
   cabin: string;
+  /** The airline's name for this fare, e.g. "Economy Light". Tells apart offers on the same flights. */
+  fareBrand: string | null;
   baggage: string;
 };
 

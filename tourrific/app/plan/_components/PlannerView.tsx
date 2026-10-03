@@ -11,7 +11,7 @@ import { isRoadTripPrompt, plannerHref } from "@/app/lib/routes";
 import type { ChatMessage, FlightOffer, Hotel } from "@/app/lib/types";
 import type { SearchContext, StreamComplete } from "@/app/lib/types/stream-events";
 import ChatPanel from "./chat/ChatPanel";
-import FlightResults, { type FlightSort } from "./flights/FlightResults";
+import FlightResults, { FLIGHTS_PAGE_SIZE, type FlightSearchStatus, type FlightSort } from "./flights/FlightResults";
 import HotelResults, { type HotelSort } from "./hotels/HotelResults";
 import MobileTabs from "./MobileTabs";
 import ResultsColumn from "./results/ResultsColumn";
@@ -58,7 +58,7 @@ function searchSummary(result: FlightSearchResult) {
 
 /** What the assistant says once the results are in. */
 function resultsMessage(result: FlightSearchResult) {
-  const { offers, totalOffers, origin, destination } = result;
+  const { offers, origin, destination } = result;
   const route = `from **${origin.city}** to **${destination.city}**`;
   const dates = travelDates(result);
 
@@ -67,13 +67,9 @@ function resultsMessage(result: FlightSearchResult) {
   }
 
   const cheapest = offers.reduce((best, offer) => (offer.totalPrice < best.totalPrice ? offer : best));
-  const count = `**${totalOffers.toLocaleString("en-US")} flight${totalOffers === 1 ? "" : "s"}**`;
-  const shown =
-    totalOffers > offers.length
-      ? `Here are the first ${offers.length}; the lowest price among them is`
-      : "The lowest price is";
+  const count = `**${offers.length.toLocaleString("en-US")} flight${offers.length === 1 ? "" : "s"}**`;
 
-  return `I found ${count} ${route}${dates ? ` for ${dates}` : ""}.\n${shown} **${formatPrice(cheapest.totalPrice, cheapest.currency)}** with ${cheapest.airline.name}.\nI've also listed sample hotels for ${destination.city}.`;
+  return `I found ${count} ${route}${dates ? ` for ${dates}` : ""}.\nPrices start at **${formatPrice(cheapest.totalPrice, cheapest.currency)}** with ${cheapest.airline.name}.\nI've also listed sample hotels for ${destination.city}.`;
 }
 
 export default function PlannerView({ initialPrompt }: Props) {
@@ -85,6 +81,9 @@ export default function PlannerView({ initialPrompt }: Props) {
   const [isSearching, setIsSearching] = useState(Boolean(initialPrompt));
   const [statusLines, setStatusLines] = useState<string[]>([]);
   const [result, setResult] = useState<FlightSearchResult | null>(null);
+  /** Why the latest search failed, if it did. Cleared when the next one starts. */
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [visibleFlights, setVisibleFlights] = useState(FLIGHTS_PAGE_SIZE);
   const [flightSort, setFlightSort] = useState<FlightSort>("best");
   const [hotelSort, setHotelSort] = useState<HotelSort>("recommended");
   const [selectedFlight, setSelectedFlight] = useState<FlightOffer | null>(null);
@@ -115,6 +114,7 @@ export default function PlannerView({ initialPrompt }: Props) {
     setSelectedFlight(null);
     setSelectedHotel(null);
     setFlightSort("best");
+    setVisibleFlights(FLIGHTS_PAGE_SIZE);
     setHotelSort("recommended");
     addMessage("assistant", resultsMessage(next));
   }
@@ -125,6 +125,7 @@ export default function PlannerView({ initialPrompt }: Props) {
     activeSearch.current = controller;
     setIsSearching(true);
     setStatusLines([]);
+    setSearchError(null);
 
     let gotResults = false;
     let sawDone = false;
@@ -133,6 +134,7 @@ export default function PlannerView({ initialPrompt }: Props) {
     const report = (text: string) => {
       if (reported) return;
       reported = true;
+      setSearchError(text);
       addMessage("assistant", text);
     };
     const timeout = setTimeout(() => {
@@ -247,11 +249,19 @@ export default function PlannerView({ initialPrompt }: Props) {
     );
   }
 
-  const flightsEmptyState = result
-    ? "No flights found for those dates."
-    : isSearching
-      ? "Searching for flights…"
-      : "Tell me where and when you want to fly, and your flights will show up here.";
+  const flightStatus: FlightSearchStatus = isSearching
+    ? "searching"
+    : searchError
+      ? "error"
+      : result
+        ? "ready"
+        : "idle";
+
+  function changeFlightSort(sort: FlightSort) {
+    setFlightSort(sort);
+    // A new order starts again from its top results.
+    setVisibleFlights(FLIGHTS_PAGE_SIZE);
+  }
 
   const panelClass = (id: PlannerTab) =>
     `${tab === id ? "flex" : "hidden"} min-h-0 flex-col lg:flex`;
@@ -281,12 +291,14 @@ export default function PlannerView({ initialPrompt }: Props) {
         </div>
         <div id="panel-flights" role="tabpanel" aria-labelledby="tab-flights" className={`${panelClass("flights")} bg-white/40`}>
           <FlightResults
-            subtitle={result ? searchSummary(result) : isSearching ? "Searching…" : "No search yet"}
+            subtitle={result ? searchSummary(result) : isSearching ? "Looking for your flights" : "No search yet"}
             offers={result?.offers ?? []}
-            totalOffers={result?.totalOffers ?? 0}
-            emptyState={flightsEmptyState}
+            status={flightStatus}
+            errorMessage={searchError}
+            visibleCount={visibleFlights}
+            onShowMore={() => setVisibleFlights((count) => count + FLIGHTS_PAGE_SIZE)}
             sort={flightSort}
-            onSortChange={setFlightSort}
+            onSortChange={changeFlightSort}
             selectedId={selectedFlight?.id ?? null}
             onSelect={selectFlight}
           />

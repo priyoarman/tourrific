@@ -140,3 +140,11 @@ export function RouteIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function AlertIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5 2.5 20h19L12 3.5ZM12 10v4.5M12 17.2v.3" />
+    </Icon>
+  );
+}

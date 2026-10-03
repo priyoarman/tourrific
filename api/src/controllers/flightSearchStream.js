@@ -6,6 +6,7 @@ import {
   resolveDestinationAirportInput,
 } from "../utils/destinationResolver.js";
 import { initSse, sendSseEvent, endSse } from "../utils/sse.js";
+import { compactOffer } from "../utils/compactOffer.js";
 
 function isReturnTrip(extracted) {
   return extracted.trip_type === "return" || Boolean(extracted.return_date);
@@ -261,8 +262,11 @@ export const flightSearchStreamController = async (req, res) => {
   const previousTripQuery = isPlainObject(context.tripQuery)
     ? context.tripQuery
     : null;
-  const page = Math.max(parseInt(req.body?.page) || 1, 1);
-  const limit = 7;
+  // `limit: "all"` returns every offer in one response, in a compact form, so the
+  // client can sort and page locally instead of re-running the search per page.
+  const sendAll = req.body?.limit === "all";
+  const page = sendAll ? 1 : Math.max(parseInt(req.body?.page) || 1, 1);
+  const defaultLimit = 7;
 
   if (typeof userPrompt !== "string" || userPrompt.trim() === "") {
     sendSseEvent(res, "error", { message: "Missing prompt." });
@@ -416,9 +420,12 @@ export const flightSearchStreamController = async (req, res) => {
     const offers = flights?.data?.offers ?? [];
     const count = offers.length;
 
+    const limit = sendAll ? Math.max(offers.length, 1) : defaultLimit;
     const start = (page - 1) * limit;
     const end = start + limit;
-    const paginatedOffers = offers.slice(start, end);
+    const paginatedOffers = sendAll
+      ? offers.map(compactOffer)
+      : offers.slice(start, end);
     const totalPages = Math.max(Math.ceil(offers.length / limit), 1);
 
     if (count > 0) {

@@ -11,11 +11,13 @@ type Props = {
   toolbar?: ReactNode;
   /** Shown instead of the list when there is nothing to list. */
   emptyState?: ReactNode;
+  /** True while the list is being replaced; it is dimmed and marked busy. */
+  busy?: boolean;
   children: ReactNode;
 };
 
 /** Shared frame for the flights and hotels columns: sticky header, scrolling list. */
-export default function ResultsColumn({ title, icon, subtitle, count, meta, toolbar, emptyState, children }: Props) {
+export default function ResultsColumn({ title, icon, subtitle, count, meta, toolbar, emptyState, busy = false, children }: Props) {
   return (
     <section aria-label={title} className="flex h-full min-h-0 flex-col">
       <ColumnHeader title={title} icon={icon} subtitle={subtitle} meta={meta ?? `${count} results`} toolbar={toolbar} />
@@ -24,7 +26,12 @@ export default function ResultsColumn({ title, icon, subtitle, count, meta, tool
           {emptyState}
         </div>
       ) : (
-        <ul className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-1 pb-6">{children}</ul>
+        <ul
+          aria-busy={busy}
+          className={`min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-1 pb-6 transition-opacity ${busy ? "opacity-60" : ""}`}
+        >
+          {children}
+        </ul>
       )}
     </section>
   );

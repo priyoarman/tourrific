@@ -35,6 +35,7 @@ test("converts a direct return flight", () => {
   assert.equal(flight.totalPrice, 96.85);
   assert.equal(flight.currency, "EUR");
   assert.equal(flight.cabin, "Economy");
+  assert.equal(flight.fareBrand, "Basic");
   assert.equal(flight.baggage, "Cabin bag + 1 checked bag");
 
   assert.deepEqual(flight.outbound, {
@@ -86,5 +87,15 @@ test("converts every offer in the mock data", () => {
       assert.ok(slice.durationMinutes > 0, offer.id);
       assert.ok(slice.stops.every((stop) => stop.layoverMinutes > 0), offer.id);
     }
+  }
+});
+
+test("converts the compact form the search endpoint sends for limit: \"all\"", async () => {
+  const { compactOffer } = await import("../../../api/src/utils/compactOffer.js");
+  for (const offer of offers) {
+    const compact = compactOffer(offer) as DuffelOffer;
+    // Nothing the cards show may depend on a field the compact form drops.
+    assert.deepEqual(toFlightOffer(compact), toFlightOffer(offer), offer.id);
+    assert.ok(JSON.stringify(compact).length < JSON.stringify(offer).length);
   }
 });

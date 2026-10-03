@@ -14,8 +14,10 @@ export type SearchContext = {
 /** The request body the endpoint expects. */
 export type SearchStreamRequest = {
   prompt: string;
-  /** 1-based page of results. Defaults to 1. */
+  /** 1-based page of results, 7 per page. Defaults to 1. Ignored with `limit: "all"`. */
   page?: number;
+  /** Ask for every offer at once, in compact form, instead of one page. */
+  limit?: "all";
   context?: SearchContext;
 };
 

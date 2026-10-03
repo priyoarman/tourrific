@@ -3,6 +3,8 @@
 
 type Handlers = { [event: string]: ((payload: never) => void) | undefined };
 
+const SEPARATOR = "\n\n";
+
 function dispatch(block: string, handlers: Handlers) {
   let event = "message";
   const dataLines: string[] = [];
@@ -34,20 +36,26 @@ export async function consumeSseStream(response: Response, handlers: Handlers) {
   if (!reader) throw new Error("Streaming is not supported in this browser.");
 
   const decoder = new TextDecoder();
+  // Events are separated by a blank line. An event can span many chunks (the
+  // flight results are several megabytes), so only the newly arrived text is
+  // searched for a separator rather than the whole buffer each time.
   let buffer = "";
+  let searchFrom = 0;
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-
-    // Events are separated by a blank line; keep any unfinished one for the next chunk.
     buffer += decoder.decode(value, { stream: true });
-    const blocks = buffer.split("\n\n");
-    buffer = blocks.pop() ?? "";
 
-    for (const block of blocks) {
+    let end: number;
+    while ((end = buffer.indexOf(SEPARATOR, searchFrom)) !== -1) {
+      const block = buffer.slice(0, end);
+      buffer = buffer.slice(end + SEPARATOR.length);
+      searchFrom = 0;
       if (block.trim()) dispatch(block, handlers);
     }
+    // A separator may be split across two chunks, so step back one character.
+    searchFrom = Math.max(buffer.length - (SEPARATOR.length - 1), 0);
   }
 
   if (buffer.trim()) dispatch(buffer, handlers);

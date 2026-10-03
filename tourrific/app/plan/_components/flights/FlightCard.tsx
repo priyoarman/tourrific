@@ -26,8 +26,10 @@ export default function FlightCard({ offer, tags, selected, onSelect }: Props) {
           <AirlineBadge airline={offer.airline} />
           <div className="min-w-0">
             <h3 className="truncate font-semibold text-ink">{offer.airline.name}</h3>
-            <p className="text-xs text-ink-muted">
-              {offer.cabin} · {offer.inbound ? "Round trip" : "One way"}
+            <p className="truncate text-xs text-ink-muted">
+              {[offer.cabin, offer.fareBrand !== offer.cabin && offer.fareBrand, offer.inbound ? "Round trip" : "One way"]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           </div>
         </div>

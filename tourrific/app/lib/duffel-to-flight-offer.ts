@@ -74,6 +74,7 @@ export function toFlightOffer(offer: DuffelOffer): FlightOffer {
     totalPrice: Number.parseFloat(offer.total_amount),
     currency: offer.total_currency,
     cabin: outbound.segments[0]?.passengers[0]?.cabin_class_marketing_name ?? "Economy",
+    fareBrand: outbound.fare_brand_name ?? null,
     baggage: describeBaggage(offer),
   };
 }

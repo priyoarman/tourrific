@@ -26,7 +26,8 @@ export async function searchFlights(
   const hasContext = Boolean(context.destination || context.tripQuery);
   const body: SearchStreamRequest = {
     prompt: prompt.trim(),
-    page: 1,
+    // Every offer in one go, so sorting and "Show more" never re-run the search.
+    limit: "all",
     context: hasContext ? context : undefined,
   };
 
@@ -44,16 +45,15 @@ type Place = { city: string; airport: string };
 
 /** A finished search, ready for the results columns. */
 export type FlightSearchResult = {
+  /** Every offer the search found, in the order Duffel returned them (cheapest first). */
   offers: FlightOffer[];
-  /** How many offers the search found in total; `offers` holds only the first page. */
-  totalOffers: number;
   query: TripQuery;
   origin: Place;
   destination: Place & { countryCode: string | null };
 };
 
 export function toSearchResult(event: StreamComplete): FlightSearchResult {
-  const { extracted, offers, pagination } = event;
+  const { extracted, offers } = event;
   // City names only come with offers; with no results, fall back to airport codes.
   const firstSlice = offers[0]?.slices[0];
   const originCode = firstSlice?.origin.iata_code ?? extracted.origin_airport ?? "";
@@ -61,7 +61,6 @@ export function toSearchResult(event: StreamComplete): FlightSearchResult {
 
   return {
     offers: offers.map(toFlightOffer),
-    totalOffers: pagination.totalOffers,
     query: extracted,
     origin: { city: firstSlice?.origin.city_name ?? originCode, airport: originCode },
     destination: {
