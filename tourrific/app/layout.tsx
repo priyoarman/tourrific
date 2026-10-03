@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Tourrific – AI Travel Planner",
+  title: "Tourrific - AI Travel Planner",
   description:
     "Plan your next trip with Tourrific AI: personalised itineraries, flight deals and trip ideas in seconds.",
 };

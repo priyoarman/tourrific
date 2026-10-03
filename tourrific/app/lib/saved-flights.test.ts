@@ -7,7 +7,7 @@ import { isExpired } from "./auth-store.ts";
 import { toFlightOffer } from "./duffel-to-flight-offer.ts";
 import { findSaved, toSavedFlight, toSavePayload } from "./saved-flights.ts";
 
-const mockPath = new URL("../../../api/src/data/mock-flights.json", import.meta.url);
+const mockPath = new URL("./server/data/mock-flights.json", import.meta.url);
 const offers = JSON.parse(readFileSync(mockPath, "utf8")).data.offers.map(toFlightOffer);
 const offer = offers[0];
 

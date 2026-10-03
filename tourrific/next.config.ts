@@ -1,14 +1,10 @@
 import type { NextConfig } from "next";
 
-// The Express backend (api/ in the repo root). While it is being migrated, the
-// browser calls /api/* on this app and Next forwards it, so there is no CORS setup.
-const API_URL = process.env.API_URL ?? "http://localhost:5500";
-
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  async rewrites() {
-    return [{ source: "/api/:path*", destination: `${API_URL}/api/:path*` }];
-  },
+  // Loaded from node_modules at run time instead of being bundled: geoip-lite
+  // reads its data files from its own folder, and airports-json is 3 MB of data.
+  serverExternalPackages: ["geoip-lite", "airports-json"],
 };
 
 export default nextConfig;

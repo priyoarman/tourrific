@@ -1,0 +1,233 @@
+// The chat's flight search: one message in, a series of events out (progress
+// lines, questions, and finally the flights).
+// Ported from api/src/controllers/flightSearchStream.js.
+import type { DuffelOffer } from "../types/duffel";
+import type { SearchContext, StreamEventMap, StreamEventName } from "../types/stream-events";
+import type { TripQuery } from "../types/trip-query";
+import { compactOffer } from "./compact-offer.ts";
+import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
+import { searchFlights, type DuffelSearchSlice } from "./duffel.ts";
+import { isPlainObject, mentionsDestinationEdit, mergeFollowUpTripQuery, parseDateOnly } from "./follow-up.ts";
+import { extractTripQuery } from "./groq/extractor.ts";
+import { detectFallbackOrigin } from "./origin-fallback.ts";
+
+const PAGE_SIZE = 7;
+
+/** Sends one event to the browser. */
+export type SendEvent = <K extends StreamEventName>(event: K, data: StreamEventMap[K]) => void;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isReturnTrip(extracted: TripQuery) {
+  return extracted.trip_type === "return" || Boolean(extracted.return_date);
+}
+
+function buildSearchSlices(extracted: TripQuery, destination: string) {
+  const origin = extracted.origin_airport || null;
+  const outbound: DuffelSearchSlice = { destination, departure_date: extracted.departure_date };
+  if (origin) outbound.origin = origin;
+
+  const slices = [outbound];
+
+  if (extracted.return_date) {
+    const inbound: DuffelSearchSlice = { origin: destination, departure_date: extracted.return_date };
+    if (origin) inbound.destination = origin;
+    slices.push(inbound);
+  }
+
+  return slices;
+}
+
+function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean) {
+  const origin = extracted.origin_airport || "your location";
+  const messages = [
+    `Searching ${returnTrip ? "return " : ""}flights from ${origin} to ${extracted.destination_airport}...`,
+  ];
+
+  if (extracted.direct_only) messages.push("Checking direct routes...");
+  if (extracted.baggage_required) messages.push("Filtering for flights with baggage included...");
+  if (extracted.preferred_airlines?.length) {
+    messages.push(`Looking at ${extracted.preferred_airlines.join(", ")} flights...`);
+  }
+  if (extracted.departure_time) messages.push(`Narrowing to ${extracted.departure_time} departures...`);
+
+  messages.push("Comparing prices across airlines...");
+  return messages;
+}
+
+/**
+ * Runs one search and reports it through `send`. Always finishes with a
+ * `done` event (or a single `error` event when there is no prompt), and never
+ * throws.
+ *
+ * `body` is the request's JSON. `headers` are only used to guess the
+ * departure airport from the visitor's IP when the message doesn't name one.
+ */
+export async function runFlightSearch(body: unknown, headers: Headers, send: SendEvent) {
+  const request = isPlainObject(body) ? body : {};
+  const userPrompt = typeof request.prompt === "string" ? request.prompt.trim() : "";
+  const context = (isPlainObject(request.context) ? request.context : {}) as SearchContext;
+  const contextDestination = typeof context.destination === "string" ? context.destination : null;
+  const previousTripQuery = isPlainObject(context.tripQuery) ? (context.tripQuery as TripQuery) : null;
+  // `limit: "all"` returns every offer in one response, in a compact form, so the
+  // client can sort and page locally instead of re-running the search per page.
+  const sendAll = request.limit === "all";
+  const page = sendAll ? 1 : Math.max(parseInt(String(request.page)) || 1, 1);
+
+  if (!userPrompt) {
+    send("error", { message: "Missing prompt." });
+    return;
+  }
+
+  /** The assistant says something and waits for the visitor's answer. */
+  const ask = (text: string, nextContext?: SearchContext) => {
+    send("message", { text });
+    send("done", nextContext ? { needsInput: true, context: nextContext } : { needsInput: true });
+  };
+
+  try {
+    send("status", { text: " Understanding your request..." });
+    await delay(300);
+
+    const extractionPrompt = previousTripQuery
+      ? `Previous flight search JSON: ${JSON.stringify(previousTripQuery)}\nUser message: ${userPrompt}\nIf the user message is a revision or follow-up, keep unchanged fields from the previous search and update only what the user changed.`
+      : contextDestination
+        ? `Context: The user previously mentioned wanting to fly to ${contextDestination}.\nUser message: ${userPrompt}`
+        : userPrompt;
+
+    const result = await extractTripQuery(extractionPrompt);
+    if (!result.ok) {
+      send("message", {
+        text: "I'm having trouble connecting to my AI travel service. Please try again in a moment.",
+        isError: true,
+      });
+      send("done", { needsInput: false });
+      return;
+    }
+
+    const extracted = mergeFollowUpTripQuery({ ...result.parsed }, previousTripQuery, userPrompt);
+
+    if (!extracted.origin_airport) {
+      extracted.origin_airport = detectFallbackOrigin(headers);
+    }
+
+    if (!extracted.destination_airport) {
+      const match = userPrompt.match(/to\s+([a-zA-Z\s]+)/i);
+      if (match?.[1]) extracted.destination_airport = match[1].trim().toUpperCase();
+    }
+
+    if (!extracted.destination_airport) {
+      const resolved = resolveDestination(extracted);
+      if (resolved.destination_airport) {
+        extracted.destination_airport = resolved.destination_airport;
+        extracted.explanation = resolved.explanation;
+      }
+    }
+
+    const destinationEdited = Boolean(previousTripQuery) && mentionsDestinationEdit(userPrompt);
+    const destination = resolveDestinationAirportInput(
+      extracted.destination_airport || (destinationEdited ? null : contextDestination),
+    );
+
+    if (extracted.explanation) {
+      send("message", { text: extracted.explanation });
+      await delay(300);
+    }
+
+    if (!destination) {
+      ask("I'm a travel assistant. Where would you like to fly today?");
+      return;
+    }
+
+    if (!extracted.departure_date) {
+      ask("That's great. Could you please tell me when you'd like to travel?", { destination });
+      return;
+    }
+
+    const returnTrip = isReturnTrip(extracted);
+
+    if (returnTrip && !extracted.return_date) {
+      ask(`Got it — a return trip to ${destination}. When would you like to come back?`, { destination });
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const departureDate = parseDateOnly(extracted.departure_date);
+    if (departureDate < today) {
+      ask("I cannot search for flights in the past. Please provide a future date.");
+      return;
+    }
+
+    if (extracted.return_date) {
+      const returnDate = parseDateOnly(extracted.return_date);
+      if (returnDate < today) {
+        ask("The return date cannot be in the past. Please provide a future return date.");
+        return;
+      }
+      if (returnDate < departureDate) {
+        ask("The return date must be on or after your departure date.");
+        return;
+      }
+    }
+
+    extracted.destination_airport = destination;
+    for (const text of buildSearchStatusMessages(extracted, returnTrip)) {
+      send("status", { text: `${text} ` });
+      await delay(400);
+    }
+
+    const flights = await searchFlights({
+      slices: buildSearchSlices(extracted, destination),
+      passengers: [{ type: "adult" }],
+      cabin_class: "economy",
+      // Duffel ignores this; the filters are not applied yet.
+      filters: {
+        direct_only: extracted.direct_only,
+        preferred_airlines: extracted.preferred_airlines,
+        baggage_required: extracted.baggage_required,
+        departure_time: extracted.departure_time,
+      },
+    });
+    const offers: DuffelOffer[] = flights?.data?.offers ?? [];
+    const count = offers.length;
+
+    const limit = sendAll ? Math.max(count, 1) : PAGE_SIZE;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+
+    if (count > 0) {
+      send("status", { text: `Found ${count} possible flight${count === 1 ? "" : "s"}.` });
+      await delay(300);
+    } else {
+      send("status", { text: "No flights found for those dates." });
+      await delay(200);
+    }
+
+    send("complete", {
+      destination,
+      offers: sendAll ? offers.map(compactOffer) : offers.slice(start, end),
+      extracted,
+      pagination: {
+        page,
+        limit,
+        totalOffers: count,
+        totalPages: Math.max(Math.ceil(count / limit), 1),
+        hasNextPage: end < count,
+        hasPreviousPage: page > 1,
+      },
+    });
+    send("done", { needsInput: false });
+  } catch (error) {
+    console.error("Flight search failed:", error);
+    const rateLimited = error instanceof Error && error.message.includes("Rate limit");
+    send("message", {
+      text: rateLimited
+        ? "Usage limit reached. Please wait a few minutes and try again."
+        : "Error searching flights. Please try again.",
+      isError: true,
+    });
+    send("done", { needsInput: false });
+  }
+}

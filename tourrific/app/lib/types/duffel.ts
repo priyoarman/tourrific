@@ -2,9 +2,9 @@
 // add fields here only when something starts using them.
 //
 // Required fields are the ones every response carries, including the compact
-// form the search endpoint sends for `limit: "all"` (api/src/utils/compactOffer.js).
+// form the search endpoint sends for `limit: "all"` (app/lib/server/compact-offer.ts).
 // Optional fields are only present on full Duffel offers, such as the sample
-// data in api/src/data/mock-flights.json.
+// data in app/lib/server/data/mock-flights.json.
 
 export type DuffelAirline = {
   /** 2-letter airline code, e.g. "BA". Duffel may omit it for some carriers. */

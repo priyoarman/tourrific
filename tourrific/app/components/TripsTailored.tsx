@@ -23,7 +23,7 @@ export default function TripsTailored() {
   return (
     <section
       id="trips"
-      className="relative mx-auto w-full max-w-[1248px] px-4 pt-14 pb-28 sm:px-10"
+      className="relative mx-auto w-full max-w-312 px-4 pt-14 pb-28 sm:px-10"
     >
       <div className="text-center">
         <h2 className="text-4xl font-bold tracking-tight text-ink sm:text-[56px] sm:leading-tight">

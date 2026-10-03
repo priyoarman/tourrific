@@ -4,7 +4,7 @@ import { isRoadTripPrompt, plannerHref } from "@/app/lib/routes";
 import PlannerView from "./_components/PlannerView";
 
 export const metadata: Metadata = {
-  title: "Plan your trip – Tourrific",
+  title: "Tourrific's Plan for Your Trip",
   description: "Chat with Tourrific AI and compare flights and hotels side by side.",
 };
 

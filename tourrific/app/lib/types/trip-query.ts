@@ -1,5 +1,5 @@
 // The structured flight search the backend extracts from a chat message with Groq.
-// Mirrors api/src/groq/schema.json, so field names stay in snake_case as they
+// Mirrors app/lib/server/groq/schema.ts, so field names stay in snake_case as they
 // arrive over the wire. Every field can be null when the user didn't mention it.
 
 export type TripType = "one_way" | "return";
@@ -37,7 +37,7 @@ export type TripQuery = {
   destination_area: string | null;
 
   /**
-   * Not part of schema.json: the backend adds this when it picks an airport on
+   * Not part of the schema: the backend adds this when it picks an airport on
    * the user's behalf ("Since you want beaches, I selected …"). May contain **bold**.
    */
   explanation?: string | null;
