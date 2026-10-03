@@ -1,0 +1,73 @@
+import { toFlightOffer } from "./duffel-to-flight-offer";
+import { consumeSseStream } from "./sse";
+import type { FlightOffer } from "./types";
+import type {
+  SearchContext,
+  SearchStreamRequest,
+  StreamComplete,
+  StreamEventHandlers,
+} from "./types/stream-events";
+import type { TripQuery } from "./types/trip-query";
+
+/**
+ * Sends one chat message to the backend, which extracts a flight search from it
+ * and streams back progress, replies and results. Each handler is called as its
+ * event arrives; the promise resolves when the stream ends.
+ *
+ * `context` is what earlier searches returned. Passing it back lets follow-ups
+ * like "a little later" build on the previous search.
+ */
+export async function searchFlights(
+  prompt: string,
+  context: SearchContext,
+  handlers: StreamEventHandlers,
+  signal?: AbortSignal,
+) {
+  const hasContext = Boolean(context.destination || context.tripQuery);
+  const body: SearchStreamRequest = {
+    prompt: prompt.trim(),
+    page: 1,
+    context: hasContext ? context : undefined,
+  };
+
+  const response = await fetch("/api/flights/search-stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  await consumeSseStream(response, handlers);
+}
+
+type Place = { city: string; airport: string };
+
+/** A finished search, ready for the results columns. */
+export type FlightSearchResult = {
+  offers: FlightOffer[];
+  /** How many offers the search found in total; `offers` holds only the first page. */
+  totalOffers: number;
+  query: TripQuery;
+  origin: Place;
+  destination: Place & { countryCode: string | null };
+};
+
+export function toSearchResult(event: StreamComplete): FlightSearchResult {
+  const { extracted, offers, pagination } = event;
+  // City names only come with offers; with no results, fall back to airport codes.
+  const firstSlice = offers[0]?.slices[0];
+  const originCode = firstSlice?.origin.iata_code ?? extracted.origin_airport ?? "";
+  const destinationCode = firstSlice?.destination.iata_code ?? event.destination;
+
+  return {
+    offers: offers.map(toFlightOffer),
+    totalOffers: pagination.totalOffers,
+    query: extracted,
+    origin: { city: firstSlice?.origin.city_name ?? originCode, airport: originCode },
+    destination: {
+      city: firstSlice?.destination.city_name ?? destinationCode,
+      airport: destinationCode,
+      countryCode: firstSlice?.destination.iata_country_code ?? null,
+    },
+  };
+}

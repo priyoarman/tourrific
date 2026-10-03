@@ -1,14 +1,18 @@
-// All dates are handled in UTC so server and client render identical text.
+// Dates and times are read as written and never converted between time zones,
+// so server and client render identical text.
 
 export function formatTime(iso: string) {
   return iso.slice(11, 16);
 }
 
+/** Accepts a date ("2026-11-12") or a date-time; only the date part is used. */
 export function formatDate(iso: string) {
-  return new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso).toLocaleDateString(
-    "en-GB",
-    { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" },
-  );
+  return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
 }
 
 export function formatDuration(minutes: number) {
@@ -18,8 +22,14 @@ export function formatDuration(minutes: number) {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 
-export function formatPrice(amount: number) {
-  return `$${amount.toLocaleString("en-US")}`;
+/** "$1,234" for whole amounts, "€96.85" otherwise. `currency` is an ISO 4217 code. */
+export function formatPrice(amount: number, currency = "USD") {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 /** Number of calendar days between departure and arrival, e.g. 1 for "+1". */

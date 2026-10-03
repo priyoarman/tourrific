@@ -5,7 +5,9 @@ import type { FlightSlice } from "@/app/lib/types";
 /** One direction of a trip: times and airports on each side, route line in between. */
 export default function FlightLeg({ slice }: { slice: FlightSlice }) {
   const offset = dayOffset(slice.departureTime, slice.arrivalTime);
-  const stop = slice.stops[0];
+  const stops = slice.stops;
+  const stopLabel =
+    stops.length === 1 ? `1 stop · ${stops[0].airport}` : `${stops.length} stops`;
 
   return (
     <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
@@ -20,12 +22,12 @@ export default function FlightLeg({ slice }: { slice: FlightSlice }) {
         <span>{formatDuration(slice.durationMinutes)}</span>
         <div className="relative flex w-full items-center">
           <span className="h-px flex-1 bg-lavender-soft" />
-          {stop && <span className="mx-1 size-1.5 rounded-full bg-ink-subtle" />}
-          {stop && <span className="h-px flex-1 bg-lavender-soft" />}
+          {stops.length > 0 && <span className="mx-1 size-1.5 rounded-full bg-ink-subtle" />}
+          {stops.length > 0 && <span className="h-px flex-1 bg-lavender-soft" />}
           <PlaneIcon size={14} className="ml-1 rotate-90 text-lavender" />
         </div>
-        <span className={stop ? "text-ink-muted" : "font-medium text-emerald-700"}>
-          {stop ? `1 stop · ${stop.airport}` : "Direct"}
+        <span className={stops.length ? "text-ink-muted" : "font-medium text-emerald-700"}>
+          {stops.length ? stopLabel : "Direct"}
         </span>
       </div>
 

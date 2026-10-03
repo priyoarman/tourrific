@@ -15,16 +15,26 @@ type Props = {
   isTyping: boolean;
   suggestions: string[];
   onSend: (text: string) => void;
+  /** Progress lines shown under the typing dots, e.g. "Comparing prices across airlines...". */
+  statusLines?: string[];
+  footnote?: string;
 };
 
-export default function ChatPanel({ messages, isTyping, suggestions, onSend }: Props) {
+export default function ChatPanel({
+  messages,
+  isTyping,
+  suggestions,
+  onSend,
+  statusLines = [],
+  footnote = "AI-assisted travel planning. Prices and availability are examples.",
+}: Props) {
   const logRef = useRef<HTMLDivElement>(null);
 
   // Keep the newest message in view.
   useEffect(() => {
     const log = logRef.current;
     log?.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
-  }, [messages, isTyping]);
+  }, [messages, isTyping, statusLines.length]);
 
   return (
     <section aria-label="Chat" className="flex h-full min-h-0 flex-col">
@@ -49,15 +59,22 @@ export default function ChatPanel({ messages, isTyping, suggestions, onSend }: P
         {messages.map((message) => (
           <ChatMessage key={message.id} message={message} />
         ))}
-        {isTyping && <TypingIndicator />}
+        {isTyping && (
+          <div>
+            <TypingIndicator />
+            {statusLines.map((line, i) => (
+              <p key={i} className="text-[15px] text-ink-muted italic">
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-3 px-4 pb-3">
         <SuggestionChips suggestions={suggestions} onPick={onSend} disabled={isTyping} />
         <ChatInput onSend={onSend} disabled={isTyping} />
-        <p className="text-center text-xs text-ink-subtle">
-          AI-assisted travel planning. Prices and availability are examples.
-        </p>
+        <p className="text-center text-xs text-ink-subtle">{footnote}</p>
       </div>
     </section>
   );

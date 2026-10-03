@@ -97,38 +97,42 @@ export const destinations: Destination[] = [
   },
 ];
 
-const DEFAULT_DESTINATION = destinations[3]; // Lisbon
-
-export function findDestination(prompt: string): Destination | undefined {
-  const text = prompt.toLowerCase();
-  // Whole words only, so "uk" doesn't match "Ukraine" or "sun" match "Sunday".
-  return destinations.find((d) =>
-    d.keywords.some((k) => new RegExp(`\\b${k}\\b`).test(text)),
-  );
-}
-
-export function resolveDestination(prompt: string): Destination {
-  return findDestination(prompt) ?? DEFAULT_DESTINATION;
-}
-
-/** Picks a different destination than the current one, for "Surprise me". */
-export function surpriseDestination(current: Destination): Destination {
-  const index = destinations.findIndex((d) => d.city === current.city);
-  return destinations[(index + 4) % destinations.length];
-}
-
 export function addDays(isoDate: string, days: number) {
   const date = new Date(`${isoDate}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
-export function buildTrip(destination: Destination, today: string): Trip {
-  const nights = 7;
-  const departDate = addDays(today, 14);
+const DEFAULT_NIGHTLY_RATE = 130;
+/** A one-way search has no return date, so the hotel stay needs a length of its own. */
+const ONE_WAY_NIGHTS = 3;
+
+function nightsBetween(from: string, to: string) {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+}
+
+/** The stay that goes with a flight search, for the hotels column. */
+export function stayForSearch(
+  place: { city: string; airport: string; countryCode: string | null },
+  origin: { city: string; airport: string },
+  departDate: string,
+  returnDate: string | null,
+): Trip {
+  const known = destinations.find((d) => d.airport === place.airport);
+  const nights = Math.max(returnDate ? nightsBetween(departDate, returnDate) : ONE_WAY_NIGHTS, 1);
+
   return {
-    origin: ORIGIN,
-    destination,
+    origin,
+    destination: known ?? {
+      city: place.city,
+      country: place.countryCode ?? "",
+      flag: "",
+      airport: place.airport,
+      flightMinutes: 0,
+      basePrice: 0,
+      nightlyRate: DEFAULT_NIGHTLY_RATE,
+      keywords: [],
+    },
     departDate,
     returnDate: addDays(departDate, nights),
     nights,

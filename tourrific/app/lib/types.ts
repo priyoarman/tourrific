@@ -22,28 +22,35 @@ export type Trip = {
   travelers: number;
 };
 
-// Shaped like a simplified Duffel offer so it can be swapped for the real API later.
+// What the flight cards render. Real Duffel offers are converted into this
+// shape by `toFlightOffer` in duffel-to-flight-offer.ts.
 export type FlightSlice = {
+  /** Airport codes, e.g. "CPH". */
   origin: string;
   destination: string;
+  /** Local time at that airport with no UTC offset, e.g. "2026-11-12T08:30:00". */
   departureTime: string;
   arrivalTime: string;
+  /** Whole journey in this direction, including layovers. */
   durationMinutes: number;
   stops: { airport: string; layoverMinutes: number }[];
 };
 
 export type Airline = {
   name: string;
+  /** 2-letter airline code, or "" when unknown. */
   code: string;
-  color: string;
+  logoUrl: string | null;
 };
 
 export type FlightOffer = {
   id: string;
   airline: Airline;
   outbound: FlightSlice;
-  inbound: FlightSlice;
+  /** Null for a one-way trip. */
+  inbound: FlightSlice | null;
   totalPrice: number;
+  /** ISO 4217 code, e.g. "EUR". */
   currency: string;
   cabin: string;
   baggage: string;

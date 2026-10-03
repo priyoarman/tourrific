@@ -13,6 +13,8 @@ type Props = {
 };
 
 export default function FlightCard({ offer, tags, selected, onSelect }: Props) {
+  const price = formatPrice(offer.totalPrice, offer.currency);
+
   return (
     <li
       className={`rounded-3xl border bg-white p-5 shadow-[0_10px_30px_-18px_rgba(42,27,61,0.35)] transition-colors ${
@@ -25,7 +27,7 @@ export default function FlightCard({ offer, tags, selected, onSelect }: Props) {
           <div className="min-w-0">
             <h3 className="truncate font-semibold text-ink">{offer.airline.name}</h3>
             <p className="text-xs text-ink-muted">
-              {offer.cabin} · Round trip
+              {offer.cabin} · {offer.inbound ? "Round trip" : "One way"}
             </p>
           </div>
         </div>
@@ -45,8 +47,12 @@ export default function FlightCard({ offer, tags, selected, onSelect }: Props) {
 
       <div className="mt-5 space-y-4">
         <FlightLeg slice={offer.outbound} />
-        <div className="border-t border-dashed border-lavender-soft" />
-        <FlightLeg slice={offer.inbound} />
+        {offer.inbound && (
+          <>
+            <div className="border-t border-dashed border-lavender-soft" />
+            <FlightLeg slice={offer.inbound} />
+          </>
+        )}
       </div>
 
       <div className="mt-5 flex items-end justify-between gap-4">
@@ -55,8 +61,8 @@ export default function FlightCard({ offer, tags, selected, onSelect }: Props) {
           {offer.baggage}
         </p>
         <p className="text-right">
-          <span className="block text-2xl font-bold text-ink">{formatPrice(offer.totalPrice)}</span>
-          <span className="text-xs text-ink-muted">per person</span>
+          <span className="block text-2xl font-bold text-ink">{price}</span>
+          <span className="text-xs text-ink-muted">total</span>
         </p>
       </div>
 
@@ -64,7 +70,7 @@ export default function FlightCard({ offer, tags, selected, onSelect }: Props) {
         <SelectButton
           selected={selected}
           onClick={onSelect}
-          label={`${offer.airline.name} flight, ${formatPrice(offer.totalPrice)}`}
+          label={`${offer.airline.name} flight, ${price}`}
         />
       </div>
     </li>

@@ -1,7 +1,7 @@
+import type { ReactNode } from "react";
 import { PlaneIcon } from "@/app/components/ui/Icons";
 import SortTabs from "@/app/components/ui/SortTabs";
-import { formatDate } from "@/app/lib/format";
-import type { FlightOffer, Trip } from "@/app/lib/types";
+import type { FlightOffer } from "@/app/lib/types";
 import ResultsColumn from "../results/ResultsColumn";
 import FlightCard from "./FlightCard";
 
@@ -13,9 +13,9 @@ const sortOptions: { value: FlightSort; label: string }[] = [
   { value: "fastest", label: "Fastest" },
 ];
 
-const totalMinutes = (o: FlightOffer) => o.outbound.durationMinutes + o.inbound.durationMinutes;
+const totalMinutes = (o: FlightOffer) => o.outbound.durationMinutes + (o.inbound?.durationMinutes ?? 0);
 
-// "Best" balances price against time: each hour in the air costs about $25.
+// "Best" balances price against time: each hour of travel counts like 25 of the fare's currency.
 const score = (o: FlightOffer) => o.totalPrice + (totalMinutes(o) / 60) * 25;
 
 function sortOffers(offers: FlightOffer[], sort: FlightSort) {
@@ -24,25 +24,40 @@ function sortOffers(offers: FlightOffer[], sort: FlightSort) {
 }
 
 type Props = {
-  trip: Trip;
+  /** One line describing the search, e.g. "Copenhagen → London · Thu 12 Nov · 1 adult". */
+  subtitle: string;
   offers: FlightOffer[];
+  /** All offers the search found; `offers` may be only the first page of them. */
+  totalOffers: number;
+  /** Shown when there are no offers: a prompt to search, a loading note, or "no flights". */
+  emptyState: ReactNode;
   sort: FlightSort;
   onSortChange: (sort: FlightSort) => void;
   selectedId: string | null;
   onSelect: (offer: FlightOffer) => void;
 };
 
-export default function FlightResults({ trip, offers, sort, onSortChange, selectedId, onSelect }: Props) {
+export default function FlightResults({ subtitle, offers, totalOffers, emptyState, sort, onSortChange, selectedId, onSelect }: Props) {
   const cheapestId = sortOffers(offers, "cheapest")[0]?.id;
   const fastestId = sortOffers(offers, "fastest")[0]?.id;
+  const meta =
+    totalOffers > offers.length
+      ? `${offers.length} of ${totalOffers.toLocaleString("en-US")}`
+      : undefined;
 
   return (
     <ResultsColumn
       title="Flights"
       icon={<PlaneIcon size={18} />}
       count={offers.length}
-      subtitle={`${trip.origin.city} → ${trip.destination.city} · ${formatDate(trip.departDate)} – ${formatDate(trip.returnDate)} · ${trip.travelers} adult`}
-      toolbar={<SortTabs label="Sort flights" options={sortOptions} value={sort} onChange={onSortChange} />}
+      meta={meta}
+      subtitle={subtitle}
+      emptyState={emptyState}
+      toolbar={
+        offers.length > 0 && (
+          <SortTabs label="Sort flights" options={sortOptions} value={sort} onChange={onSortChange} />
+        )
+      }
     >
       {sortOffers(offers, sort).map((offer) => (
         <FlightCard
