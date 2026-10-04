@@ -1,0 +1,25 @@
+info:
+  name: Search (streaming)
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: http://localhost:3000/api/flights/search-stream
+  body:
+    type: json
+    data: |-
+      {
+        "prompt": "Direct flights from Copenhagen to London next Friday with a checked bag",
+        "limit": "all"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  The endpoint the app uses. Answers with server-sent events: status, message, complete, done. No login needed. Add "context": { "destination", "tripQuery" } from a previous `complete` event to send a follow-up such as "a little later".

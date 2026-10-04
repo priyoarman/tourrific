@@ -1,12 +1,20 @@
+# Render Blueprint: one Node web service running the Next.js app.
+# The UI and the API (app/api/) are the same service.
 services:
   - type: web
     name: trip-weave
-    env: node
+    runtime: node
     plan: free
-    buildCommand: npm ci && npm run db:generate && npm run db:deploy
+    # --include=dev: the build needs devDependencies (Prisma CLI, TypeScript,
+    # Tailwind), which npm skips when NODE_ENV is "production".
+    # db:deploy applies any new migrations before the new version starts.
+    buildCommand: npm ci --include=dev && npm run db:deploy && npm run build
+    # `next start` listens on the PORT that Render provides.
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
+      - key: NODE_VERSION
+        value: "22"
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL

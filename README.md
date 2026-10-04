@@ -1,195 +1,164 @@
 # Trip-Weave
-Trip-Weave is an AI-powered travel planning and flight search application that allows users to search for flights using natural language. Instead of manually entering airport codes, dates, and passenger information, users can simply describe their travel plans in plain English.
 
-The application uses an AI-powered extraction service (Groq) to convert user prompts into structured flight search parameters, which are then sent to the Duffel Flights API (or mock data during development). The project consists of a Node.js/Express backend, a lightweight frontend, PostgreSQL with Prisma ORM, and AI-assisted flight extraction.
+Trip-Weave is an AI travel planner. You describe a trip in plain English
+("direct flights from Copenhagen to London next Friday, with a checked bag,
+under 1500 kr") and it finds real flights, with no airport codes or date
+pickers. The interface is branded **Tourrific**.
+
+A chat message is turned into a structured search by an LLM (Groq), the search
+runs against the Duffel Flights API, and the results stream back into a
+three-column planner: chat, flights, hotels.
 
 ## Features
-- AI-powered flight search using natural language
-- Flight parameter extraction with Groq LLM
-- Flight search using the Duffel API
-- Mock flight data fallback for offline development
-- PostgreSQL database with Prisma ORM
-- RESTful API architecture
-- Frontend chat interface for flight search
-- Automated extractor normalization tests
-  
-## Project Board
 
-- Trello: https://trello.com/b/2veKRbtH/trip-weave
-  
-# Running the Project Locally
+- Flight search in natural language, with follow-ups ("a little later", "somewhere else", "stops are fine")
+- Filters that are really applied: direct only, time of day, checked bag, airlines, maximum price, cabin class, number of travellers
+- Vague destinations: a country, a region ("south of Spain") or a mood ("somewhere with beaches")
+- Live progress while searching, streamed with server-sent events
+- Sort by best, cheapest or fastest without re-running the search
+- Accounts: sign up, sign in, save flights, and chat history that survives a reload
+- Departure airport guessed from the visitor's location when they don't name one
+- Sample flights as a fallback when Duffel is unreachable (`DUFFEL_USE_MOCK=true`)
 
-## Prerequisites
-Make sure you have the following installed:
+Hotels and road trips in the UI are sample data, and are labelled as such.
 
-- Node.js
-- npm
-- Git
+## Tech stack
 
-Verify installation:
+- [Next.js 16](https://nextjs.org) (App Router) with React 19 and TypeScript, for both the UI and the API
+- Tailwind CSS 4
+- PostgreSQL with Prisma 6
+- [Groq](https://groq.com) through the AI SDK, for turning messages into searches
+- [Duffel](https://duffel.com) for flight offers
+- JWT login tokens, bcrypt password hashes, Zod request validation
 
-node -v
-npm -v
-git --version
+## Getting started
 
-## Installation
+You need Node.js 22 or newer, npm, and a PostgreSQL database.
 
-### 1. Clone the repository
-
-git clone https://github.com/abikrithika/trip-weave.git
+```bash
+git clone https://github.com/priyoarman/trip-weave.git
 cd trip-weave
-
-### 2. Install dependencies
-
 npm install
-
-### 3. Install Nodemon
-
-npm install --save-dev nodemon
-npm install -g concurrently
-npm install -g http-server
-npm install jsonwebtoken
-npm install bcrypt
-npm install request-ip
-
-## Environment Variables
-
-Create a `.env` file in the project root.
-
-Example:
-
-- PORT=5500
-- DATABASE_URL=postgresql://postgres:postgres@localhost:5432/trip_weave
-- GROQ_API_KEY=sk_your_actual_api_key_here
-- GROQ_MODEL=openai/gpt-oss-20b
-- JWT_SECRET=your_super_secret_key_here
-- DUFFEL_API_URL="https://api.duffel.com"
-- DUFFEL_TOKEN=your_duffel_secret_key_here
-Add any additional environment variables required by the application.
-
-If you need the Groq-specific setup details, see [api/src/groq/README.md](api/src/groq/README.md).
-
-## Package Scripts
-
-Key scripts:
-
-- `npm run dev`
-- `npm start`
-- `npm run test:extract:normalize`
-- `npm run test:extract`
-
-## Database Scripts
-
-- `npm run db:create`: Ensures the PostgreSQL database exists before Prisma operations run.
-- `npm run db:validate`: Validates Prisma schema and config (fails fast if schema or env is invalid).
-- `npm run db:migrate`: Runs `prisma migrate dev` for local development.
-- `npm run db:migrate -- --name <migration_name>`: Preferred migrate form so migration names are explicit and non-interactive.
-- `npm run db:generate`: Regenerates Prisma Client from the current schema.
-- `npm run db:seed`: Runs the seed runner (`api/src/db/code/seed.js`) and inserts seed data.
-- `npm run db:deploy`: Runs `prisma migrate deploy` for non-development environments (applies existing migrations only).
-- `npm run db:all`: Runs the full setup chain in order: create -> validate -> migrate -> generate -> seed.
-
-Database files now live under `api/src/db/`, with code (Prisma schema, client, config, and seed runner) in `api/src/db/code/`, migrations in `api/src/db/migrations/`, and seed data in `api/src/db/seeds/`.
-
-## Running the Project
-
-### Development Mode (Nodemon)
-
+cp .env.example .env.local   # then fill in the values
+npm run db:deploy            # creates the tables
 npm run dev
+```
 
-Nodemon automatically restarts the server whenever changes are made.
+Open <http://localhost:3000>.
 
-### Production Mode
+### Environment variables
 
-npm start
+Set these in `.env.local` (never commit it):
 
-### Render Deployment
+| Variable | What it is |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | Long random string used to sign login tokens |
+| `GROQ_API_KEY` | Groq API key |
+| `GROQ_MODEL` | Groq model, e.g. `openai/gpt-oss-120b` |
+| `DUFFEL_TOKEN` | Duffel access token (a test-mode token works) |
+| `DUFFEL_API_URL` | `https://api.duffel.com` |
+| `DUFFEL_USE_MOCK` | Optional. `true` returns sample flights when a Duffel request fails |
 
-Deploy this repository as a Render **Web Service** using the Node runtime. Do not deploy the `app/` folder as a Static Site, because the frontend posts to the Express API route at `/api/flights/search-stream`.
+### Scripts
 
-Recommended settings:
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start the app in development |
+| `npm run build` / `npm start` | Build, then run the production server |
+| `npm test` | Unit tests. No network or database needed |
+| `npm run test:extract` | One live extraction through Groq. Needs `GROQ_API_KEY` and spends a little quota |
+| `npm run lint` | ESLint |
+| `npm run db:deploy` | Apply pending database migrations |
+| `npm run db:status` | Show which migrations are applied |
 
-- Build Command: `npm ci && npm run db:generate && npm run db:deploy`
-- Start Command: `npm start`
-- Health Check Path: `/api/health`
+## Project structure
 
-Do not use `npm run standalone` on Render. That command starts the local-only `http-server` frontend process, and Render may route traffic to that static server instead of Express, causing `POST /api/flights/search-stream` to return 404/405.
+```
+app/
+  page.tsx, components/     Landing page
+  plan/                     The planner: chat, flights and hotels columns
+  roadtrip/                 Road trip planner (sample data)
+  api/                      The API (route handlers)
+  lib/                      Code shared by the UI: types, formatting, API clients
+  lib/server/               Server-only logic: Groq extraction, Duffel, filters, auth
+prisma/                     Database schema and migrations
+bruno/, postman/            API collections
+render.yaml                 Render deployment
+```
 
-Required Render environment variables:
+## API
 
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `GROQ_API_KEY`
-- `GROQ_MODEL`
-- `DUFFEL_API_URL`
-- `DUFFEL_TOKEN`
-- `NODE_ENV=production`
+All routes live under `app/api/`. Protected routes expect
+`Authorization: Bearer <token>`, where the token comes from logging in.
 
-After deploy, open `/api/health` on your Render URL. It should return JSON with `ok: true`. If it does not, Render is not running the Express backend from this repository.
+| Method and path | Login | What it does |
+| --- | --- | --- |
+| `GET /api/health` | | Health check |
+| `POST /api/auth/signup` | | Create an account |
+| `POST /api/auth/login` | | Get a token (valid for 1 hour) |
+| `GET /api/auth/verify` | yes | Check a token |
+| `POST /api/flights/search-stream` | | Chat message in, streamed search out |
+| `GET /api/saved-flights/saved` | yes | List saved flights |
+| `POST /api/saved-flights/save` | yes | Save a flight |
+| `DELETE /api/saved-flights/save/:id` | yes | Remove a saved flight |
+| `GET /api/conversations/current` | yes | The user's conversation |
+| `GET`, `POST /api/conversations/:id/messages` | yes | Read or add chat messages |
+| `POST /api/groq/extract` | yes | Test: show the search Groq extracts |
+| `POST /api/flights/search` | yes | Test: search Duffel directly |
+| `POST /api/flights/ai-search` | yes | Test: extract and search without streaming |
 
-### Frontend
+### Trying the API
 
-npm run start: frontend
+The `postman/` and `bruno/` folders hold the same 14 requests. Run **Sign up**
+once, then **Log in**: it stores the token that the protected requests use.
+Both collections point at `http://localhost:3000`.
 
-### Run both frontend and backend together:
+## Deploying to Render
 
-npm run standalone
+`render.yaml` describes one free web service that builds and runs the app, with
+`/api/health` as the health check. Each deploy applies pending migrations
+before the new version starts.
 
-### Backend:
+1. Create a PostgreSQL database. Render's free database expires after about a
+   month, so a provider with a lasting free plan (for example
+   [Neon](https://neon.tech)) is the safer choice. Use its direct, non-pooled
+   connection string.
+2. In Render, choose **New > Blueprint** and pick this repository.
+3. Fill in the environment variables it asks for (the ones in the table above).
+4. Deploy, then open `/api/health` on the Render URL. It should return `"ok": true`.
 
-http://localhost:5500
+To apply migrations by hand instead, from your own machine:
 
-### Frontend:
+```bash
+DATABASE_URL="<production connection string>" npm run db:deploy
+```
 
-http://localhost:8080
+## Testing
 
-# Deliverables
-## Deployed API
-## API Base URL(When running locally)
+`npm test` runs the unit tests with Node's built-in test runner: the
+Duffel-to-UI converter, the filters, the date and follow-up logic, and login
+tokens. They use a saved sample of real Duffel offers, so they need no network.
 
-http://localhost:5500 (Replace the port if configured differently in `.env`).
-## Postman Collection
+## Origins and credits
 
-# Key Technical Summary & Design Decisions
+Trip-Weave began as a team project. The original version, an Express API with
+an HTML, CSS and JavaScript frontend, was built by:
 
-- Built with Node.js and Express.js following a RESTful API architecture.
-- Uses Prisma ORM for database management and migrations.
-- PostgreSQL is used as the primary relational database.
-- Flight search is powered by Duffel API, with automatic fallback to mock data for development and testing.
-- AI flight extraction uses Groq to convert natural-language travel requests into structured JSON.
-- Extracted flight requests are validated before search execution to reduce invalid API requests.
-- The backend is organised into modular services, routes, controllers, and database layers for maintainability.
-- Authentication and user accounts are implemented and managed using JWT.
-- Environment variables are used for all API keys and configuration.
-- Automated tests verify AI extraction and JSON normalization independently of external APIs.
-- Limited user conversations are stored for authenticated users.
-  
-# Tech Stack
-- Node.js
-- Express.js
-- PostgreSQL
-- Prisma ORM
-- Groq API
-- Duffel API
-- Nodemon
-- JavaScript
-
-# Future Improvements
-- Hotel and activity recommendations
-- Flight price alerts
-- Enhanced filtering and sorting
-- Better UI/UX and responsive design
-- Comprehensive API documentation using Swagger
-- Increased automated test coverage
-
-# Contributors
-
-| Name | GitHub Profile |
-|------|----------------|
+| Name | GitHub |
+| --- | --- |
 | **Abikrithika** | [@abikrithika](https://github.com/abikrithika) |
 | **Annamani** | [@annamani](https://github.com/annamani) |
 | **Priyo Arman** | [@priyoarman](https://github.com/priyoarman) |
 | **Ftshn84** | [@ftshn84](https://github.com/ftshn84) |
 
-# Deployment Link
-https://trip-weave-wbh3.onrender.com/
+That version lives at
+[abikrithika/trip-weave](https://github.com/abikrithika/trip-weave), and in
+this repository's history before the Next.js migration. The Groq extraction
+prompt, the destination resolver, the follow-up handling and the database
+schema here are ports of the team's work.
+
+The Next.js and TypeScript rewrite, the Tourrific interface and the working
+filters are by [Priyo Arman](https://github.com/priyoarman).
+
+- Original project board: <https://trello.com/b/2veKRbtH/trip-weave>

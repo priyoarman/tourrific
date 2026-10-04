@@ -1,67 +1,153 @@
 {
   "info": {
-    "_postman_id": "dd24821b-7cfc-45f2-af31-fe51a0ef63ca",
+    "_postman_id": "f2cc4996-d4d3-582a-ae85-b1b8b5dbace6",
     "name": "Trip-Weave",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "3547654",
-    "_collection_link": "https://go.postman.co/collection/3547654-dd24821b-7cfc-45f2-af31-fe51a0ef63ca?source=collection_link"
+    "description": "API of the Trip-Weave Next.js app (routes under app/api/).\n\nStart the app with `npm run dev`, run **Sign up** once, then **Log in**: it stores the token the protected requests use. Change `base_url` to test a deployed copy.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            },
+            "description": "Answers ok:true when the app is running. Render uses this as its health check.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
     {
       "name": "Authentication",
       "item": [
         {
-          "name": "signup new user",
+          "name": "Sign up",
           "request": {
             "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n    \"name\":\"Celina Mina\",\r\n    \"email\":\"celine.mina@example.com\",\r\n    \"password\":\"trip-weave@123\"\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
               }
-            },
+            ],
             "url": {
-              "raw": "{{base-url}}/api/auth/signup",
+              "raw": "{{base_url}}/api/auth/signup",
               "host": [
-                "{{base-url}}"
+                "{{base_url}}"
               ],
               "path": [
                 "api",
                 "auth",
                 "signup"
               ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Login as existing user",
-          "request": {
-            "method": "POST",
-            "header": [],
+            },
+            "description": "Creates an account. Returns no token: log in next. 409 if the email is taken.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"email\":\"sana@tripweave.dev\",\r\n    \"password\":\"passsana\"\r\n}",
+              "raw": "{\n  \"name\": \"Test Traveller\",\n  \"email\": \"traveller@example.com\",\n  \"password\": \"testpass123\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Log in",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
-              "raw": "{{base-url}}/api/auth/login",
+              "raw": "{{base_url}}/api/auth/login",
               "host": [
-                "{{base-url}}"
+                "{{base_url}}"
               ],
               "path": [
                 "api",
                 "auth",
                 "login"
               ]
+            },
+            "description": "Returns a token that lasts 1 hour and stores it in the `token` variable for the other requests.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"traveller@example.com\",\n  \"password\": \"testpass123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.token) pm.collectionVariables.set(\"token\", body.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify"
+              ]
+            },
+            "description": "200 while the token is valid, 401 once it has expired.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "response": []
@@ -69,111 +155,162 @@
       ]
     },
     {
-      "name": "Save-Flights",
+      "name": "Flight search",
       "item": [
         {
-          "name": "View Saved Flights",
-          "protocolProfileBehavior": {
-            "disableBodyPruning": true
-          },
+          "name": "Search (streaming)",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{supabase_service_role_api_key_17gn}}",
-                  "type": "string"
-                }
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/flights/search-stream",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "flights",
+                "search-stream"
               ]
             },
-            "method": "GET",
-            "header": [],
+            "description": "The endpoint the app uses. Answers with server-sent events: status, message, complete, done. No login needed. Add \"context\": { \"destination\", \"tripQuery\" } from a previous `complete` event to send a follow-up such as \"a little later\".",
             "body": {
               "mode": "raw",
-              "raw": ""
+              "raw": "{\n  \"prompt\": \"Direct flights from Copenhagen to London next Friday with a checked bag\",\n  \"limit\": \"all\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Saved flights",
+      "item": [
+        {
+          "name": "List saved flights",
+          "request": {
+            "method": "GET",
+            "header": [],
             "url": {
-              "raw": "{{base-url}}/api/saved-flights/saved",
+              "raw": "{{base_url}}/api/saved-flights/saved",
               "host": [
-                "{{base-url}}"
+                "{{base_url}}"
               ],
               "path": [
                 "api",
                 "saved-flights",
                 "saved"
               ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Save flights",
-          "request": {
+            },
+            "description": "The logged-in user's saved flights, soonest departure first.",
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{supabase_service_role_api_key_17gn}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
-            },
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Save a flight",
+          "request": {
             "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n  \"flight_number\": \"LH210\",\r\n  \"origin\": \"FRA\",\r\n  \"destination\": \"JFK\",\r\n  \"price\": 3100,\r\n  \"departure_time\": \"2026-09-10T18:45:00Z\",\r\n  \"currency_id\": 1\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
               }
-            },
+            ],
             "url": {
-              "raw": "{{base-url}}/api/saved-flights/save",
+              "raw": "{{base_url}}/api/saved-flights/save",
               "host": [
-                "{{base-url}}"
+                "{{base_url}}"
               ],
               "path": [
                 "api",
                 "saved-flights",
                 "save"
               ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Remove saved flight",
-          "request": {
+            },
+            "description": "Saves a flight and stores its id in `saved_flight_id`. 409 if this flight and departure time is already saved.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flight_number\": \"BA811\",\n  \"origin\": \"CPH\",\n  \"destination\": \"LHR\",\n  \"price\": 96.85,\n  \"departure_time\": \"2026-11-12T08:30:00Z\",\n  \"currency_code\": \"EUR\",\n  \"airline_code\": \"BA\",\n  \"airline_name\": \"British Airways\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{supabase_service_role_api_key_0772}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
-            },
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.flight) pm.collectionVariables.set(\"saved_flight_id\", body.flight.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove a saved flight",
+          "request": {
             "method": "DELETE",
             "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": ""
-            },
             "url": {
-              "raw": "{{base-url}}/api/saved-flights/save/5",
+              "raw": "{{base_url}}/api/saved-flights/save/{{saved_flight_id}}",
               "host": [
-                "{{base-url}}"
+                "{{base_url}}"
               ],
               "path": [
                 "api",
                 "saved-flights",
                 "save",
-                "5"
+                "{{saved_flight_id}}"
+              ]
+            },
+            "description": "Removes one of your own saved flights. 404 for an id that isn't yours.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
               ]
             }
           },
@@ -182,120 +319,257 @@
       ]
     },
     {
-      "name": "Flight Search",
+      "name": "Chat history",
       "item": [
         {
-          "name": "Search Flights without internet",
+          "name": "Current conversation",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n\r\n    \"slices\": [\r\n      {\r\n        \"origin\": \"DOH\",\r\n        \"destination\": \"NBO\",\r\n        \"departure_date\": \"2026-07-20\"\r\n      },\r\n      {\r\n        \"origin\": \"NBO\",\r\n        \"destination\": \"DOH\",\r\n        \"departure_date\": \"2026-07-27\"\r\n      }\r\n    ],\r\n    \"passengers\": [\r\n      {\r\n        \"type\": \"adult\"\r\n      }\r\n    ],\r\n    \"cabin_class\": \"economy\"\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
             "url": {
-              "raw": "{{base-url}}/api/flights/search",
+              "raw": "{{base_url}}/api/conversations/current",
               "host": [
-                "{{base-url}}"
+                "{{base_url}}"
               ],
               "path": [
                 "api",
-                "flights",
-                "search"
+                "conversations",
+                "current"
+              ]
+            },
+            "description": "The logged-in user's conversation, created on first use. Stores its id in `conversation_id`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"conversation_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{conversation_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ]
+            },
+            "description": "Messages of your conversation, oldest first. 404 for someone else's conversation.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
               ]
             }
           },
           "response": []
         },
         {
-          "name": "search flights with internet",
+          "name": "Add a message",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{conversation_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ]
+            },
+            "description": "senderRole is \"user\" or \"assistant\".",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n\r\n    \"slices\": [\r\n      {\r\n        \"origin\": \"DOH\",\r\n        \"destination\": \"NBO\",\r\n        \"departure_date\": \"2026-07-20\"\r\n      },\r\n      {\r\n        \"origin\": \"NBO\",\r\n        \"destination\": \"DOH\",\r\n        \"departure_date\": \"2026-07-27\"\r\n      }\r\n    ],\r\n    \"passengers\": [\r\n      {\r\n        \"type\": \"adult\"\r\n      }\r\n    ],\r\n    \"cabin_class\": \"economy\"\r\n}",
+              "raw": "{\n  \"senderRole\": \"user\",\n  \"textContent\": \"Copenhagen to London next Friday\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Test endpoints (login required)",
+      "item": [
+        {
+          "name": "Extract a search with Groq",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
-              "raw": "{{base-url}}/api/flights/search",
+              "raw": "{{base_url}}/api/groq/extract",
               "host": [
-                "{{base-url}}"
+                "{{base_url}}"
               ],
               "path": [
                 "api",
-                "flights",
-                "search"
+                "groq",
+                "extract"
+              ]
+            },
+            "description": "Shows the structured search Groq reads out of a sentence, without searching. Spends Groq quota.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Find direct return flights from Copenhagen to Barcelona for 2 passengers from 2027-07-15 to 2027-07-22 under 2500 DKK with baggage included.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
               ]
             }
           },
           "response": []
         },
         {
-          "name": "Flight AI-Search",
+          "name": "Search Duffel directly",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/flights/search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "flights",
+                "search"
+              ]
+            },
+            "description": "Sends a ready-made search straight to Duffel and returns its full answer (large). Spends Duffel quota.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"prompt\": \"Find me a flight from AJF to AJL on 2027-07-15\"\r\n}",
+              "raw": "{\n  \"slices\": [\n    {\n      \"origin\": \"CPH\",\n      \"destination\": \"LHR\",\n      \"departure_date\": \"2026-11-12\"\n    }\n  ],\n  \"passengers\": [\n    {\n      \"type\": \"adult\"\n    }\n  ],\n  \"cabin_class\": \"economy\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "AI search (non-streaming)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
-              "raw": "{{base-url}}/api/flights/ai-search",
+              "raw": "{{base_url}}/api/flights/ai-search",
               "host": [
-                "{{base-url}}"
+                "{{base_url}}"
               ],
               "path": [
                 "api",
                 "flights",
                 "ai-search"
               ]
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Groq",
-      "item": [
-        {
-          "name": "Groq extract prompt",
-          "request": {
-            "method": "POST",
-            "header": [],
+            },
+            "description": "Extracts and searches in one go, without streaming. The app itself uses the streaming endpoint.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"prompt\": \"Find direct flights from Copenhagen to Barcelona  2026-07-15 \"\r\n}",
+              "raw": "{\n  \"prompt\": \"Find me a flight from Copenhagen to London on 2026-11-12\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": {
-              "raw": "{{base-url}} /api/groq/extract",
-              "host": [
-                "{{base-url}} "
-              ],
-              "path": [
-                "api",
-                "groq",
-                "extract"
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
               ]
             }
           },
@@ -306,20 +580,20 @@
   ],
   "variable": [
     {
-      "key": "json_web_token_0772",
-      "secret": true
+      "key": "base_url",
+      "value": "http://localhost:3000"
     },
     {
-      "key": "auth_secret_0772",
-      "secret": true
+      "key": "token",
+      "value": ""
     },
     {
-      "key": "supabase_service_role_api_key_0772",
-      "secret": true
+      "key": "saved_flight_id",
+      "value": ""
     },
     {
-      "key": "supabase_service_role_api_key_17gn",
-      "secret": true
+      "key": "conversation_id",
+      "value": ""
     }
   ]
 }
