@@ -1,6 +1,6 @@
-# Trip-Weave
+# Tourrific
 
-Trip-Weave is an AI travel planner. You describe a trip in plain English
+Tourrific is an AI travel planner. You describe a trip in plain English
 ("direct flights from Copenhagen to London next Friday, with a checked bag,
 under 1500 kr") and it finds real flights, with no airport codes or date
 pickers. The interface is branded **Tourrific**.
@@ -8,6 +8,8 @@ pickers. The interface is branded **Tourrific**.
 A chat message is turned into a structured search by an LLM (Groq), the search
 runs against the Duffel Flights API, and the results stream back into a
 three-column planner: chat, flights, hotels.
+
+Try it live here: [Tourrific](https://tourrific-iowv.onrender.com/)
 
 ## Features
 
