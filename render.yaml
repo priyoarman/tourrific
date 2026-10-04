@@ -2,7 +2,7 @@
 # The UI and the API (app/api/) are the same service.
 services:
   - type: web
-    name: trip-weave
+    name: tourrific
     runtime: node
     plan: free
     # --include=dev: the build needs devDependencies (Prisma CLI, TypeScript,
