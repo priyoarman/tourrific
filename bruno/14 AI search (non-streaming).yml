@@ -1,0 +1,26 @@
+info:
+  name: AI search (non-streaming)
+  type: http
+  seq: 14
+
+http:
+  method: POST
+  url: http://localhost:3000/api/flights/ai-search
+  body:
+    type: json
+    data: |-
+      {
+        "prompt": "Find me a flight from Copenhagen to London on 2026-11-12"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Extracts and searches in one go, without streaming. The app itself uses the streaming endpoint.

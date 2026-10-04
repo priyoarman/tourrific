@@ -1,63 +1,46 @@
 {
   "name": "trip-weave",
-  "version": "1.0.0",
-  "type": "module",
-  "description": "",
-  "main": "api/src/server.js",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "dev": "prisma generate --schema=./api/src/db/code/schema.prisma && nodemon api/src/server.js",
-    "start": "node api/src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "test:extract": "node api/src/groq/testExtract.js",
-    "test:extract:normalize": "node api/src/groq/testNormalize.js",
-    "db:generate": "prisma generate --schema=./api/src/db/code/schema.prisma",
-    "db:validate": "prisma validate --schema=./api/src/db/code/schema.prisma",
-    "db:create": "node api/src/db/code/ensureDatabase.js",
-    "db:migrate": "prisma migrate dev --schema=./api/src/db/code/schema.prisma",
-    "db:seed": "node api/src/db/code/seed.js",
-    "db:deploy": "prisma migrate deploy --schema=./api/src/db/code/schema.prisma",
-    "db:all": "cd api/src/db && npm run db:create && npm run db:validate && npm run db:migrate && npm run db:generate && npm run db:seed",
-    "start:frontend": "http-server app",
-    "standalone": "concurrently \"npm run start:frontend\" \"npm run dev\""
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"app/**/*.test.ts\"",
+    "db:generate": "prisma generate",
+    "db:deploy": "prisma migrate deploy",
+    "db:status": "prisma migrate status",
+    "postinstall": "prisma generate",
+    "test:extract": "node --env-file=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test app/lib/server/groq/extractor.live.ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/abikrithika/trip-weave.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/abikrithika/trip-weave/issues"
-  },
-  "homepage": "https://github.com/abikrithika/trip-weave#readme",
   "dependencies": {
-    "@ai-sdk/groq": "^3.0.41",
-    "@prisma/client": "^4.16.2",
+    "@ai-sdk/groq": "^3.0.72",
+    "@prisma/client": "^6.19.3",
     "airports-json": "^1.0.0",
-    "ajv": "^8.20.0",
-    "ajv-formats": "^2.1.1",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
-    "date-fns": "^4.4.0",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
     "geoip-lite": "^2.0.3",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.21.0",
-    "request-ip": "^3.3.0",
-    "swagger-jsdoc": "^6.3.0",
-    "swagger-ui-express": "^5.0.1",
-    "zod": "^4.4.3"
+    "next": "16.3.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "concurrently": "^10.0.3",
-    "http-server": "^14.1.1",
-    "nodemon": "^3.1.14",
-    "prisma": "^4.16.2"
+    "@tailwindcss/postcss": "^4",
+    "@types/geoip-lite": "^1.4.4",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.7",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   },
-  "prisma": {
-    "seed": "node api/src/db/code/seed.js"
+  "engines": {
+    "node": ">=20.9"
   }
 }

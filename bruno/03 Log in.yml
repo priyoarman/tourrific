@@ -1,0 +1,31 @@
+info:
+  name: Log in
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: http://localhost:3000/api/auth/login
+  body:
+    type: json
+    data: |-
+      {
+        "email": "traveller@example.com",
+        "password": "testpass123"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        if (res.body.token) bru.setVar("token", res.body.token);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Returns a token that lasts 1 hour and stores it in the `token` variable for the other requests.

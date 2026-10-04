@@ -1,0 +1,39 @@
+info:
+  name: Save a flight
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: http://localhost:3000/api/saved-flights/save
+  body:
+    type: json
+    data: |-
+      {
+        "flight_number": "BA811",
+        "origin": "CPH",
+        "destination": "LHR",
+        "price": 96.85,
+        "departure_time": "2026-11-12T08:30:00Z",
+        "currency_code": "EUR",
+        "airline_code": "BA",
+        "airline_name": "British Airways"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        if (res.body.flight) bru.setVar("saved_flight_id", res.body.flight.id);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Saves a flight and stores its id in `saved_flight_id`. 409 if this flight and departure time is already saved.

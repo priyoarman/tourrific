@@ -1,0 +1,20 @@
+info:
+  name: Remove a saved flight
+  type: http
+  seq: 8
+
+http:
+  method: DELETE
+  url: http://localhost:3000/api/saved-flights/save/{{saved_flight_id}}
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Removes one of your own saved flights. 404 for an id that isn't yours.

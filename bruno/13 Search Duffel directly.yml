@@ -1,0 +1,38 @@
+info:
+  name: Search Duffel directly
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: http://localhost:3000/api/flights/search
+  body:
+    type: json
+    data: |-
+      {
+        "slices": [
+          {
+            "origin": "CPH",
+            "destination": "LHR",
+            "departure_date": "2026-11-12"
+          }
+        ],
+        "passengers": [
+          {
+            "type": "adult"
+          }
+        ],
+        "cabin_class": "economy"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Sends a ready-made search straight to Duffel and returns its full answer (large). Spends Duffel quota.
