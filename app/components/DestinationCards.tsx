@@ -78,8 +78,8 @@ function CardList({
       {items.map((d) => (
         // Spacing lives on each card (pr) rather than as a flex gap so both
         // copies are exactly the same width and the -50% loop point is exact.
-        <li key={d.city} className="shrink-0 pr-3.5">
-          <div className="relative isolate flex h-42.5 w-66 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-5 text-white shadow-[0_8px_24px_-12px_rgba(42,27,61,0.45)] [text-shadow:0_1px_6px_rgb(0_0_0/0.45)]">
+        <li key={d.city} className="shrink-0 pr-2.5 sm:pr-3.5">
+          <div className="relative isolate flex h-34 w-52 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-4 sm:h-42.5 sm:w-66 sm:p-5 text-white shadow-[0_8px_24px_-12px_rgba(42,27,61,0.45)] [text-shadow:0_1px_6px_rgb(0_0_0/0.45)]">
             {/* Eager: the row is always moving, so a card must not arrive before its photo. */}
             <Image
               src={d.photo}
@@ -100,9 +100,9 @@ function CardList({
                 Flights to {d.city}, {d.deal}
               </span>
             </Link>
-            <h3 className="text-[32px] leading-tight font-bold">{d.city}</h3>
-            <p className="mt-1 text-[15px] font-semibold">{d.deal}</p>
-            <p className="mt-1 text-[13px] font-medium text-white/85">
+            <h3 className="text-2xl leading-tight sm:text-[2rem] font-bold">{d.city}</h3>
+            <p className="mt-0.5 text-[0.8125rem] font-semibold sm:mt-1 sm:text-[0.9375rem]">{d.deal}</p>
+            <p className="mt-0.5 text-xs font-medium sm:mt-1 sm:text-[0.8125rem] text-white/85">
               {d.meta}
             </p>
           </div>

@@ -83,7 +83,7 @@ export default function ChatPanel({
           <div>
             <TypingIndicator />
             {statusLines.map((line, i) => (
-              <p key={i} className="text-[15px] text-ink-muted italic">
+              <p key={i} className="text-[0.9375rem] text-ink-muted italic">
                 {line}
               </p>
             ))}

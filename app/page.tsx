@@ -38,19 +38,19 @@ export default function Home() {
 
         <Header />
 
-        <main className="mx-auto w-full max-w-278 px-4 pt-6 pb-20 sm:px-10">
+        <main className="mx-auto w-full max-w-278 px-5 pt-4 pb-14 sm:px-10 sm:pt-6 sm:pb-20">
           <DestinationCards />
 
-          <div className="mt-14">
+          <div className="mt-8 sm:mt-14">
             <PromptBox />
           </div>
 
-          <ul className="mt-14 flex flex-wrap justify-center gap-4 lg:justify-between">
+          <ul className="mt-6 flex flex-wrap justify-center gap-2.5 sm:mt-14 sm:gap-4 lg:justify-between">
             {quickActions.map((action) => (
               <li key={action}>
                 <Link
                   href={plannerHref(action)}
-                  className="block rounded-full bg-white/60 px-8 py-4 text-lg font-medium text-ink backdrop-blur-sm transition-colors hover:bg-white"
+                  className="block rounded-full bg-white/60 px-4 py-2.5 text-sm font-medium text-ink backdrop-blur-sm transition-colors hover:bg-white sm:px-8 sm:py-4 sm:text-lg"
                 >
                   {action}
                 </Link>

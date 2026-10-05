@@ -25,7 +25,7 @@ export default function ColumnHeader({ title, icon, subtitle, meta, badge, toolb
         </h2>
         <span className="text-sm text-ink-subtle">{meta}</span>
       </div>
-      <p className="text-[15px] text-ink-muted">{subtitle}</p>
+      <p className="text-[0.9375rem] text-ink-muted">{subtitle}</p>
       {toolbar}
     </header>
   );

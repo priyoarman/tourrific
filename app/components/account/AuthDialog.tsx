@@ -92,7 +92,7 @@ function Form({ mode, note, onModeChange, onClose, onSignedIn }: Props & { mode:
         Tourrific <span aria-hidden className="text-[0.7em]">✦</span>
       </p>
       <h2 className="mt-3 text-3xl font-bold tracking-tight text-ink">{text.title}</h2>
-      <p className="mt-2 text-[15px] text-ink-muted">{note ?? text.intro}</p>
+      <p className="mt-2 text-[0.9375rem] text-ink-muted">{note ?? text.intro}</p>
 
       <form onSubmit={submit} className="mt-6 space-y-4">
         {isSignUp && (
@@ -156,7 +156,7 @@ function Form({ mode, note, onModeChange, onClose, onSignedIn }: Props & { mode:
         </button>
       </form>
 
-      <p className="mt-5 text-center text-[15px] text-ink-muted">
+      <p className="mt-5 text-center text-[0.9375rem] text-ink-muted">
         {text.switchPrompt}{" "}
         <button
           type="button"

@@ -23,25 +23,25 @@ export default function TripsTailored() {
   return (
     <section
       id="trips"
-      className="relative mx-auto w-full max-w-312 px-4 pt-14 pb-28 sm:px-10"
+      className="relative mx-auto w-full max-w-312 px-5 pt-10 pb-20 sm:px-10 sm:pt-14 sm:pb-28"
     >
       <div className="text-center">
-        <h2 className="text-4xl font-bold tracking-tight text-ink sm:text-[56px] sm:leading-tight">
+        <h2 className="text-3xl font-bold tracking-tight text-ink sm:text-[3.5rem] sm:leading-tight">
           Trips tailored to you
         </h2>
-        <p className="mt-3 text-lg text-ink sm:text-2xl">
+        <p className="mt-2 text-base text-ink sm:mt-3 sm:text-2xl">
           Thousands of trips shaped around what travelers really wanted
         </p>
       </div>
 
-      <ul className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="mt-8 grid gap-5 sm:mt-12 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {trips.map((trip) => (
           <li
             key={trip.title}
-            className="group relative overflow-hidden rounded-[28px] bg-white shadow-[0_16px_40px_-16px_rgba(42,27,61,0.3)] transition-transform hover:-translate-y-1"
+            className="group relative overflow-hidden rounded-[1.75rem] bg-white shadow-[0_16px_40px_-16px_rgba(42,27,61,0.3)] transition-transform hover:-translate-y-1"
           >
             <div
-              className={`h-60 bg-linear-to-br ${trip.gradient}`}
+              className={`h-44 sm:h-60 bg-linear-to-br ${trip.gradient}`}
               aria-hidden
             />
             <div className="px-6 pt-5 pb-7">

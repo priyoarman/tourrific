@@ -24,7 +24,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
         e.preventDefault();
         send();
       }}
-      className="rounded-[28px] border border-lavender-soft bg-white px-5 pt-4 pb-3 shadow-[0_16px_40px_-16px_rgba(167,139,243,0.4)]"
+      className="rounded-[1.75rem] border border-lavender-soft bg-white px-5 pt-4 pb-3 shadow-[0_16px_40px_-16px_rgba(167,139,243,0.4)]"
     >
       <label htmlFor="chat-input" className="sr-only">
         Message Tourrific AI
@@ -48,6 +48,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
         <button
           type="button"
           aria-label="Attach a file"
+          onClick={() => alert("Attachments are coming soon.")}
           className="rounded-full p-2 text-ink transition-colors hover:bg-lavender-soft/50"
         >
           <PaperclipIcon size={22} />
@@ -56,6 +57,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
           <button
             type="button"
             aria-label="Voice input"
+            onClick={() => alert("Voice input is coming soon.")}
             className="rounded-full p-2 text-ink transition-colors hover:bg-lavender-soft/50"
           >
             <MicIcon size={22} />
