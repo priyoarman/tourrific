@@ -24,7 +24,7 @@ export default function ResultsColumn({ title, icon, subtitle, count, meta, badg
     <section aria-label={title} className="flex h-full min-h-0 flex-col">
       <ColumnHeader title={title} icon={icon} subtitle={subtitle} meta={meta ?? `${count} results`} badge={badge} toolbar={toolbar} />
       {count === 0 && emptyState ? (
-        <div className="flex min-h-0 flex-1 items-start justify-center px-8 pt-16 text-center text-[15px] text-ink-muted">
+        <div className="flex min-h-0 flex-1 items-start justify-center px-8 pt-16 text-center text-[0.9375rem] text-ink-muted">
           {emptyState}
         </div>
       ) : (

@@ -96,7 +96,7 @@ export default function SavedTripsDrawer({ open, onClose, user, flights, status,
               ))}
             </ul>
           ) : (
-            <p role="status" className="px-4 pt-14 text-center text-[15px] text-ink-muted">
+            <p role="status" className="px-4 pt-14 text-center text-[0.9375rem] text-ink-muted">
               {status === "loading"
                 ? "Loading your saved flights…"
                 : status === "error"

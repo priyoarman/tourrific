@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAccount } from "./account/AccountProvider";
+import { UserIcon } from "./ui/Icons";
 import Logo from "./ui/Logo";
 
 const navLinks = [
@@ -16,7 +17,7 @@ export default function Header() {
   const initial = (user?.name || user?.email || "").trim().charAt(0).toUpperCase();
 
   return (
-    <header className="mx-auto flex w-full max-w-360 items-center justify-between px-4 py-6 sm:px-10 lg:px-16">
+    <header className="mx-auto flex w-full max-w-360 items-center justify-between px-5 py-5 sm:px-10 sm:py-6 lg:px-16">
       <Logo />
 
       <nav className="flex items-center gap-4 sm:gap-10">
@@ -70,11 +71,11 @@ export default function Header() {
           type="button"
           onClick={user ? openSavedTrips : () => openAuth()}
           aria-label={user ? "Your saved trips and account" : "Sign in"}
-          className={`flex size-12 items-center justify-center rounded-full border-2 text-lg font-bold text-ink transition-colors hover:border-lavender ${
+          className={`flex size-11 items-center justify-center rounded-full border-2 text-lg font-bold text-ink transition-colors hover:border-lavender sm:size-12 ${
             user ? "border-lavender bg-lavender-soft" : "border-lavender/70 bg-white/80"
           }`}
         >
-          {initial}
+          {initial || <UserIcon size={22} />}
         </button>
       </nav>
     </header>

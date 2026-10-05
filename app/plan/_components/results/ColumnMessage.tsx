@@ -22,7 +22,7 @@ export default function ColumnMessage({ icon, title, children, tone = "neutral" 
         {icon}
       </span>
       <p className="text-lg font-semibold text-ink">{title}</p>
-      {children && <p className="text-[15px] text-ink-muted">{children}</p>}
+      {children && <p className="text-[0.9375rem] text-ink-muted">{children}</p>}
     </div>
   );
 }

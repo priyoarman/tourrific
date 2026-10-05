@@ -171,7 +171,7 @@ export default function FlightResults({
           <button
             type="button"
             onClick={onShowMore}
-            className="w-full rounded-full border border-lavender-soft bg-white py-3 text-[15px] font-semibold text-ink transition-colors hover:border-lavender hover:bg-lavender-soft/40"
+            className="w-full rounded-full border border-lavender-soft bg-white py-3 text-[0.9375rem] font-semibold text-ink transition-colors hover:border-lavender hover:bg-lavender-soft/40"
           >
             Show {Math.min(FLIGHTS_PAGE_SIZE, remaining)} more
             {remaining > FLIGHTS_PAGE_SIZE && (

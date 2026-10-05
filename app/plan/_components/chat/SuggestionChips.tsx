@@ -13,7 +13,7 @@ export default function SuggestionChips({ suggestions, onPick, disabled }: Props
             type="button"
             disabled={disabled}
             onClick={() => onPick(suggestion)}
-            className="rounded-full border border-lavender-soft bg-white px-4 py-2 text-[15px] text-ink transition-colors hover:border-lavender hover:bg-lavender-soft/40 disabled:opacity-50"
+            className="rounded-full border border-lavender-soft bg-white px-4 py-2 text-[0.9375rem] text-ink transition-colors hover:border-lavender hover:bg-lavender-soft/40 disabled:opacity-50"
           >
             {suggestion}
           </button>
