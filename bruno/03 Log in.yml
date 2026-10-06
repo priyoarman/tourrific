@@ -29,3 +29,9 @@ settings:
 
 docs: |-
   Returns a token that lasts 1 hour and stores it in the `token` variable for the other requests.
+
+  429 (with a Retry-After header) after 10 login attempts from one IP address in 15 minutes, right or wrong.
+
+  Example 429 body:
+
+      {"success": false, "message": "Too many login attempts. Please try again in 15 minutes.", "retryAfterSeconds": 900}

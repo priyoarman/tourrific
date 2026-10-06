@@ -24,3 +24,9 @@ settings:
 
 docs: |-
   Creates an account. Returns no token: log in next. 409 if the email is taken.
+
+  429 (with a Retry-After header) after 5 sign-up attempts from one IP address in a day.
+
+  Example 429 body:
+
+      {"success": false, "message": "Too many sign-ups from this network today. Please try again tomorrow.", "retryAfterSeconds": 86400}
