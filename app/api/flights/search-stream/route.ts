@@ -1,10 +1,10 @@
 import { optionalUser } from "@/app/lib/server/auth";
 import { runFlightSearch, type SendEvent } from "@/app/lib/server/flight-search-stream";
-import { readJsonWithin } from "@/app/lib/server/http";
+import { readJsonWithin, tooManyRequests } from "@/app/lib/server/http";
 import { rateLimiter } from "@/app/lib/server/rate-limit";
 import { searchStreamSchema } from "@/app/lib/server/schemas";
 import { SEARCH_LIMIT_MESSAGES, searchLimitRules } from "@/app/lib/server/search-limits";
-import type { SearchLimitReason, SearchLimitResponse } from "@/app/lib/types/stream-events";
+import type { SearchLimitReason } from "@/app/lib/types/stream-events";
 
 // A search waits on Groq and Duffel; give it room on hosts that limit request time.
 export const maxDuration = 60;
@@ -42,16 +42,8 @@ export async function POST(request: Request) {
   const verdict = await rateLimiter.consume(searchLimitRules(optionalUser(request), request.headers));
   if (!verdict.allowed) {
     const reason = verdict.rule as SearchLimitReason;
-    const answer: SearchLimitResponse = {
-      success: false,
-      reason,
-      message: SEARCH_LIMIT_MESSAGES[reason],
-      retryAfterSeconds: verdict.retryAfterSeconds,
-    };
-    return Response.json(answer, {
-      status: 429,
-      headers: { "Retry-After": String(verdict.retryAfterSeconds) },
-    });
+    // The body is a SearchLimitResponse.
+    return tooManyRequests({ reason, message: SEARCH_LIMIT_MESSAGES[reason] }, verdict.retryAfterSeconds);
   }
 
   const body = validation.data;

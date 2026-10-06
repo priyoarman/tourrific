@@ -1,16 +1,10 @@
 // How many searches a visitor gets. Every chat message counts, since each one
 // costs a Groq call whether or not it goes on to search Duffel.
 import type { SearchLimitReason } from "../types/stream-events";
-import { ipKey, type RateLimitRule } from "./rate-limit.ts";
+import { ipKey, limitFromEnv, type RateLimitRule } from "./rate-limit.ts";
 
 const MINUTE = 60 * 1000;
 const DAY = 24 * 60 * MINUTE;
-
-/** A whole number from the environment, or the default when it is unset or unusable. */
-function limitFromEnv(name: string, fallback: number) {
-  const value = Number.parseInt(process.env[name] ?? "", 10);
-  return value > 0 ? value : fallback;
-}
 
 /**
  * The limits one search has to pass, in the order they are checked: the

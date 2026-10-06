@@ -1,6 +1,7 @@
 // Run with `npm test`.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { loginLimitRules, signupLimitRules } from "./auth-limits.ts";
 import { createMemoryRateLimiter, ipKey, type RateLimitRule } from "./rate-limit.ts";
 import { searchLimitRules } from "./search-limits.ts";
 
@@ -177,4 +178,26 @@ test("everyone's searches together are capped, and the limits can be set in the 
     delete process.env.SEARCH_LIMIT_GLOBAL_PER_DAY;
     delete process.env.SEARCH_LIMIT_PER_MINUTE;
   }
+});
+
+test("one address gets 10 login attempts in 15 minutes and 5 sign-ups a day", async () => {
+  const { limiter, advance } = limiterAt();
+  const from = (ip: string) => new Headers({ "x-forwarded-for": ip });
+
+  for (let i = 0; i < 10; i++) assert.equal((await limiter.consume(loginLimitRules(from("203.0.113.7")))).allowed, true);
+  assert.deepEqual(await limiter.consume(loginLimitRules(from("203.0.113.7"))), {
+    allowed: false,
+    rule: "login",
+    retryAfterSeconds: 15 * 60,
+  });
+  assert.equal((await limiter.consume(loginLimitRules(from("198.51.100.4")))).allowed, true);
+
+  // Logging in and signing up are counted apart.
+  for (let i = 0; i < 5; i++) assert.equal((await limiter.consume(signupLimitRules(from("203.0.113.7")))).allowed, true);
+  const blocked = await limiter.consume(signupLimitRules(from("203.0.113.7")));
+  assert.equal(!blocked.allowed && blocked.rule, "signup");
+
+  advance(15 * MINUTE);
+  assert.equal((await limiter.consume(loginLimitRules(from("203.0.113.7")))).allowed, true);
+  assert.equal((await limiter.consume(signupLimitRules(from("203.0.113.7")))).allowed, false);
 });

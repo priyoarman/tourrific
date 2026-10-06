@@ -53,6 +53,14 @@ export function parseId(value: string) {
   return /^\d{1,18}$/.test(value) ? BigInt(value) : null;
 }
 
+/** A 429 answer: `body` as JSON, with the wait also sent as the Retry-After header. */
+export function tooManyRequests(body: Record<string, unknown>, retryAfterSeconds: number) {
+  return Response.json(
+    { success: false, ...body, retryAfterSeconds },
+    { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
+  );
+}
+
 type Handler<Args extends unknown[]> = (...args: Args) => Promise<Response>;
 
 /**

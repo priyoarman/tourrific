@@ -133,3 +133,9 @@ export const rateLimiter: RateLimiter = (globalForRateLimit.rateLimiter ??= crea
 export function ipKey(headers: Headers) {
   return `ip:${clientIp(headers) ?? "unknown"}`;
 }
+
+/** A limit set in the environment: a whole number above zero, or the default when it is unset or unusable. */
+export function limitFromEnv(name: string, fallback: number) {
+  const value = Number.parseInt(process.env[name] ?? "", 10);
+  return value > 0 ? value : fallback;
+}
