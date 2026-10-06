@@ -11,7 +11,7 @@ import { MAX_PROMPT_LENGTH } from "@/app/lib/limits";
 import { getHotels } from "@/app/lib/mock-results";
 import { isRoadTripPrompt, plannerHref } from "@/app/lib/routes";
 import type { ChatMessage, FlightOffer, Hotel } from "@/app/lib/types";
-import type { SearchContext, StreamComplete } from "@/app/lib/types/stream-events";
+import type { SearchContext, SearchQuestion, StreamComplete } from "@/app/lib/types/stream-events";
 import ChatPanel from "./chat/ChatPanel";
 import { useChatHistory } from "./chat/useChatHistory";
 import FlightResults, { FLIGHTS_PAGE_SIZE, type FlightSearchStatus, type FlightSort } from "./flights/FlightResults";
@@ -42,7 +42,8 @@ const STARTER_SUGGESTIONS = [
   "Paris tomorrow",
 ];
 const FOLLOW_UP_SUGGESTIONS = ["A little later", "Direct flights only", "With a checked bag", "Somewhere else"];
-// Answers to "When would you like to travel?" after picking a destination card.
+// Answers to "When would you like to travel?", asked after picking a destination
+// card or when a message named a place but no date.
 const DATE_SUGGESTIONS = ["Tomorrow", "Next Friday", "Next weekend"];
 
 type PlannerTab = "chat" | "flights" | "hotels";
@@ -116,6 +117,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [result, setResult] = useState<FlightSearchResult | null>(null);
   /** Why the latest search failed, if it did. Cleared when the next one starts. */
   const [searchError, setSearchError] = useState<string | null>(null);
+  /** What the assistant is waiting to be told, if its last reply was a question. */
+  const [asking, setAsking] = useState<SearchQuestion | null>(null);
   const [visibleFlights, setVisibleFlights] = useState(FLIGHTS_PAGE_SIZE);
   const [flightSort, setFlightSort] = useState<FlightSort>("best");
   const [hotelSort, setHotelSort] = useState<HotelSort>("recommended");
@@ -169,6 +172,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     setIsSearching(true);
     setStatusLines([]);
     setSearchError(null);
+    setAsking(null);
 
     let gotResults = false;
     let sawDone = false;
@@ -202,9 +206,10 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             gotResults = true;
             showResults(event);
           },
-          done: ({ needsInput, context: next }) => {
+          done: ({ needsInput, asking: question, context: next }) => {
             clearTimeout(timeout);
             sawDone = true;
+            setAsking(needsInput ? (question ?? null) : null);
             if (next?.destination) context.current.destination = next.destination;
             if (next?.tripQuery) context.current.tripQuery = next.tripQuery;
             // `needsInput` means the assistant asked a question; just wait for the answer.
@@ -335,6 +340,18 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     setVisibleFlights(FLIGHTS_PAGE_SIZE);
   }
 
+  // The chips answer the question the assistant just asked; otherwise they suggest a next search.
+  const suggestions =
+    asking === "departure_date"
+      ? DATE_SUGGESTIONS
+      : asking === "return_date"
+        ? []
+        : result
+          ? FOLLOW_UP_SUGGESTIONS
+          : initialDestination
+            ? DATE_SUGGESTIONS
+            : STARTER_SUGGESTIONS;
+
   const panelClass = (id: PlannerTab) =>
     `${tab === id ? "flex" : "hidden"} min-h-0 flex-col lg:flex`;
 
@@ -357,9 +374,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             earlier={earlierMessages}
             isTyping={isSearching}
             statusLines={statusLines}
-            suggestions={
-              result ? FOLLOW_UP_SUGGESTIONS : initialDestination ? DATE_SUGGESTIONS : STARTER_SUGGESTIONS
-            }
+            suggestions={suggestions}
             onSend={send}
             footnote="AI-assisted travel planning. Hotels are sample data."
           />

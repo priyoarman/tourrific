@@ -70,10 +70,15 @@ export type StreamComplete = {
   };
 };
 
+/** What the assistant asked for when it needs an answer before it can search. */
+export type SearchQuestion = "destination" | "departure_date" | "return_date";
+
 /** The stream is over. */
 export type StreamDone = {
   /** True when the assistant asked a question and is waiting for the user's answer. */
   needsInput: boolean;
+  /** What that question was about, so the app can suggest fitting answers. */
+  asking?: SearchQuestion;
   context?: SearchContext;
 };
 

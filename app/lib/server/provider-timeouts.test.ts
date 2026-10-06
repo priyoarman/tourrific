@@ -152,3 +152,42 @@ test("an abandoned search stops where it is and never reaches Duffel", async () 
   assert.ok(events.every(([event]) => event === "status" || event === "message"));
   assert.ok(!events.some(([, data]) => /too long|Error searching/.test(data.text ?? "")));
 });
+
+test("a question says what it is asking for, and keeps the destination", async () => {
+  const groqReads = (query: Record<string, unknown>) =>
+    stubFetch(() =>
+      json(200, {
+        id: "x",
+        model: "test",
+        choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: JSON.stringify(query) } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+    );
+  const lastEvent = async (prompt: string) => {
+    const events: [string, unknown][] = [];
+    await runFlightSearch({ prompt }, new Headers(), (event, data) => events.push([event, data]));
+    return events.at(-1);
+  };
+
+  // A place but no date, as in "a beach holiday in Greece".
+  groqReads({ destination_airport: "ATH" });
+  assert.deepEqual(await lastEvent("a beach holiday"), [
+    "done",
+    { needsInput: true, asking: "departure_date", context: { destination: "ATH" } },
+  ]);
+
+  groqReads({ destination_airport: "ATH", departure_date: "2001-01-05" });
+  assert.deepEqual(await lastEvent("a beach holiday in 2001"), [
+    "done",
+    { needsInput: true, asking: "departure_date", context: { destination: "ATH" } },
+  ]);
+
+  groqReads({ destination_airport: "ATH", departure_date: "2099-01-05", trip_type: "return" });
+  assert.deepEqual(await lastEvent("a week away"), [
+    "done",
+    { needsInput: true, asking: "return_date", context: { destination: "ATH" } },
+  ]);
+
+  groqReads({});
+  assert.deepEqual(await lastEvent("hello"), ["done", { needsInput: true, asking: "destination" }]);
+});

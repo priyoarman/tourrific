@@ -2,7 +2,7 @@
 // lines, questions, and finally the flights).
 // Ported from api/src/controllers/flightSearchStream.js.
 import type { DuffelOffer } from "../types/duffel";
-import type { SearchContext, StreamEventMap, StreamEventName } from "../types/stream-events";
+import type { SearchContext, SearchQuestion, StreamEventMap, StreamEventName } from "../types/stream-events";
 import type { TripQuery } from "../types/trip-query";
 import { compactOffer } from "./compact-offer.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
@@ -98,9 +98,9 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
   }
 
   /** The assistant says something and waits for the visitor's answer. */
-  const ask = (text: string, nextContext?: SearchContext) => {
+  const ask = (asking: SearchQuestion, text: string, nextContext?: SearchContext) => {
     send("message", { text });
-    send("done", nextContext ? { needsInput: true, context: nextContext } : { needsInput: true });
+    send("done", nextContext ? { needsInput: true, asking, context: nextContext } : { needsInput: true, asking });
   };
 
   try {
@@ -151,19 +151,21 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     }
 
     if (!destination) {
-      ask("I'm a travel assistant. Where would you like to fly today?");
+      ask("destination", "I'm a travel assistant. Where would you like to fly today?");
       return;
     }
 
     if (!extracted.departure_date) {
-      ask("That's great. Could you please tell me when you'd like to travel?", { destination });
+      ask("departure_date", "That's great. Could you please tell me when you'd like to travel?", { destination });
       return;
     }
 
     const returnTrip = isReturnTrip(extracted);
 
     if (returnTrip && !extracted.return_date) {
-      ask(`Got it — a return trip to ${destination}. When would you like to come back?`, { destination });
+      ask("return_date", `Got it — a return trip to ${destination}. When would you like to come back?`, {
+        destination,
+      });
       return;
     }
 
@@ -172,18 +174,19 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
 
     const departureDate = parseDateOnly(extracted.departure_date);
     if (departureDate < today) {
-      ask("I cannot search for flights in the past. Please provide a future date.");
+      // The destination goes back too, so an answer of just a date still knows where to.
+      ask("departure_date", "I cannot search for flights in the past. Please provide a future date.", { destination });
       return;
     }
 
     if (extracted.return_date) {
       const returnDate = parseDateOnly(extracted.return_date);
       if (returnDate < today) {
-        ask("The return date cannot be in the past. Please provide a future return date.");
+        ask("return_date", "The return date cannot be in the past. Please provide a future return date.");
         return;
       }
       if (returnDate < departureDate) {
-        ask("The return date must be on or after your departure date.");
+        ask("return_date", "The return date must be on or after your departure date.");
         return;
       }
     }
