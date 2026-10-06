@@ -45,6 +45,8 @@ const FOLLOW_UP_SUGGESTIONS = ["A little later", "Direct flights only", "With a 
 // Answers to "When would you like to travel?", asked after picking a destination
 // card or when a message named a place but no date.
 const DATE_SUGGESTIONS = ["Tomorrow", "Next Friday", "Next weekend"];
+// Answers to "When would you like to come back?", counted from the departure date.
+const RETURN_SUGGESTIONS = ["3 days later", "A week later", "Two weeks later"];
 
 type PlannerTab = "chat" | "flights" | "hotels";
 
@@ -212,6 +214,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             setAsking(needsInput ? (question ?? null) : null);
             if (next?.destination) context.current.destination = next.destination;
             if (next?.tripQuery) context.current.tripQuery = next.tripQuery;
+            // A question replaces whatever was being waited for; a failed search leaves it, so the answer can be retried.
+            if (needsInput) context.current.awaiting = next?.awaiting ?? null;
             // `needsInput` means the assistant asked a question; just wait for the answer.
             if (!gotResults && !needsInput) report(CONNECTION_MESSAGE);
           },
@@ -345,7 +349,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     asking === "departure_date"
       ? DATE_SUGGESTIONS
       : asking === "return_date"
-        ? []
+        ? RETURN_SUGGESTIONS
         : result
           ? FOLLOW_UP_SUGGESTIONS
           : initialDestination
