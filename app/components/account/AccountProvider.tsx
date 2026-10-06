@@ -20,7 +20,8 @@ export type SaveOutcome =
 type Account = {
   user: AuthUser | null;
   token: string | null;
-  openAuth: (mode?: AuthMode, note?: string) => void;
+  /** `alert` shows the note as a warning. */
+  openAuth: (mode?: AuthMode, note?: string, alert?: boolean) => void;
   logOut: () => void;
   savedFlights: SavedFlight[];
   openSavedTrips: () => void;
@@ -51,7 +52,7 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const token = session?.token ?? null;
 
-  const [auth, setAuth] = useState<{ mode: AuthMode; note?: string } | null>(null);
+  const [auth, setAuth] = useState<{ mode: AuthMode; note?: string; alert?: boolean } | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [saved, setSaved] = useState<SavedState | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -84,9 +85,9 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     };
   }, [token]);
 
-  function openAuth(mode: AuthMode = "signin", note?: string) {
+  function openAuth(mode: AuthMode = "signin", note?: string, alert?: boolean) {
     setDrawerOpen(false);
-    setAuth({ mode, note });
+    setAuth({ mode, note, alert });
   }
 
   function closeAuth() {
@@ -188,6 +189,7 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
       <AuthDialog
         mode={auth?.mode ?? null}
         note={auth?.note}
+        noteIsAlert={auth?.alert}
         onModeChange={(mode) => setAuth({ mode })}
         onClose={closeAuth}
         onSignedIn={onSignedIn}

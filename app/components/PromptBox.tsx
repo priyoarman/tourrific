@@ -22,7 +22,7 @@ export default function PromptBox() {
         const q = prompt.trim() || EXAMPLE_PROMPT;
         router.push(plannerHref(q));
       }}
-      className="rounded-[1.75rem] border border-lavender-soft bg-white px-5 pt-5 pb-4 sm:rounded-4xl sm:px-6 sm:pt-7 sm:pb-6 shadow-[0_20px_50px_-12px_rgba(167,139,243,0.35)] sm:px-10"
+      className="rounded-[1.75rem] border border-lavender-soft bg-white px-5 pt-5 pb-4 sm:rounded-4xl sm:pt-7 sm:pb-6 shadow-[0_20px_50px_-12px_rgba(167,139,243,0.35)] sm:px-10"
     >
       <label htmlFor="trip-prompt" className="sr-only">
         Describe your trip

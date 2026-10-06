@@ -32,6 +32,6 @@ export function searchLimitRules(
 export const SEARCH_LIMIT_MESSAGES: Record<SearchLimitReason, string> = {
   busy: "Tourrific is very busy right now. Please try again later.",
   burst: "You're searching very quickly. Please wait a moment and try again.",
-  guest_limit: "You've used your free searches for today. Log in or sign up to keep going.",
+  guest_limit: "You've used your free searches for today. Sign in or sign up to keep going.",
   user_limit: "You've reached today's search limit. Please try again tomorrow.",
 };

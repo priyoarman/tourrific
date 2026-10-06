@@ -4,11 +4,30 @@ import { consumeSseStream } from "./sse";
 import type { FlightOffer } from "./types";
 import type {
   SearchContext,
+  SearchLimitReason,
   SearchStreamRequest,
   StreamComplete,
   StreamEventHandlers,
 } from "./types/stream-events";
 import type { TripQuery } from "./types/trip-query";
+
+/**
+ * The backend turned the search away before it started: a limit was reached
+ * (429, with a `reason`) or it couldn't accept the message (400).
+ */
+export class SearchRejected extends Error {
+  status: number;
+  reason: SearchLimitReason | null;
+
+  /** `data` is the answer's JSON body, if it had one. Its `message` is written for the visitor. */
+  constructor(status: number, data: unknown) {
+    const body = (data && typeof data === "object" ? data : {}) as { message?: unknown; reason?: unknown };
+    super(typeof body.message === "string" ? body.message : "");
+    this.name = "SearchRejected";
+    this.status = status;
+    this.reason = typeof body.reason === "string" ? (body.reason as SearchLimitReason) : null;
+  }
+}
 
 /**
  * Sends one chat message to the backend, which extracts a flight search from it
@@ -17,6 +36,8 @@ import type { TripQuery } from "./types/trip-query";
  *
  * `context` is what earlier searches returned. Passing it back lets follow-ups
  * like "a little later" build on the previous search.
+ *
+ * Throws SearchRejected when the backend answers with an error instead of a stream.
  */
 export async function searchFlights(
   prompt: string,
@@ -45,6 +66,8 @@ export async function searchFlights(
     body: JSON.stringify(body),
     signal,
   });
+
+  if (!response.ok) throw new SearchRejected(response.status, await response.json().catch(() => null));
 
   await consumeSseStream(response, handlers);
 }

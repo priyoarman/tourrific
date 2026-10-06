@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/app/components/account/AccountProvider";
 import { BedIcon, ChatIcon, PlaneIcon } from "@/app/components/ui/Icons";
 import { stayForSearch } from "@/app/lib/destinations";
-import { searchFlights, toSearchResult, type FlightSearchResult } from "@/app/lib/flight-search";
+import { SearchRejected, searchFlights, toSearchResult, type FlightSearchResult } from "@/app/lib/flight-search";
 import { formatDate, formatNights, formatPrice } from "@/app/lib/format";
+import { MAX_PROMPT_LENGTH } from "@/app/lib/limits";
 import { getHotels } from "@/app/lib/mock-results";
 import { isRoadTripPrompt, plannerHref } from "@/app/lib/routes";
 import type { ChatMessage, FlightOffer, Hotel } from "@/app/lib/types";
@@ -28,7 +29,8 @@ const TIMEOUT_MESSAGE =
   "The server is taking too long to respond (possibly due to AI limits). Please try again in a moment.";
 const CONNECTION_MESSAGE =
   "I'm having trouble connecting to the flight server. Please wait a moment and try again.";
-const RATE_LIMIT_MESSAGE = "I've hit my daily AI limit. Please try again in 10 minutes.";
+const INVALID_MESSAGE = `I couldn't read that message. Please keep it under ${MAX_PROMPT_LENGTH} characters and try again.`;
+const GUEST_LIMIT_NOTE = "You've used your free searches for today. Sign in to keep going.";
 const OFFLINE_MESSAGE = "You're offline. Check your connection and try again.";
 
 // Each of these is something the backend understands as a search or a follow-up.
@@ -121,7 +123,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [tab, setTab] = useState<PlannerTab>("chat");
   const router = useRouter();
-  const { token, isSaved, toggleSaved } = useAccount();
+  const { token, isSaved, toggleSaved, openAuth } = useAccount();
   // Signed-in users get their earlier messages back, and this visit's messages stored.
   const earlierMessages = useChatHistory(token, messages, [WELCOME_ID]);
 
@@ -131,6 +133,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   // is searched as a trip there, while "Paris tomorrow" can still change it.
   const context = useRef<SearchContext>(initialDestination ? { destination: initialDestination } : {});
   const activeSearch = useRef<AbortController | null>(null);
+  /** A message turned away because the guest's searches ran out; sent again once they log in. */
+  const blockedPrompt = useRef<string | null>(null);
 
   // Hotels are still sample data; they follow the destination and dates of the flight search.
   const stay =
@@ -139,8 +143,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       : null;
   const hotels = stay ? getHotels(stay) : [];
 
-  function addMessage(role: ChatMessage["role"], text: string) {
-    setMessages((prev) => [...prev, { id: newId(), role, text }]);
+  function addMessage(role: ChatMessage["role"], text: string, action?: ChatMessage["action"]) {
+    setMessages((prev) => [...prev, { id: newId(), role, text, action }]);
   }
 
   function showResults(event: StreamComplete) {
@@ -159,6 +163,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     activeSearch.current?.abort();
     const controller = new AbortController();
     activeSearch.current = controller;
+    blockedPrompt.current = null;
     setIsSearching(true);
     setStatusLines([]);
     setSearchError(null);
@@ -167,11 +172,11 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     let sawDone = false;
     let reported = false;
     // At most one problem is reported per search, however many ways it fails.
-    const report = (text: string) => {
+    const report = (text: string, action?: ChatMessage["action"]) => {
       if (reported) return;
       reported = true;
       setSearchError(text);
-      addMessage("assistant", text);
+      addMessage("assistant", text, action);
     };
     const timeout = setTimeout(() => {
       report(TIMEOUT_MESSAGE);
@@ -212,8 +217,20 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     } catch (error) {
       // Aborted means a newer search replaced this one, the page was left, or it timed out.
       if (controller.signal.aborted) return;
-      const isRateLimit = error instanceof Error && /rate limit/i.test(error.message);
-      report(isRateLimit ? RATE_LIMIT_MESSAGE : CONNECTION_MESSAGE);
+      if (!(error instanceof SearchRejected)) {
+        report(CONNECTION_MESSAGE);
+      } else if (error.status === 429 && error.message) {
+        // A limit was reached; the backend's message says which, and what to do about it.
+        const guestLimit = error.reason === "guest_limit";
+        if (guestLimit) {
+          blockedPrompt.current = prompt;
+          // Straight to the sign-in dialog; the buttons under the message reopen it if it is closed.
+          openAuth("signin", GUEST_LIMIT_NOTE, true);
+        }
+        report(error.message, guestLimit ? "auth" : undefined);
+      } else {
+        report(error.status === 400 ? INVALID_MESSAGE : CONNECTION_MESSAGE);
+      }
     } finally {
       clearTimeout(timeout);
       if (activeSearch.current === controller) {
@@ -235,6 +252,16 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   }, []);
 
   useEffect(() => () => activeSearch.current?.abort(), []);
+
+  // Logging in gives more searches, so the message that was turned away is sent again.
+  useEffect(() => {
+    const prompt = blockedPrompt.current;
+    if (!token || !prompt) return;
+    const start = setTimeout(() => runSearch(prompt), 0);
+    return () => clearTimeout(start);
+    // Only a new login triggers it; `runSearch` is new on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   function send(text: string) {
     // Road trips are planned on their own page, with a route map instead of flights.
