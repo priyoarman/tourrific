@@ -248,6 +248,11 @@ type Options = {
   referenceDate?: Date;
   /** Aborted when the visitor is no longer waiting for the answer. */
   signal?: AbortSignal;
+  /**
+   * The words to look for relative dates in ("tomorrow", "next Friday"), when
+   * `userText` holds more than the visitor's own message. Null looks for none.
+   */
+  datesFrom?: string | null;
 };
 
 /**
@@ -263,7 +268,7 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
 
   const referenceDate = opts.referenceDate || new Date();
   const currentDate = toDateOnlyString(startOfToday(referenceDate));
-  const localDates = parseNaturalTravelDates(userText, referenceDate);
+  const localDates = parseNaturalTravelDates(opts.datesFrom === undefined ? userText : opts.datesFrom, referenceDate);
   const prompt = [
     { role: "system" as const, content: SYSTEM_PROMPT.replace("{{CURRENT_DATE}}", currentDate) },
     { role: "user" as const, content: [{ type: "text" as const, text: userText }] },

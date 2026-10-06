@@ -2,6 +2,7 @@
 // "somewhere else", "further south") and merges it into that search.
 // Ported from api/src/controllers/flightSearchStream.js.
 import type { TripQuery } from "../types/trip-query";
+import { parseNaturalTravelDates } from "./groq/extractor.ts";
 
 const DESTINATION_EDIT =
   /\b(somewhere else|somewhere other|other than|another place|different place|different destination|elsewhere|more\s+(south|north|east|west)|a little\s+(south|north|east|west)|further\s+(south|north|east|west))\b/i;
@@ -48,6 +49,28 @@ function hasUsefulValue(value: unknown) {
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === "string") return value.trim() !== "";
   return true;
+}
+
+const STAY_LENGTH =
+  /\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:more\s+)?(day|night|week)s?\b/i;
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+
+/**
+ * The return date in an answer to "When would you like to come back?", worked
+ * out from the departure date without asking the model: a length of stay
+ * ("a week later", "3 nights") or a day counted from departure ("Sunday" is
+ * the first Sunday after leaving). Null for anything else, such as "20 October".
+ */
+export function returnDateFromAnswer(answer: string, departureDate: string) {
+  const stay = answer.match(STAY_LENGTH);
+  if (stay) {
+    const word = stay[1].toLowerCase();
+    const count = word === "a" || word === "an" ? 1 : NUMBER_WORDS.includes(word) ? NUMBER_WORDS.indexOf(word) : Number(word);
+    const days = count * (stay[2].toLowerCase() === "week" ? 7 : 1);
+    return days > 0 ? addDaysToDateString(departureDate, days) : null;
+  }
+
+  return parseNaturalTravelDates(answer, parseDateOnly(departureDate)).departure_date;
 }
 
 /** True when the message asks for a different place than last time. */

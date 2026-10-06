@@ -8,7 +8,13 @@ import { compactOffer } from "./compact-offer.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
 import { DuffelTimeout, searchFlightsCached, type DuffelSearchSlice } from "./duffel.ts";
 import { duffelSearchOptions, filterOffers, passengerCount } from "./flight-filters.ts";
-import { isPlainObject, mentionsDestinationEdit, mergeFollowUpTripQuery, parseDateOnly } from "./follow-up.ts";
+import {
+  isPlainObject,
+  mentionsDestinationEdit,
+  mergeFollowUpTripQuery,
+  parseDateOnly,
+  returnDateFromAnswer,
+} from "./follow-up.ts";
 import { extractTripQuery } from "./groq/extractor.ts";
 import { detectFallbackOrigin } from "./origin-fallback.ts";
 
@@ -86,7 +92,11 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
   const userPrompt = typeof request.prompt === "string" ? request.prompt.trim() : "";
   const context = (isPlainObject(request.context) ? request.context : {}) as SearchContext;
   const contextDestination = typeof context.destination === "string" ? context.destination : null;
-  const previousTripQuery = isPlainObject(context.tripQuery) ? (context.tripQuery as TripQuery) : null;
+  const contextTripQuery = isPlainObject(context.tripQuery) ? (context.tripQuery as TripQuery) : null;
+  // A return trip that only lacks its return date: this message is the answer to that question.
+  const awaitingReturn =
+    context.awaiting === "return_date" && contextTripQuery?.departure_date ? contextTripQuery : null;
+  const previousTripQuery = awaitingReturn ? null : contextTripQuery;
   // `limit: "all"` returns every offer in one response, in a compact form, so the
   // client can sort and page locally instead of re-running the search per page.
   const sendAll = request.limit === "all";
@@ -103,25 +113,62 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     send("done", nextContext ? { needsInput: true, asking, context: nextContext } : { needsInput: true, asking });
   };
 
+  /** Asks for the return date, and sends the rest of the search along so the answer completes it. */
+  const askReturnDate = (text: string, search: TripQuery, destination: string) => {
+    const tripQuery: TripQuery = { ...search, destination_airport: destination, return_date: null, trip_type: "return" };
+    // Said once already; it shouldn't be repeated with the answer.
+    delete tripQuery.explanation;
+    ask("return_date", text, { destination, tripQuery, awaiting: "return_date" });
+  };
+
+  /** Groq couldn't be asked; say why and end the search. */
+  const extractionFailed = (reason: string) => {
+    send("message", { text: EXTRACTION_PROBLEMS[reason] ?? EXTRACTION_PROBLEM, isError: true });
+    send("done", { needsInput: false });
+  };
+
   try {
     send("status", { text: " Understanding your request..." });
     await delay(300);
 
-    const extractionPrompt = previousTripQuery
-      ? `Previous flight search JSON: ${JSON.stringify(previousTripQuery)}\nUser message: ${userPrompt}\nIf the user message is a revision or follow-up, keep unchanged fields from the previous search and update only what the user changed.`
-      : contextDestination
-        ? `Context: The user previously mentioned wanting to fly to ${contextDestination}.\nUser message: ${userPrompt}`
-        : userPrompt;
+    let extracted: TripQuery;
 
-    const result = await extractTripQuery(extractionPrompt, { signal });
-    if (signal?.aborted) return;
-    if (!result.ok) {
-      send("message", { text: EXTRACTION_PROBLEMS[result.errors[0]] ?? EXTRACTION_PROBLEM, isError: true });
-      send("done", { needsInput: false });
-      return;
+    if (awaitingReturn) {
+      const departure = awaitingReturn.departure_date as string;
+      const destination = awaitingReturn.destination_airport ?? contextDestination ?? "";
+      let returnDate = returnDateFromAnswer(userPrompt, departure);
+
+      // Anything else ("20 October", "the day after Christmas") is read by Groq.
+      if (!returnDate) {
+        const question = `A return flight to ${destination} leaves on ${departure}. The traveller was asked when they want to fly back, and answered: "${userPrompt}"\nSet departure_date to ${departure} and return_date to the date they fly back, which is on or after ${departure}. Leave every other field null.`;
+        const result = await extractTripQuery(question, { signal, datesFrom: null });
+        if (signal?.aborted) return;
+        if (!result.ok) return extractionFailed(result.errors[0]);
+
+        const { return_date: back, departure_date: leaving } = result.parsed;
+        // In case the model put the date it read in the other field.
+        const read = back ?? (leaving !== departure ? leaving : null);
+        returnDate = read && /^\d{4}-\d{2}-\d{2}$/.test(read) ? read : null;
+      }
+
+      if (!returnDate) {
+        askReturnDate("Sorry, I didn't catch a date. When would you like to come back?", awaitingReturn, destination);
+        return;
+      }
+      extracted = { ...awaitingReturn, return_date: returnDate, trip_type: "return" };
+    } else {
+      const extractionPrompt = previousTripQuery
+        ? `Previous flight search JSON: ${JSON.stringify(previousTripQuery)}\nUser message: ${userPrompt}\nIf the user message is a revision or follow-up, keep unchanged fields from the previous search and update only what the user changed.`
+        : contextDestination
+          ? `Context: The user previously mentioned wanting to fly to ${contextDestination}.\nUser message: ${userPrompt}`
+          : userPrompt;
+
+      const result = await extractTripQuery(extractionPrompt, { signal });
+      if (signal?.aborted) return;
+      if (!result.ok) return extractionFailed(result.errors[0]);
+
+      extracted = mergeFollowUpTripQuery({ ...result.parsed }, previousTripQuery, userPrompt);
     }
-
-    const extracted = mergeFollowUpTripQuery({ ...result.parsed }, previousTripQuery, userPrompt);
 
     if (!extracted.origin_airport) {
       extracted.origin_airport = detectFallbackOrigin(headers);
@@ -163,9 +210,7 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     const returnTrip = isReturnTrip(extracted);
 
     if (returnTrip && !extracted.return_date) {
-      ask("return_date", `Got it — a return trip to ${destination}. When would you like to come back?`, {
-        destination,
-      });
+      askReturnDate(`Got it — a return trip to ${destination}. When would you like to come back?`, extracted, destination);
       return;
     }
 
@@ -182,11 +227,11 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     if (extracted.return_date) {
       const returnDate = parseDateOnly(extracted.return_date);
       if (returnDate < today) {
-        ask("return_date", "The return date cannot be in the past. Please provide a future return date.");
+        askReturnDate("The return date cannot be in the past. Please provide a future return date.", extracted, destination);
         return;
       }
       if (returnDate < departureDate) {
-        ask("return_date", "The return date must be on or after your departure date.");
+        askReturnDate("The return date must be on or after your departure date.", extracted, destination);
         return;
       }
     }
