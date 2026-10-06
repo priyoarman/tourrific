@@ -7,6 +7,8 @@ import TRIP_QUERY_SCHEMA from "./schema.ts";
 import SYSTEM_PROMPT from "./system-prompt.ts";
 
 const DEFAULT_MODEL = "openai/gpt-oss-20b";
+// Groq normally answers in a second or two. Both attempts share this time.
+const DEFAULT_TIMEOUT_MS = 10_000;
 const MONTH_NAMES = [
   "january",
   "february",
@@ -241,11 +243,19 @@ export type ExtractionResult =
   | { ok: true; parsed: TripQuery; errors: string[] }
   | { ok: false; parsed: null; errors: string[] };
 
-type Options = { modelId?: string; referenceDate?: Date };
+type Options = {
+  modelId?: string;
+  referenceDate?: Date;
+  /** Aborted when the visitor is no longer waiting for the answer. */
+  signal?: AbortSignal;
+};
 
 /**
  * Sends the text to Groq and returns the flight search it describes.
  * `ok: false` means the model could not be reached or didn't answer in JSON.
+ * Its first error then says why: "timeout" (Groq took too long),
+ * "rate_limited" (Groq's own quota is used up), "cancelled" (`signal` was
+ * aborted), or "failed_generation" for anything else.
  */
 export async function extractTripQuery(userText: string, opts: Options = {}): Promise<ExtractionResult> {
   const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
@@ -259,11 +269,26 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
     { role: "user" as const, content: [{ type: "text" as const, text: userText }] },
   ];
 
+  const timeout = AbortSignal.timeout(Number(process.env.GROQ_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS);
+  const abortSignal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
+  /** Why trying again is pointless, or null when a second attempt may work. */
+  const givenUp = (error: unknown) => {
+    if (opts.signal?.aborted) return "cancelled";
+    if (timeout.aborted) return "timeout";
+    return (error as { statusCode?: number }).statusCode === 429 ? "rate_limited" : null;
+  };
+  const failed = (reason: string, error: unknown): ExtractionResult => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Groq generation failed (${reason}):`, message);
+    return { ok: false, parsed: null, errors: [reason, message] };
+  };
+
   let response;
   try {
     // The AI SDK maps this to Groq's structured outputs (response_format: json_schema).
     response = await model.doGenerate({
       prompt,
+      abortSignal,
       responseFormat: {
         type: "json",
         name: "trip_query_extraction",
@@ -275,17 +300,19 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
       maxOutputTokens: 1024,
     });
   } catch (error) {
+    // A second call would only wait again, or spend quota nobody is waiting for.
+    const reason = givenUp(error);
+    if (reason) return failed(reason, error);
+
     console.warn(
       "Groq structured generation failed; retrying without schema validation:",
       error instanceof Error ? error.message : error,
     );
 
     try {
-      response = await model.doGenerate({ prompt, maxOutputTokens: 1024 });
+      response = await model.doGenerate({ prompt, abortSignal, maxOutputTokens: 1024 });
     } catch (retryError) {
-      const message = retryError instanceof Error ? retryError.message : String(retryError);
-      console.error("Groq generation failed:", message);
-      return { ok: false, parsed: null, errors: ["failed_generation", message] };
+      return failed(givenUp(retryError) ?? "failed_generation", retryError);
     }
   }
 

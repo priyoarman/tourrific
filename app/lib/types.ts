@@ -94,6 +94,8 @@ export type ChatMessage = {
   role: "user" | "assistant";
   /** Assistant text may wrap phrases in **double asterisks** for emphasis. */
   text: string;
+  /** Buttons shown under the text. "auth" offers Sign In and Sign Up to a visitor who isn't signed in. */
+  action?: "auth";
 };
 
 export type RoadStop = {

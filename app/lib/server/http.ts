@@ -14,9 +14,51 @@ export async function readJson(request: Request): Promise<unknown> {
   }
 }
 
+/**
+ * The request's JSON body, read only up to `maxBytes`. A bigger body is not
+ * read to the end; it answers `tooLarge` instead.
+ */
+export async function readJsonWithin(
+  request: Request,
+  maxBytes: number,
+): Promise<{ tooLarge: true } | { tooLarge: false; body: unknown }> {
+  if (Number(request.headers.get("content-length")) > maxBytes) return { tooLarge: true };
+
+  const reader = request.body?.getReader();
+  if (!reader) return { tooLarge: false, body: null };
+
+  // Content-Length can be missing or wrong, so the bytes are counted as they arrive.
+  const decoder = new TextDecoder();
+  let text = "";
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        await reader.cancel();
+        return { tooLarge: true };
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    return { tooLarge: false, body: JSON.parse(text + decoder.decode()) };
+  } catch {
+    return { tooLarge: false, body: null };
+  }
+}
+
 /** A database id from the URL, or null when it isn't a whole number. */
 export function parseId(value: string) {
   return /^\d{1,18}$/.test(value) ? BigInt(value) : null;
+}
+
+/** A 429 answer: `body` as JSON, with the wait also sent as the Retry-After header. */
+export function tooManyRequests(body: Record<string, unknown>, retryAfterSeconds: number) {
+  return Response.json(
+    { success: false, ...body, retryAfterSeconds },
+    { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
+  );
 }
 
 type Handler<Args extends unknown[]> = (...args: Args) => Promise<Response>;

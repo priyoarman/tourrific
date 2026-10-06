@@ -5,12 +5,13 @@ import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/app/components/account/AccountProvider";
 import { BedIcon, ChatIcon, PlaneIcon } from "@/app/components/ui/Icons";
 import { stayForSearch } from "@/app/lib/destinations";
-import { searchFlights, toSearchResult, type FlightSearchResult } from "@/app/lib/flight-search";
+import { SearchRejected, searchFlights, toSearchResult, type FlightSearchResult } from "@/app/lib/flight-search";
 import { formatDate, formatNights, formatPrice } from "@/app/lib/format";
+import { MAX_PROMPT_LENGTH } from "@/app/lib/limits";
 import { getHotels } from "@/app/lib/mock-results";
 import { isRoadTripPrompt, plannerHref } from "@/app/lib/routes";
 import type { ChatMessage, FlightOffer, Hotel } from "@/app/lib/types";
-import type { SearchContext, StreamComplete } from "@/app/lib/types/stream-events";
+import type { SearchContext, SearchQuestion, StreamComplete } from "@/app/lib/types/stream-events";
 import ChatPanel from "./chat/ChatPanel";
 import { useChatHistory } from "./chat/useChatHistory";
 import FlightResults, { FLIGHTS_PAGE_SIZE, type FlightSearchStatus, type FlightSort } from "./flights/FlightResults";
@@ -19,7 +20,9 @@ import MobileTabs from "./MobileTabs";
 import ResultsColumn from "./results/ResultsColumn";
 import SampleBadge from "./results/SampleBadge";
 
-const SEARCH_TIMEOUT_MS = 30_000;
+// The backend gives up on Groq after 10s and on Duffel after 20s, and says why.
+// This is the fallback for when not even that arrives.
+const SEARCH_TIMEOUT_MS = 40_000;
 
 const WELCOME_ID = "welcome";
 const WELCOME =
@@ -28,7 +31,8 @@ const TIMEOUT_MESSAGE =
   "The server is taking too long to respond (possibly due to AI limits). Please try again in a moment.";
 const CONNECTION_MESSAGE =
   "I'm having trouble connecting to the flight server. Please wait a moment and try again.";
-const RATE_LIMIT_MESSAGE = "I've hit my daily AI limit. Please try again in 10 minutes.";
+const INVALID_MESSAGE = `I couldn't read that message. Please keep it under ${MAX_PROMPT_LENGTH} characters and try again.`;
+const GUEST_LIMIT_NOTE = "You've used your free searches for today. Sign in to keep going.";
 const OFFLINE_MESSAGE = "You're offline. Check your connection and try again.";
 
 // Each of these is something the backend understands as a search or a follow-up.
@@ -38,7 +42,8 @@ const STARTER_SUGGESTIONS = [
   "Paris tomorrow",
 ];
 const FOLLOW_UP_SUGGESTIONS = ["A little later", "Direct flights only", "With a checked bag", "Somewhere else"];
-// Answers to "When would you like to travel?" after picking a destination card.
+// Answers to "When would you like to travel?", asked after picking a destination
+// card or when a message named a place but no date.
 const DATE_SUGGESTIONS = ["Tomorrow", "Next Friday", "Next weekend"];
 
 type PlannerTab = "chat" | "flights" | "hotels";
@@ -112,6 +117,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [result, setResult] = useState<FlightSearchResult | null>(null);
   /** Why the latest search failed, if it did. Cleared when the next one starts. */
   const [searchError, setSearchError] = useState<string | null>(null);
+  /** What the assistant is waiting to be told, if its last reply was a question. */
+  const [asking, setAsking] = useState<SearchQuestion | null>(null);
   const [visibleFlights, setVisibleFlights] = useState(FLIGHTS_PAGE_SIZE);
   const [flightSort, setFlightSort] = useState<FlightSort>("best");
   const [hotelSort, setHotelSort] = useState<HotelSort>("recommended");
@@ -121,7 +128,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [tab, setTab] = useState<PlannerTab>("chat");
   const router = useRouter();
-  const { token, isSaved, toggleSaved } = useAccount();
+  const { token, isSaved, toggleSaved, openAuth } = useAccount();
   // Signed-in users get their earlier messages back, and this visit's messages stored.
   const earlierMessages = useChatHistory(token, messages, [WELCOME_ID]);
 
@@ -131,6 +138,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   // is searched as a trip there, while "Paris tomorrow" can still change it.
   const context = useRef<SearchContext>(initialDestination ? { destination: initialDestination } : {});
   const activeSearch = useRef<AbortController | null>(null);
+  /** A message turned away because the guest's searches ran out; sent again once they log in. */
+  const blockedPrompt = useRef<string | null>(null);
 
   // Hotels are still sample data; they follow the destination and dates of the flight search.
   const stay =
@@ -139,8 +148,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       : null;
   const hotels = stay ? getHotels(stay) : [];
 
-  function addMessage(role: ChatMessage["role"], text: string) {
-    setMessages((prev) => [...prev, { id: newId(), role, text }]);
+  function addMessage(role: ChatMessage["role"], text: string, action?: ChatMessage["action"]) {
+    setMessages((prev) => [...prev, { id: newId(), role, text, action }]);
   }
 
   function showResults(event: StreamComplete) {
@@ -159,19 +168,21 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     activeSearch.current?.abort();
     const controller = new AbortController();
     activeSearch.current = controller;
+    blockedPrompt.current = null;
     setIsSearching(true);
     setStatusLines([]);
     setSearchError(null);
+    setAsking(null);
 
     let gotResults = false;
     let sawDone = false;
     let reported = false;
     // At most one problem is reported per search, however many ways it fails.
-    const report = (text: string) => {
+    const report = (text: string, action?: ChatMessage["action"]) => {
       if (reported) return;
       reported = true;
       setSearchError(text);
-      addMessage("assistant", text);
+      addMessage("assistant", text, action);
     };
     const timeout = setTimeout(() => {
       report(TIMEOUT_MESSAGE);
@@ -195,9 +206,10 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             gotResults = true;
             showResults(event);
           },
-          done: ({ needsInput, context: next }) => {
+          done: ({ needsInput, asking: question, context: next }) => {
             clearTimeout(timeout);
             sawDone = true;
+            setAsking(needsInput ? (question ?? null) : null);
             if (next?.destination) context.current.destination = next.destination;
             if (next?.tripQuery) context.current.tripQuery = next.tripQuery;
             // `needsInput` means the assistant asked a question; just wait for the answer.
@@ -212,8 +224,20 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     } catch (error) {
       // Aborted means a newer search replaced this one, the page was left, or it timed out.
       if (controller.signal.aborted) return;
-      const isRateLimit = error instanceof Error && /rate limit/i.test(error.message);
-      report(isRateLimit ? RATE_LIMIT_MESSAGE : CONNECTION_MESSAGE);
+      if (!(error instanceof SearchRejected)) {
+        report(CONNECTION_MESSAGE);
+      } else if (error.status === 429 && error.message) {
+        // A limit was reached; the backend's message says which, and what to do about it.
+        const guestLimit = error.reason === "guest_limit";
+        if (guestLimit) {
+          blockedPrompt.current = prompt;
+          // Straight to the sign-in dialog; the buttons under the message reopen it if it is closed.
+          openAuth("signin", GUEST_LIMIT_NOTE, true);
+        }
+        report(error.message, guestLimit ? "auth" : undefined);
+      } else {
+        report(error.status === 400 ? INVALID_MESSAGE : CONNECTION_MESSAGE);
+      }
     } finally {
       clearTimeout(timeout);
       if (activeSearch.current === controller) {
@@ -235,6 +259,16 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   }, []);
 
   useEffect(() => () => activeSearch.current?.abort(), []);
+
+  // Logging in gives more searches, so the message that was turned away is sent again.
+  useEffect(() => {
+    const prompt = blockedPrompt.current;
+    if (!token || !prompt) return;
+    const start = setTimeout(() => runSearch(prompt), 0);
+    return () => clearTimeout(start);
+    // Only a new login triggers it; `runSearch` is new on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   function send(text: string) {
     // Road trips are planned on their own page, with a route map instead of flights.
@@ -306,6 +340,18 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     setVisibleFlights(FLIGHTS_PAGE_SIZE);
   }
 
+  // The chips answer the question the assistant just asked; otherwise they suggest a next search.
+  const suggestions =
+    asking === "departure_date"
+      ? DATE_SUGGESTIONS
+      : asking === "return_date"
+        ? []
+        : result
+          ? FOLLOW_UP_SUGGESTIONS
+          : initialDestination
+            ? DATE_SUGGESTIONS
+            : STARTER_SUGGESTIONS;
+
   const panelClass = (id: PlannerTab) =>
     `${tab === id ? "flex" : "hidden"} min-h-0 flex-col lg:flex`;
 
@@ -328,9 +374,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             earlier={earlierMessages}
             isTyping={isSearching}
             statusLines={statusLines}
-            suggestions={
-              result ? FOLLOW_UP_SUGGESTIONS : initialDestination ? DATE_SUGGESTIONS : STARTER_SUGGESTIONS
-            }
+            suggestions={suggestions}
             onSend={send}
             footnote="AI-assisted travel planning. Hotels are sample data."
           />

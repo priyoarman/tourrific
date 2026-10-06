@@ -13,6 +13,8 @@ type Props = {
   mode: AuthMode | null;
   /** Why the dialog opened, e.g. "Sign in to save this flight." */
   note?: string;
+  /** Show the note as a warning, for when something was just refused. */
+  noteIsAlert?: boolean;
   onModeChange: (mode: AuthMode) => void;
   onClose: () => void;
   onSignedIn: (session: Session) => void;
@@ -40,7 +42,7 @@ const copy = {
 const inputClass =
   "w-full rounded-2xl border border-lavender-soft bg-white px-4 py-3 text-base text-ink placeholder:text-placeholder focus:border-lavender focus:outline-none focus:ring-2 focus:ring-lavender/40";
 
-function Form({ mode, note, onModeChange, onClose, onSignedIn }: Props & { mode: AuthMode }) {
+function Form({ mode, note, noteIsAlert, onModeChange, onClose, onSignedIn }: Props & { mode: AuthMode }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -92,7 +94,13 @@ function Form({ mode, note, onModeChange, onClose, onSignedIn }: Props & { mode:
         Tourrific <span aria-hidden className="text-[0.7em]">✦</span>
       </p>
       <h2 className="mt-3 text-3xl font-bold tracking-tight text-ink">{text.title}</h2>
-      <p className="mt-2 text-[0.9375rem] text-ink-muted">{note ?? text.intro}</p>
+      {note && noteIsAlert ? (
+        <p role="alert" className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-[0.9375rem] font-medium text-red-700">
+          {note}
+        </p>
+      ) : (
+        <p className="mt-2 text-[0.9375rem] text-ink-muted">{note ?? text.intro}</p>
+      )}
 
       <form onSubmit={submit} className="mt-6 space-y-4">
         {isSignUp && (

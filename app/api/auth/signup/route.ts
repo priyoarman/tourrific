@@ -1,15 +1,28 @@
 import bcrypt from "bcryptjs";
-import { handle, readJson } from "@/app/lib/server/http";
+import { signupLimitRules } from "@/app/lib/server/auth-limits";
+import { handle, readJson, tooManyRequests } from "@/app/lib/server/http";
 import prisma from "@/app/lib/server/prisma";
+import { rateLimiter } from "@/app/lib/server/rate-limit";
 import { signupSchema } from "@/app/lib/server/schemas";
 
 const emailTaken = () => Response.json({ success: false, message: "Email already exists" }, { status: 409 });
 
-/** POST /api/auth/signup — creates an account. It returns no token; the client signs in next. */
+/**
+ * POST /api/auth/signup — creates an account. It returns no token; the client
+ * signs in next. One address gets a few attempts a day (429 after that).
+ */
 export const POST = handle(async (request: Request) => {
   const validation = signupSchema.safeParse(await readJson(request));
   if (!validation.success) {
     return Response.json({ success: false, errors: validation.error.flatten().fieldErrors }, { status: 400 });
+  }
+
+  const verdict = await rateLimiter.consume(signupLimitRules(request.headers));
+  if (!verdict.allowed) {
+    return tooManyRequests(
+      { message: "Too many sign-ups from this network today. Please try again tomorrow." },
+      verdict.retryAfterSeconds,
+    );
   }
 
   const { name, email, password } = validation.data;

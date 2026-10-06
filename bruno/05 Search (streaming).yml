@@ -22,4 +22,14 @@ settings:
   maxRedirects: 5
 
 docs: |-
-  The endpoint the app uses. Answers with server-sent events: status, message, complete, done. No login needed. Add "context": { "destination", "tripQuery" } from a previous `complete` event to send a follow-up such as "a little later".
+  The endpoint the app uses. Answers with server-sent events: status, message, complete, done. Add "context": { "destination", "tripQuery" } from a previous `complete` event to send a follow-up such as "a little later".
+
+  No login needed. A guest gets 10 searches a day per IP address; with `Authorization: Bearer {{token}}` the search counts against the account instead, which gets 50. Everyone is limited to 5 a minute.
+
+  400 (JSON) when the body is over 8 KB, the prompt is empty or longer than 500 characters, or the context isn't a valid previous search.
+
+  429 (JSON, with a Retry-After header) when a limit is reached. `reason` is one of: `burst` (5 a minute), `guest_limit` (10 a day, not logged in), `user_limit` (50 a day, logged in), `busy` (500 a day across all visitors).
+
+  Example 429 body:
+
+      {"success": false, "reason": "guest_limit", "message": "You've used your free searches for today. Sign in or sign up to keep going.", "retryAfterSeconds": 85200}

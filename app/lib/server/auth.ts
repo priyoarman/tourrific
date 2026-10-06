@@ -39,3 +39,20 @@ export function requireUser(request: Request): { userId: bigint } | Response {
     return unauthorized("Invalid Token");
   }
 }
+
+/**
+ * The same, for endpoints that guests may use too: null when nobody is logged
+ * in. A token that is expired or forged also counts as a guest, not an error,
+ * so a stale login never stops a visitor from using the endpoint.
+ */
+export function optionalUser(request: Request): { userId: bigint } | null {
+  if (!request.headers.has("authorization")) return null;
+
+  try {
+    const user = requireUser(request);
+    return user instanceof Response ? null : user;
+  } catch {
+    // No JWT_SECRET: nobody can hold a valid token, so everyone is a guest.
+    return null;
+  }
+}

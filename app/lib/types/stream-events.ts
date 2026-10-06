@@ -21,6 +21,24 @@ export type SearchStreamRequest = {
   context?: SearchContext;
 };
 
+/**
+ * Why a search was turned away with a 429 before it started:
+ * - `busy`: everyone's searches together reached the day's budget
+ * - `burst`: this visitor sent too many in a minute
+ * - `guest_limit`: a visitor who isn't logged in used up their day's searches
+ * - `user_limit`: a logged-in user used up theirs
+ */
+export type SearchLimitReason = "busy" | "burst" | "guest_limit" | "user_limit";
+
+/** The JSON body of that 429 answer. */
+export type SearchLimitResponse = {
+  success: false;
+  reason: SearchLimitReason;
+  message: string;
+  /** Seconds until a new search would be accepted. Also sent as the Retry-After header. */
+  retryAfterSeconds: number;
+};
+
 export type Pagination = {
   page: number;
   limit: number;
@@ -52,10 +70,15 @@ export type StreamComplete = {
   };
 };
 
+/** What the assistant asked for when it needs an answer before it can search. */
+export type SearchQuestion = "destination" | "departure_date" | "return_date";
+
 /** The stream is over. */
 export type StreamDone = {
   /** True when the assistant asked a question and is waiting for the user's answer. */
   needsInput: boolean;
+  /** What that question was about, so the app can suggest fitting answers. */
+  asking?: SearchQuestion;
   context?: SearchContext;
 };
 

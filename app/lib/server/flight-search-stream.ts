@@ -2,11 +2,11 @@
 // lines, questions, and finally the flights).
 // Ported from api/src/controllers/flightSearchStream.js.
 import type { DuffelOffer } from "../types/duffel";
-import type { SearchContext, StreamEventMap, StreamEventName } from "../types/stream-events";
+import type { SearchContext, SearchQuestion, StreamEventMap, StreamEventName } from "../types/stream-events";
 import type { TripQuery } from "../types/trip-query";
 import { compactOffer } from "./compact-offer.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
-import { searchFlights, type DuffelSearchSlice } from "./duffel.ts";
+import { DuffelTimeout, searchFlightsCached, type DuffelSearchSlice } from "./duffel.ts";
 import { duffelSearchOptions, filterOffers, passengerCount } from "./flight-filters.ts";
 import { isPlainObject, mentionsDestinationEdit, mergeFollowUpTripQuery, parseDateOnly } from "./follow-up.ts";
 import { extractTripQuery } from "./groq/extractor.ts";
@@ -18,6 +18,13 @@ const PAGE_SIZE = 7;
 export type SendEvent = <K extends StreamEventName>(event: K, data: StreamEventMap[K]) => void;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** What the visitor is told when Groq can't turn their message into a search. */
+const EXTRACTION_PROBLEMS: Record<string, string> = {
+  timeout: "My AI travel service is taking too long to answer. Please try again in a moment.",
+  rate_limited: "Usage limit reached. Please wait a few minutes and try again.",
+};
+const EXTRACTION_PROBLEM = "I'm having trouble connecting to my AI travel service. Please try again in a moment.";
 
 function isReturnTrip(extracted: TripQuery) {
   return extracted.trip_type === "return" || Boolean(extracted.return_date);
@@ -69,8 +76,12 @@ function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean) {
  *
  * `body` is the request's JSON. `headers` are only used to guess the
  * departure airport from the visitor's IP when the message doesn't name one.
+ *
+ * Aborting `signal` (the visitor left, or started a newer search) stops the
+ * search where it is: calls to Groq and Duffel in progress are dropped, later
+ * ones are never made, and nothing more is sent.
  */
-export async function runFlightSearch(body: unknown, headers: Headers, send: SendEvent) {
+export async function runFlightSearch(body: unknown, headers: Headers, send: SendEvent, signal?: AbortSignal) {
   const request = isPlainObject(body) ? body : {};
   const userPrompt = typeof request.prompt === "string" ? request.prompt.trim() : "";
   const context = (isPlainObject(request.context) ? request.context : {}) as SearchContext;
@@ -87,9 +98,9 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
   }
 
   /** The assistant says something and waits for the visitor's answer. */
-  const ask = (text: string, nextContext?: SearchContext) => {
+  const ask = (asking: SearchQuestion, text: string, nextContext?: SearchContext) => {
     send("message", { text });
-    send("done", nextContext ? { needsInput: true, context: nextContext } : { needsInput: true });
+    send("done", nextContext ? { needsInput: true, asking, context: nextContext } : { needsInput: true, asking });
   };
 
   try {
@@ -102,12 +113,10 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
         ? `Context: The user previously mentioned wanting to fly to ${contextDestination}.\nUser message: ${userPrompt}`
         : userPrompt;
 
-    const result = await extractTripQuery(extractionPrompt);
+    const result = await extractTripQuery(extractionPrompt, { signal });
+    if (signal?.aborted) return;
     if (!result.ok) {
-      send("message", {
-        text: "I'm having trouble connecting to my AI travel service. Please try again in a moment.",
-        isError: true,
-      });
+      send("message", { text: EXTRACTION_PROBLEMS[result.errors[0]] ?? EXTRACTION_PROBLEM, isError: true });
       send("done", { needsInput: false });
       return;
     }
@@ -142,19 +151,21 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     }
 
     if (!destination) {
-      ask("I'm a travel assistant. Where would you like to fly today?");
+      ask("destination", "I'm a travel assistant. Where would you like to fly today?");
       return;
     }
 
     if (!extracted.departure_date) {
-      ask("That's great. Could you please tell me when you'd like to travel?", { destination });
+      ask("departure_date", "That's great. Could you please tell me when you'd like to travel?", { destination });
       return;
     }
 
     const returnTrip = isReturnTrip(extracted);
 
     if (returnTrip && !extracted.return_date) {
-      ask(`Got it — a return trip to ${destination}. When would you like to come back?`, { destination });
+      ask("return_date", `Got it — a return trip to ${destination}. When would you like to come back?`, {
+        destination,
+      });
       return;
     }
 
@@ -163,18 +174,19 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
 
     const departureDate = parseDateOnly(extracted.departure_date);
     if (departureDate < today) {
-      ask("I cannot search for flights in the past. Please provide a future date.");
+      // The destination goes back too, so an answer of just a date still knows where to.
+      ask("departure_date", "I cannot search for flights in the past. Please provide a future date.", { destination });
       return;
     }
 
     if (extracted.return_date) {
       const returnDate = parseDateOnly(extracted.return_date);
       if (returnDate < today) {
-        ask("The return date cannot be in the past. Please provide a future return date.");
+        ask("return_date", "The return date cannot be in the past. Please provide a future return date.");
         return;
       }
       if (returnDate < departureDate) {
-        ask("The return date must be on or after your departure date.");
+        ask("return_date", "The return date must be on or after your departure date.");
         return;
       }
     }
@@ -190,7 +202,8 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     const slices = buildSearchSlices(extracted, destination);
     if (outboundDepartureTime) slices[0].departure_time = outboundDepartureTime;
 
-    const flights = await searchFlights({ slices, ...searchOptions });
+    if (signal?.aborted) return;
+    const flights = await searchFlightsCached({ slices, ...searchOptions }, signal);
     const found: DuffelOffer[] = flights?.data?.offers ?? [];
     const { offers, labels, unfilteredCount } = filterOffers(found, extracted);
     const count = offers.length;
@@ -228,12 +241,17 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     });
     send("done", { needsInput: false });
   } catch (error) {
+    if (signal?.aborted) return;
+
     console.error("Flight search failed:", error);
     const rateLimited = error instanceof Error && error.message.includes("Rate limit");
     send("message", {
-      text: rateLimited
-        ? "Usage limit reached. Please wait a few minutes and try again."
-        : "Error searching flights. Please try again.",
+      text:
+        error instanceof DuffelTimeout
+          ? "The flight search is taking too long to answer. Please try again in a moment."
+          : rateLimited
+            ? "Usage limit reached. Please wait a few minutes and try again."
+            : "Error searching flights. Please try again.",
       isError: true,
     });
     send("done", { needsInput: false });

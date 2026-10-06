@@ -57,7 +57,7 @@
                 "signup"
               ]
             },
-            "description": "Creates an account. Returns no token: log in next. 409 if the email is taken.",
+            "description": "Creates an account. Returns no token: log in next. 409 if the email is taken.\n\n429 (with a Retry-After header) after 5 sign-up attempts from one IP address in a day.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Test Traveller\",\n  \"email\": \"traveller@example.com\",\n  \"password\": \"testpass123\"\n}",
@@ -71,7 +71,55 @@
               "type": "noauth"
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "429 Too many sign-ups",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/auth/signup",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "auth",
+                    "signup"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Test Traveller\",\n  \"email\": \"traveller@example.com\",\n  \"password\": \"testpass123\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Retry-After",
+                  "value": "86400"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Too many sign-ups from this network today. Please try again tomorrow.\",\n  \"retryAfterSeconds\": 86400\n}"
+            }
+          ]
         },
         {
           "name": "Log in",
@@ -94,7 +142,7 @@
                 "login"
               ]
             },
-            "description": "Returns a token that lasts 1 hour and stores it in the `token` variable for the other requests.",
+            "description": "Returns a token that lasts 1 hour and stores it in the `token` variable for the other requests.\n\n429 (with a Retry-After header) after 10 login attempts from one IP address in 15 minutes, right or wrong.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"traveller@example.com\",\n  \"password\": \"testpass123\"\n}",
@@ -108,7 +156,55 @@
               "type": "noauth"
             }
           },
-          "response": [],
+          "response": [
+            {
+              "name": "429 Too many login attempts",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"traveller@example.com\",\n  \"password\": \"testpass123\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Retry-After",
+                  "value": "900"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Too many login attempts. Please try again in 15 minutes.\",\n  \"retryAfterSeconds\": 900\n}"
+            }
+          ],
           "event": [
             {
               "listen": "test",
@@ -178,7 +274,7 @@
                 "search-stream"
               ]
             },
-            "description": "The endpoint the app uses. Answers with server-sent events: status, message, complete, done. No login needed. Add \"context\": { \"destination\", \"tripQuery\" } from a previous `complete` event to send a follow-up such as \"a little later\".",
+            "description": "The endpoint the app uses. Answers with server-sent events: status, message, complete, done. Add \"context\": { \"destination\", \"tripQuery\" } from a previous `complete` event to send a follow-up such as \"a little later\".\n\nNo login needed. A guest gets 10 searches a day per IP address; with `Authorization: Bearer {{token}}` the search counts against the account instead, which gets 50. Everyone is limited to 5 a minute.\n\n400 (JSON) when the body is over 8 KB, the prompt is empty or longer than 500 characters, or the context isn't a valid previous search.\n\n429 (JSON, with a Retry-After header) when a limit is reached. `reason` is one of: `burst` (5 a minute), `guest_limit` (10 a day, not logged in), `user_limit` (50 a day, logged in), `busy` (500 a day across all visitors).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"prompt\": \"Direct flights from Copenhagen to London next Friday with a checked bag\",\n  \"limit\": \"all\"\n}",
@@ -192,7 +288,102 @@
               "type": "noauth"
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "429 Guest limit reached",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/flights/search-stream",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "flights",
+                    "search-stream"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"prompt\": \"Direct flights from Copenhagen to London next Friday with a checked bag\",\n  \"limit\": \"all\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Retry-After",
+                  "value": "85200"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"reason\": \"guest_limit\",\n  \"message\": \"You've used your free searches for today. Sign in or sign up to keep going.\",\n  \"retryAfterSeconds\": 85200\n}"
+            },
+            {
+              "name": "429 Searching too quickly",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/flights/search-stream",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "flights",
+                    "search-stream"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"prompt\": \"Direct flights from Copenhagen to London next Friday with a checked bag\",\n  \"limit\": \"all\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Retry-After",
+                  "value": "42"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"reason\": \"burst\",\n  \"message\": \"You're searching very quickly. Please wait a moment and try again.\",\n  \"retryAfterSeconds\": 42\n}"
+            }
+          ]
         }
       ]
     },
