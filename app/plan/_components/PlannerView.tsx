@@ -20,7 +20,9 @@ import MobileTabs from "./MobileTabs";
 import ResultsColumn from "./results/ResultsColumn";
 import SampleBadge from "./results/SampleBadge";
 
-const SEARCH_TIMEOUT_MS = 30_000;
+// The backend gives up on Groq after 10s and on Duffel after 20s, and says why.
+// This is the fallback for when not even that arrives.
+const SEARCH_TIMEOUT_MS = 40_000;
 
 const WELCOME_ID = "welcome";
 const WELCOME =

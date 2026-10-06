@@ -49,6 +49,9 @@ export async function POST(request: Request) {
   const body = validation.data;
   const encoder = new TextEncoder();
   let open = true;
+  // Aborted when the visitor leaves or starts a newer search, so this one stops spending quota.
+  const abandoned = new AbortController();
+  request.signal.addEventListener("abort", () => abandoned.abort(), { once: true });
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -58,11 +61,12 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
 
-      await runFlightSearch(body, request.headers, send);
+      await runFlightSearch(body, request.headers, send, abandoned.signal);
       if (open) controller.close();
     },
     cancel() {
       open = false;
+      abandoned.abort();
     },
   });
 
