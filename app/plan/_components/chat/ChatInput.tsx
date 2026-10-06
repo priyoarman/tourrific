@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ArrowUpIcon, MicIcon, PaperclipIcon } from "@/app/components/ui/Icons";
+import PromptLimitNotice from "@/app/components/ui/PromptLimitNotice";
+import { MAX_PROMPT_LENGTH } from "@/app/lib/limits";
 
 type Props = {
   onSend: (text: string) => void;
@@ -32,6 +34,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
       <textarea
         id="chat-input"
         rows={2}
+        maxLength={MAX_PROMPT_LENGTH}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -44,16 +47,19 @@ export default function ChatInput({ onSend, disabled }: Props) {
         placeholder="Ask anything..."
         className="w-full resize-none bg-transparent text-lg text-ink placeholder:text-ink-subtle focus:outline-none"
       />
-      <div className="mt-1 flex items-center justify-between">
-        <button
-          type="button"
-          aria-label="Attach a file"
-          onClick={() => alert("Attachments are coming soon.")}
-          className="rounded-full p-2 text-ink transition-colors hover:bg-lavender-soft/50"
-        >
-          <PaperclipIcon size={22} />
-        </button>
-        <div className="flex items-center gap-2">
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            aria-label="Attach a file"
+            onClick={() => alert("Attachments are coming soon.")}
+            className="shrink-0 rounded-full p-2 text-ink transition-colors hover:bg-lavender-soft/50"
+          >
+            <PaperclipIcon size={22} />
+          </button>
+          <PromptLimitNotice length={text.length} />
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             aria-label="Voice input"

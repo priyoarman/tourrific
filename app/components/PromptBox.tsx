@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { MicIcon, PaperclipIcon } from "./ui/Icons";
+import PromptLimitNotice from "./ui/PromptLimitNotice";
+import { MAX_PROMPT_LENGTH } from "@/app/lib/limits";
 import { plannerHref } from "@/app/lib/routes";
 
-const MAX_LENGTH = 500;
 const EXAMPLE_PROMPT =
   "Ask Tourrific AI to build the best 7-day beach vacation itinerary in Greece";
 
@@ -29,7 +30,7 @@ export default function PromptBox() {
       <textarea
         id="trip-prompt"
         rows={2}
-        maxLength={MAX_LENGTH}
+        maxLength={MAX_PROMPT_LENGTH}
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         onKeyDown={(e) => {
@@ -43,16 +44,19 @@ export default function PromptBox() {
       />
 
       <div className="mt-2 flex items-center justify-between gap-4 sm:mt-4">
-        <button
-          type="button"
-          aria-label="Attach a file"
-          onClick={() => alert("Attachments are coming soon.")}
-          className="-ml-2 rounded-full p-2 text-ink transition-colors hover:bg-lavender-soft/50"
-        >
-          <PaperclipIcon size={22} />
-        </button>
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            aria-label="Attach a file"
+            onClick={() => alert("Attachments are coming soon.")}
+            className="-ml-2 shrink-0 rounded-full p-2 text-ink transition-colors hover:bg-lavender-soft/50"
+          >
+            <PaperclipIcon size={22} />
+          </button>
+          <PromptLimitNotice length={prompt.length} />
+        </div>
 
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4">
           <button
             type="button"
             aria-label="Voice input"
