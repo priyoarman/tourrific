@@ -1,7 +1,8 @@
 // Run with `npm test`. Covers the backend logic that needs no network or database.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { requireUser, signToken } from "./auth.ts";
+import jwt from "jsonwebtoken";
+import { optionalUser, requireUser, signToken } from "./auth.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
 import { mergeFollowUpTripQuery } from "./follow-up.ts";
 import { normalizeTripQuery, parseNaturalTravelDates } from "./groq/extractor.ts";
@@ -188,6 +189,25 @@ test("accepts its own tokens and nothing else", async () => {
   const forged = signToken({ id: BigInt(42), email: "a@example.com" });
   process.env.JWT_SECRET = "test-secret";
   assert.ok(requireUser(withToken(`Bearer ${forged}`)) instanceof Response);
+});
+
+test("a guest endpoint reads a valid login and treats anything else as a guest", () => {
+  const withToken = (value?: string) =>
+    new Request("http://localhost/api", { headers: value ? { authorization: value } : {} });
+  const token = signToken({ id: BigInt(42), email: "a@example.com" });
+
+  assert.deepEqual(optionalUser(withToken(`Bearer ${token}`)), { userId: BigInt(42) });
+
+  const expired = jwt.sign({ userId: "42" }, "test-secret", { expiresIn: -60 });
+  const forged = jwt.sign({ userId: "42" }, "other-secret");
+  for (const bad of [undefined, token, "Bearer nope", `Bearer ${token}x`, `Bearer ${expired}`, `Bearer ${forged}`]) {
+    assert.equal(optionalUser(withToken(bad)), null);
+  }
+
+  // A server without a secret still serves guests.
+  delete process.env.JWT_SECRET;
+  assert.equal(optionalUser(withToken(`Bearer ${token}`)), null);
+  process.env.JWT_SECRET = "test-secret";
 });
 
 test("serializes ids and parses them back", () => {
