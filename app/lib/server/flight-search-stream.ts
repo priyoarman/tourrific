@@ -6,7 +6,7 @@ import type { SearchContext, StreamEventMap, StreamEventName } from "../types/st
 import type { TripQuery } from "../types/trip-query";
 import { compactOffer } from "./compact-offer.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
-import { DuffelTimeout, searchFlights, type DuffelSearchSlice } from "./duffel.ts";
+import { DuffelTimeout, searchFlightsCached, type DuffelSearchSlice } from "./duffel.ts";
 import { duffelSearchOptions, filterOffers, passengerCount } from "./flight-filters.ts";
 import { isPlainObject, mentionsDestinationEdit, mergeFollowUpTripQuery, parseDateOnly } from "./follow-up.ts";
 import { extractTripQuery } from "./groq/extractor.ts";
@@ -200,7 +200,7 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     if (outboundDepartureTime) slices[0].departure_time = outboundDepartureTime;
 
     if (signal?.aborted) return;
-    const flights = await searchFlights({ slices, ...searchOptions }, signal);
+    const flights = await searchFlightsCached({ slices, ...searchOptions }, signal);
     const found: DuffelOffer[] = flights?.data?.offers ?? [];
     const { offers, labels, unfilteredCount } = filterOffers(found, extracted);
     const count = offers.length;
