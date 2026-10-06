@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createMemoryRateLimiter, ipKey, type RateLimitRule } from "./rate-limit.ts";
+import { searchLimitRules } from "./search-limits.ts";
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -115,4 +116,65 @@ test("guests are counted by IP address", () => {
   assert.equal(ipKey(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" })), "ip:203.0.113.7");
   assert.equal(ipKey(new Headers({ "x-forwarded-for": "::ffff:203.0.113.7" })), "ip:203.0.113.7");
   assert.equal(ipKey(new Headers()), "ip:unknown");
+});
+
+const guest = (ip: string) => searchLimitRules(null, new Headers({ "x-forwarded-for": ip }));
+const member = (id: number, ip = "203.0.113.7") =>
+  searchLimitRules({ userId: BigInt(id) }, new Headers({ "x-forwarded-for": ip }));
+
+test("a search is cut off after 5 in a minute", async () => {
+  const { limiter, advance } = limiterAt();
+
+  for (let i = 0; i < 5; i++) assert.equal((await limiter.consume(guest("203.0.113.7"))).allowed, true);
+  assert.deepEqual(await limiter.consume(guest("203.0.113.7")), {
+    allowed: false,
+    rule: "burst",
+    retryAfterSeconds: 60,
+  });
+  // Someone else is not affected.
+  assert.equal((await limiter.consume(guest("198.51.100.4"))).allowed, true);
+
+  advance(MINUTE);
+  assert.equal((await limiter.consume(guest("203.0.113.7"))).allowed, true);
+});
+
+test("a guest gets 10 searches a day, and logging in gives more", async () => {
+  const { limiter, advance } = limiterAt();
+
+  for (let i = 0; i < 10; i++) {
+    assert.equal((await limiter.consume(guest("203.0.113.7"))).allowed, true);
+    advance(MINUTE);
+  }
+  const blocked = await limiter.consume(guest("203.0.113.7"));
+  // Ten minutes of the day have passed since the first search.
+  assert.deepEqual(blocked, { allowed: false, rule: "guest_limit", retryAfterSeconds: 24 * 60 * 60 - 10 * 60 });
+
+  // The same address, now logged in, is counted by account instead.
+  for (let i = 0; i < 50; i++) {
+    assert.equal((await limiter.consume(member(42))).allowed, true);
+    advance(MINUTE);
+  }
+  const memberBlocked = await limiter.consume(member(42));
+  assert.equal(!memberBlocked.allowed && memberBlocked.rule, "user_limit");
+
+  // The account's count follows it to another address, and other accounts have their own.
+  assert.equal((await limiter.consume(member(42, "198.51.100.4"))).allowed, false);
+  assert.equal((await limiter.consume(member(43))).allowed, true);
+});
+
+test("everyone's searches together are capped, and the limits can be set in the environment", async () => {
+  const { limiter } = limiterAt();
+  process.env.SEARCH_LIMIT_GLOBAL_PER_DAY = "3";
+  process.env.SEARCH_LIMIT_PER_MINUTE = "not a number";
+
+  try {
+    for (let i = 0; i < 3; i++) assert.equal((await limiter.consume(guest(`203.0.113.${i}`))).allowed, true);
+    const blocked = await limiter.consume(guest("203.0.113.9"));
+    assert.equal(!blocked.allowed && blocked.rule, "busy");
+    // An unusable value falls back to the default.
+    assert.equal(guest("203.0.113.9")[1].limit, 5);
+  } finally {
+    delete process.env.SEARCH_LIMIT_GLOBAL_PER_DAY;
+    delete process.env.SEARCH_LIMIT_PER_MINUTE;
+  }
 });
