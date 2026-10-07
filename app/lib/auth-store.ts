@@ -1,5 +1,8 @@
-// The login store: holds the token and user the backend returned at sign-in,
-// keeps them in the browser across reloads, and can log out.
+// The login store: remembers who signed in, across reloads, and can log out.
+//
+// The login itself is the session cookie, which scripts cannot read. What is
+// kept here is only the user's profile, so the page can show who is signed in
+// without asking the backend first.
 import { useSyncExternalStore } from "react";
 
 export type AuthUser = {
@@ -9,7 +12,7 @@ export type AuthUser = {
   currency: { code: string } | null;
 };
 
-export type Session = { token: string; user: AuthUser };
+export type Session = { user: AuthUser };
 
 const STORAGE_KEY = "tourrific.session";
 
@@ -17,23 +20,14 @@ let session: Session | null = null;
 let loaded = false;
 const listeners = new Set<() => void>();
 
-/** True once the token's own expiry time has passed. The backend issues 1-hour tokens. */
-export function isExpired(token: string, now = Date.now()) {
-  try {
-    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const { exp } = JSON.parse(atob(payload));
-    return typeof exp === "number" && exp * 1000 <= now;
-  } catch {
-    // Not a readable token; let the backend be the judge.
-    return false;
-  }
-}
-
 function readStorage(): Session | null {
   try {
     const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "null");
-    if (typeof stored?.token !== "string" || typeof stored?.user?.email !== "string") return null;
-    return isExpired(stored.token) ? null : stored;
+    if (typeof stored?.user?.id !== "string" || typeof stored?.user?.email !== "string") return null;
+    const session = { user: stored.user };
+    // A login from before the session cookie kept its token here too; drop it.
+    if ("token" in stored) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    return session;
   } catch {
     // Storage can be blocked (private mode) or hold something unreadable.
     return null;
@@ -55,13 +49,28 @@ export function setSession(next: Session | null) {
     if (next) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     else window.localStorage.removeItem(STORAGE_KEY);
   } catch {
-    // Without storage the login simply lasts until the page is reloaded.
+    // Without storage the page shows the login only until it is reloaded.
   }
   listeners.forEach((listener) => listener());
 }
 
+let signingOut: Promise<void> = Promise.resolve();
+
+/**
+ * Forgets the user and asks the backend to remove the session cookie. Without
+ * a connection the cookie stays until it expires.
+ */
 export function logOut() {
   setSession(null);
+  signingOut = fetch("/api/auth/logout", { method: "POST" }).then(
+    () => {},
+    () => {},
+  );
+}
+
+/** Resolves once the last `logOut` has reached the backend, so it can't remove the cookie of a login made right after it. */
+export function signedOut() {
+  return signingOut;
 }
 
 function subscribe(listener: () => void) {

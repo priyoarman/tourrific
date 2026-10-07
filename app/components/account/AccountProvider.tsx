@@ -2,6 +2,7 @@
 
 import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError } from "@/app/lib/api";
+import { confirmSession } from "@/app/lib/auth-api";
 import { logOut as endSession, useSession, type AuthUser, type Session } from "@/app/lib/auth-store";
 import { findSaved, listSavedFlights, removeSavedFlight, saveFlight } from "@/app/lib/saved-flights";
 import type { FlightOffer, SavedFlight } from "@/app/lib/types";
@@ -67,6 +68,10 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
       state?.userId === forUser ? { ...state, flights: change(state.flights) } : state,
     );
   }
+
+  useEffect(() => {
+    confirmSession();
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
