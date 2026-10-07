@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { clearSearchCache, searchCacheKey, searchFlightsCached, type DuffelSearchPayload } from "./duffel.ts";
+import { clearStaysCache } from "./duffel-stays.ts";
 import { runFlightSearch } from "./flight-search-stream.ts";
 import { createTtlCache } from "./ttl-cache.ts";
 
@@ -78,10 +79,18 @@ test("two searches are the same when everything sent to Duffel is", () => {
 const realFetch = globalThis.fetch;
 let calls: string[] = [];
 
-/** Replaces `fetch`: Groq reads "CPH to LIS" out of any message, and Duffel answers with `duffel()`. */
+/**
+ * Replaces `fetch`: Groq reads "CPH to LIS" out of any message, and Duffel answers a flight search with `duffel()`.
+ * The hotel search that goes with a chat search finds no city and no hotels.
+ */
 function stubProviders(duffel: () => Response) {
   globalThis.fetch = ((input: RequestInfo | URL) => {
     const url = String(input);
+    if (url.includes("open-meteo")) return Promise.resolve(Response.json({}));
+    if (url.includes("/stays/")) {
+      calls.push("stays");
+      return Promise.resolve(Response.json({ data: { results: [] } }));
+    }
     calls.push(url.includes("duffel") ? "duffel" : "groq");
     if (url.includes("duffel")) return Promise.resolve(duffel());
     const content = JSON.stringify({ origin_airport: "CPH", destination_airport: "LIS", departure_date: "2099-01-05" });
@@ -102,6 +111,7 @@ const count = (who: string) => calls.filter((call) => call === who).length;
 beforeEach(() => {
   calls = [];
   clearSearchCache();
+  clearStaysCache();
   process.env.GROQ_API_KEY = "test";
   process.env.DUFFEL_TOKEN = "test";
   delete process.env.DUFFEL_USE_MOCK;
@@ -159,9 +169,11 @@ test("a repeated chat search still asks Groq, but not Duffel", async () => {
   for (let i = 0; i < 3; i++) {
     const events: string[] = [];
     await runFlightSearch({ prompt: "Copenhagen to Lisbon on 5 January 2099" }, new Headers(), (event) => events.push(event));
-    assert.deepEqual(events.slice(-2), ["complete", "done"]);
+    assert.deepEqual(events.slice(-3), ["complete", "hotels", "done"]);
   }
 
   assert.equal(count("groq"), 3);
   assert.equal(count("duffel"), 1);
+  // The hotels of a repeated search are remembered like its flights.
+  assert.equal(count("stays"), 1);
 });

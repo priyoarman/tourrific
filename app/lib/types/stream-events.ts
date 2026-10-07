@@ -1,9 +1,11 @@
+import type { Hotel } from "../types";
 import type { DuffelOffer } from "./duffel";
 import type { TripQuery } from "./trip-query";
 
 // Events streamed by POST /api/flights/search-stream (server-sent events).
 // A search sends several `status` lines, optionally a `message`, then `complete`
-// if flights were searched, and always ends with `done`.
+// if flights were searched, `hotels` if there is a stay to go with them, and
+// always ends with `done`.
 
 /** What the client remembers between messages so follow-ups ("a little later") work. */
 export type SearchContext = {
@@ -73,6 +75,36 @@ export type StreamComplete = {
   };
 };
 
+/**
+ * The hotels for the stay that goes with the flights in `complete`, which it
+ * always follows. Not sent when there is no stay to search: a return on the day
+ * of departure, an airport that isn't known, or any page of flights but the first.
+ */
+export type StreamHotels = {
+  /** The first hotels Duffel found, in its order. Empty when it found none or the search failed. */
+  hotels: Hotel[];
+  /** How many Duffel found in all. */
+  totalHotels: number;
+  /** What was searched. */
+  stay: {
+    /** The city the hotels are in, e.g. "Lisbon". Null when the airport list doesn't name one. */
+    city: string | null;
+    /** "city" when the search was around the city centre; "airport" when only the airport could be found. */
+    around: "city" | "airport";
+    /** YYYY-MM-DD: the day of the outbound flight. */
+    checkIn: string;
+    /** YYYY-MM-DD: the day of the return flight. */
+    checkOut: string;
+    nights: number;
+    /** True for a one-way trip, where the length of the stay is a guess. */
+    nightsAssumed: boolean;
+    guests: number;
+    rooms: number;
+  };
+  /** True when the hotel search failed. The flights are unaffected. */
+  failed?: boolean;
+};
+
 /** What the assistant asked for when it needs an answer before it can search. */
 export type SearchQuestion = "destination" | "departure_date" | "return_date";
 
@@ -93,6 +125,7 @@ export type StreamEventMap = {
   status: StreamStatus;
   message: StreamMessage;
   complete: StreamComplete;
+  hotels: StreamHotels;
   done: StreamDone;
   error: StreamError;
 };

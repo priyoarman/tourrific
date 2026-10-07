@@ -1,5 +1,5 @@
 // The chat's flight search: one message in, a series of events out (progress
-// lines, questions, and finally the flights).
+// lines, questions, and finally the flights and the hotels to go with them).
 // Ported from api/src/controllers/flightSearchStream.js.
 import type { DuffelOffer } from "../types/duffel";
 import type { SearchContext, SearchQuestion, StreamEventMap, StreamEventName } from "../types/stream-events";
@@ -16,6 +16,7 @@ import {
   returnDateFromAnswer,
 } from "./follow-up.ts";
 import { extractTripQuery } from "./groq/extractor.ts";
+import { searchHotels } from "./hotel-search.ts";
 import { detectFallbackOrigin } from "./origin-fallback.ts";
 
 const PAGE_SIZE = 7;
@@ -83,6 +84,9 @@ function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean) {
  * `body` is the request's JSON. `headers` are only used to guess the
  * departure airport from the visitor's IP when the message doesn't name one.
  *
+ * Hotels are searched while the flights are, and sent in a `hotels` event after
+ * `complete`. A hotel search that fails never costs the visitor their flights.
+ *
  * Aborting `signal` (the visitor left, or started a newer search) stops the
  * search where it is: calls to Groq and Duffel in progress are dropped, later
  * ones are never made, and nothing more is sent.
@@ -106,6 +110,10 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     send("error", { message: "Missing prompt." });
     return;
   }
+
+  // Ends the hotel search when the visitor leaves, and when the flight search fails.
+  const hotelsWanted = new AbortController();
+  const hotelSignal = signal ? AbortSignal.any([signal, hotelsWanted.signal]) : hotelsWanted.signal;
 
   /** The assistant says something and waits for the visitor's answer. */
   const ask = (asking: SearchQuestion, text: string, nextContext?: SearchContext) => {
@@ -248,6 +256,9 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     if (outboundDepartureTime) slices[0].departure_time = outboundDepartureTime;
 
     if (signal?.aborted) return;
+    // Started now and waited for after the flights, so the two searches run side by side.
+    // The other pages of the same search already have their hotels.
+    const hotelsFound = page === 1 ? searchHotels(extracted, destination, hotelSignal) : null;
     const flights = await searchFlightsCached({ slices, ...searchOptions }, signal);
     const found: DuffelOffer[] = flights?.data?.offers ?? [];
     const { offers, labels, unfilteredCount } = filterOffers(found, extracted);
@@ -284,8 +295,14 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
       },
       filters: { labels, unfilteredCount },
     });
+
+    const hotels = await hotelsFound;
+    if (signal?.aborted) return;
+    if (hotels) send("hotels", hotels);
+
     send("done", { needsInput: false });
   } catch (error) {
+    hotelsWanted.abort();
     if (signal?.aborted) return;
 
     console.error("Flight search failed:", error);

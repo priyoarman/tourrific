@@ -6,7 +6,7 @@ import { searchStreamSchema } from "@/app/lib/server/schemas";
 import { SEARCH_LIMIT_MESSAGES, searchLimitRules } from "@/app/lib/server/search-limits";
 import type { SearchLimitReason } from "@/app/lib/types/stream-events";
 
-// A search waits on Groq and Duffel; give it room on hosts that limit request time.
+// A search waits on Groq and on Duffel for flights and hotels; give it room on hosts that limit request time.
 export const maxDuration = 60;
 
 // A valid request is a short message plus the previous search; nothing near this size.
@@ -15,8 +15,8 @@ const MAX_BODY_BYTES = 8 * 1024;
 /**
  * POST /api/flights/search-stream
  *
- * Answers with server-sent events (`status`, `message`, `complete`, `done`,
- * `error`), written as each step of the search finishes. The event shapes are
+ * Answers with server-sent events (`status`, `message`, `complete`, `hotels`,
+ * `done`, `error`), written as each step of the search finishes. The event shapes are
  * in app/lib/types/stream-events.ts.
  *
  * Open to visitors who aren't logged in, so the body is checked before any of

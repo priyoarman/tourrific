@@ -105,7 +105,8 @@ export function addDays(isoDate: string, days: number) {
 
 const DEFAULT_NIGHTLY_RATE = 130;
 /** A one-way search has no return date, so the hotel stay needs a length of its own. */
-const ONE_WAY_NIGHTS = 3;
+/** How long a stay is taken to be when the trip has no return date. */
+export const ONE_WAY_NIGHTS = 3;
 
 function nightsBetween(from: string, to: string) {
   return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
