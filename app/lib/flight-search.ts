@@ -30,7 +30,7 @@ export class SearchRejected extends Error {
 
 /**
  * Sends one chat message to the backend, which extracts a flight search from it
- * and streams back progress, replies and results. Each handler is called as its
+ * and streams back progress, replies, the flights, and the hotels to go with them. Each handler is called as its
  * event arrives; the promise resolves when the stream ends.
  *
  * `context` is what earlier searches returned. Passing it back lets follow-ups

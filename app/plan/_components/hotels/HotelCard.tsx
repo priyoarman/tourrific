@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { MapPinIcon } from "@/app/components/ui/Icons";
 import SelectButton from "@/app/components/ui/SelectButton";
 import { formatNights, formatPrice } from "@/app/lib/format";
@@ -15,6 +16,10 @@ type Props = {
 export default function HotelCard({ hotel, nights, selected, onSelect }: Props) {
   const distance = hotel.distanceKm === null ? "" : `${hotel.distanceKm} km from centre`;
   const location = [hotel.area, distance].filter(Boolean).join(" · ");
+  const price = (amount: number) => formatPrice(amount, hotel.currency);
+  /** The photo that failed to load, if one did; the gradient behind it shows instead. */
+  const [brokenPhoto, setBrokenPhoto] = useState<string | null>(null);
+  const photo = hotel.photoUrl && hotel.photoUrl !== brokenPhoto ? hotel.photoUrl : null;
 
   return (
     <li
@@ -22,8 +27,19 @@ export default function HotelCard({ hotel, nights, selected, onSelect }: Props) 
         selected ? "border-lavender ring-2 ring-lavender/40" : "border-lavender-soft/70"
       }`}
     >
-      {/* Placeholder artwork until real hotel photos are available. */}
+      {/* The gradient is what a hotel without a photo gets, and what shows while one loads. */}
       <div className={`relative h-40 bg-linear-to-br ${hotel.gradient}`}>
+        {photo && (
+          // Hotel photos come from whichever host Duffel's suppliers use, which next/image would need listed.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={photo}
+            alt=""
+            loading="lazy"
+            onError={() => setBrokenPhoto(photo)}
+            className="absolute inset-0 size-full object-cover"
+          />
+        )}
         {hotel.rating !== null && (
           <div className="absolute top-3 left-3">
             <ReviewScore rating={hotel.rating} reviewCount={hotel.reviewCount} />
@@ -53,7 +69,7 @@ export default function HotelCard({ hotel, nights, selected, onSelect }: Props) 
             )}
           </div>
           <p className="shrink-0 text-right">
-            <span className="block text-2xl font-bold text-ink">{formatPrice(hotel.nightlyPrice)}</span>
+            <span className="block text-2xl font-bold text-ink">{price(hotel.nightlyPrice)}</span>
             <span className="text-xs text-ink-muted">per night</span>
           </p>
         </div>
@@ -70,12 +86,12 @@ export default function HotelCard({ hotel, nights, selected, onSelect }: Props) 
             ))}
           </ul>
           <p className="shrink-0 text-xs text-ink-muted">
-            {formatPrice(hotel.nightlyPrice * nights)} for {formatNights(nights)}
+            {price(hotel.nightlyPrice * nights)} for {formatNights(nights)}
           </p>
         </div>
 
         <div className="mt-4">
-          <SelectButton selected={selected} onClick={onSelect} label={`${hotel.name}, ${formatPrice(hotel.nightlyPrice)} per night`} />
+          <SelectButton selected={selected} onClick={onSelect} label={`${hotel.name}, ${price(hotel.nightlyPrice)} per night`} />
         </div>
       </div>
     </li>

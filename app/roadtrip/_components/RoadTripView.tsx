@@ -8,7 +8,7 @@ import { buildRoadTrip, resolveRoute, stopAsTrip } from "@/app/lib/road-trips";
 import { replyToRoadTrip, ROAD_TRIP_SUGGESTIONS, roadTripWelcome } from "@/app/lib/roadtrip-assistant";
 import type { ChatMessage, Hotel, RoadTripRoute } from "@/app/lib/types";
 import ChatPanel from "@/app/plan/_components/chat/ChatPanel";
-import HotelResults, { type HotelSort } from "@/app/plan/_components/hotels/HotelResults";
+import HotelResults, { staySummary, type HotelSort } from "@/app/plan/_components/hotels/HotelResults";
 import MobileTabs from "@/app/plan/_components/MobileTabs";
 import RouteColumn from "./route/RouteColumn";
 import StopPicker from "./StopPicker";
@@ -148,7 +148,8 @@ export default function RoadTripView({ initialPrompt, today }: Props) {
         </div>
         <div id="panel-hotels" role="tabpanel" aria-labelledby="tab-hotels" className={`${panelClass("hotels")} bg-white/40`}>
           <HotelResults
-            trip={stopTrip}
+            subtitle={staySummary(activeStop.city, activeStop.arriveDate, activeStop.leaveDate, activeStop.nights)}
+            nights={activeStop.nights}
             hotels={hotels}
             sort={hotelSort}
             onSortChange={setHotelSort}
