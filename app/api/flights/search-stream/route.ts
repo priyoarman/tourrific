@@ -1,6 +1,6 @@
 import { optionalUser } from "@/app/lib/server/auth";
 import { runFlightSearch, type SendEvent } from "@/app/lib/server/flight-search-stream";
-import { readJsonWithin, tooManyRequests } from "@/app/lib/server/http";
+import { crossSiteRefused, isCrossSite, readJsonWithin, tooManyRequests } from "@/app/lib/server/http";
 import { rateLimiter } from "@/app/lib/server/rate-limit";
 import { searchStreamSchema } from "@/app/lib/server/schemas";
 import { SEARCH_LIMIT_MESSAGES, searchLimitRules } from "@/app/lib/server/search-limits";
@@ -25,6 +25,9 @@ const MAX_BODY_BYTES = 8 * 1024;
  * answers 400, and a visitor over a limit 429, both as JSON.
  */
 export async function POST(request: Request) {
+  // A signed-in visitor's searches count against their own allowance.
+  if (isCrossSite(request)) return crossSiteRefused();
+
   const read = await readJsonWithin(request, MAX_BODY_BYTES);
   if (read.tooLarge) {
     return Response.json({ success: false, message: "Request body is too large." }, { status: 400 });

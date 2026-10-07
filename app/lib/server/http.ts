@@ -61,14 +61,51 @@ export function tooManyRequests(body: Record<string, unknown>, retryAfterSeconds
   );
 }
 
+const READ_ONLY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * True when a browser sent this request from a page on another site. The
+ * session cookie travels with every request to us, so without this check
+ * another site could act as a visitor who is signed in here.
+ *
+ * Browsers name the page's site in `Origin` on every request that can change
+ * something. A request without one comes from a tool such as curl, which holds
+ * no visitor's cookie.
+ */
+export function isCrossSite(request: Request) {
+  if (READ_ONLY_METHODS.has(request.method)) return false;
+
+  const origin = request.headers.get("origin");
+  if (origin === null) return false;
+
+  let host: string;
+  try {
+    host = new URL(origin).host;
+  } catch {
+    // "null", which browsers send from sandboxed pages, or something unreadable.
+    return true;
+  }
+  // Behind a proxy our public name can arrive in either header.
+  return host !== request.headers.get("host") && host !== request.headers.get("x-forwarded-host");
+}
+
+/** The 403 answer to a request that `isCrossSite`. */
+export function crossSiteRefused() {
+  return Response.json({ success: false, message: "Cross-site requests are not allowed." }, { status: 403 });
+}
+
 type Handler<Args extends unknown[]> = (...args: Args) => Promise<Response>;
 
 /**
  * Wraps a route handler so an unexpected error becomes a JSON 500 answer, as
  * the Express error handler did. Details are only included outside production.
+ * A request from another site is refused before the handler runs.
  */
 export function handle<Args extends unknown[]>(handler: Handler<Args>): Handler<Args> {
   return async (...args) => {
+    const [request] = args;
+    if (request instanceof Request && isCrossSite(request)) return crossSiteRefused();
+
     try {
       return await handler(...args);
     } catch (error) {

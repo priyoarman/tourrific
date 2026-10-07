@@ -6,7 +6,7 @@ import { clearedSessionCookie, optionalUser, requireUser, sessionCookie, signTok
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
 import { mergeFollowUpTripQuery } from "./follow-up.ts";
 import { normalizeTripQuery, parseNaturalTravelDates } from "./groq/extractor.ts";
-import { parseId, readJsonWithin, serialize } from "./http.ts";
+import { handle, isCrossSite, parseId, readJsonWithin, serialize } from "./http.ts";
 import { clientIp, detectFallbackOrigin } from "./origin-fallback.ts";
 import { runFlightSearch } from "./flight-search-stream.ts";
 import { searchStreamSchema } from "./schemas.ts";
@@ -256,6 +256,44 @@ test("a guest endpoint reads a valid login and treats anything else as a guest",
   delete process.env.JWT_SECRET;
   assert.equal(optionalUser(withToken(`Bearer ${token}`)), null);
   process.env.JWT_SECRET = "test-secret";
+});
+
+test("refuses requests that another site sends", async () => {
+  const from = (method: string, headers: Record<string, string>) =>
+    new Request("http://internal:10000/api", { method, headers: { host: "tourrific.example", ...headers } });
+
+  // Our own pages, and tools that send no Origin.
+  assert.equal(isCrossSite(from("POST", { origin: "https://tourrific.example" })), false);
+  assert.equal(isCrossSite(from("DELETE", { origin: "https://tourrific.example" })), false);
+  assert.equal(isCrossSite(from("POST", {})), false);
+  // A proxy that rewrites Host passes our public name along separately.
+  assert.equal(
+    isCrossSite(from("POST", { host: "internal:10000", "x-forwarded-host": "tourrific.example", origin: "https://tourrific.example" })),
+    false,
+  );
+  // The port is part of the name.
+  assert.equal(isCrossSite(from("POST", { host: "localhost:3000", origin: "http://localhost:3000" })), false);
+  assert.equal(isCrossSite(from("POST", { host: "localhost:3000", origin: "http://localhost:4000" })), true);
+
+  for (const origin of ["https://evil.example", "https://tourrific.example.evil.example", "https://sub.tourrific.example", "null", ""]) {
+    assert.equal(isCrossSite(from("POST", { origin })), true, origin);
+    assert.equal(isCrossSite(from("DELETE", { origin })), true, origin);
+    // Reading changes nothing, and the answer is not shown to the other site.
+    assert.equal(isCrossSite(from("GET", { origin })), false, origin);
+  }
+
+  // A wrapped route never runs for such a request.
+  let ran = 0;
+  const route = handle(async (request: Request) => {
+    ran += 1;
+    return Response.json({ method: request.method });
+  });
+  const refused = await route(from("POST", { origin: "https://evil.example" }));
+  assert.equal(refused.status, 403);
+  assert.equal(ran, 0);
+  assert.equal((await route(from("POST", { origin: "https://tourrific.example" }))).status, 200);
+  assert.equal((await route(from("GET", { origin: "https://evil.example" }))).status, 200);
+  assert.equal(ran, 2);
 });
 
 test("serializes ids and parses them back", () => {
