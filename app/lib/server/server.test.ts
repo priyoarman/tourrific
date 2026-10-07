@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import jwt from "jsonwebtoken";
-import { optionalUser, requireUser, signToken } from "./auth.ts";
+import { optionalUser, requireUser, sessionCookie, signToken } from "./auth.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
 import { mergeFollowUpTripQuery } from "./follow-up.ts";
 import { normalizeTripQuery, parseNaturalTravelDates } from "./groq/extractor.ts";
@@ -189,6 +189,47 @@ test("accepts its own tokens and nothing else", async () => {
   const forged = signToken({ id: BigInt(42), email: "a@example.com" });
   process.env.JWT_SECRET = "test-secret";
   assert.ok(requireUser(withToken(`Bearer ${forged}`)) instanceof Response);
+});
+
+test("accepts the token from the session cookie", () => {
+  const withCookie = (cookie: string, authorization?: string) =>
+    new Request("http://localhost/api", { headers: { cookie, ...(authorization && { authorization }) } });
+  const token = signToken({ id: BigInt(42), email: "a@example.com" });
+  const other = signToken({ id: BigInt(7), email: "b@example.com" });
+
+  assert.deepEqual(requireUser(withCookie(`session=${token}`)), { userId: BigInt(42) });
+  assert.deepEqual(requireUser(withCookie(`theme=dark; session=${token}; lang=en`)), { userId: BigInt(42) });
+  assert.deepEqual(optionalUser(withCookie(`session=${token}`)), { userId: BigInt(42) });
+
+  // The cookie wins over a header sent with it.
+  assert.deepEqual(requireUser(withCookie(`session=${token}`, `Bearer ${other}`)), { userId: BigInt(42) });
+  // Without a session cookie the header still works.
+  assert.deepEqual(requireUser(withCookie("theme=dark", `Bearer ${other}`)), { userId: BigInt(7) });
+
+  for (const bad of ["session=", "session=nope", `session=${token}x`, `mysession=${token}`, `token=${token}`]) {
+    const answer = requireUser(withCookie(bad));
+    assert.ok(answer instanceof Response);
+    assert.equal(answer.status, 401);
+    assert.equal(optionalUser(withCookie(bad)), null);
+  }
+});
+
+test("the session cookie is hidden from scripts and lasts as long as the token", () => {
+  const token = signToken({ id: BigInt(42), email: "a@example.com" });
+  const { exp, iat } = jwt.decode(token) as { exp: number; iat: number };
+
+  const cookie = sessionCookie(token);
+  assert.equal(cookie, `session=${token}; Path=/; Max-Age=${exp - iat}; HttpOnly; SameSite=Lax`);
+  // What the browser sends back is read as the same login.
+  const sent = new Request("http://localhost/api", { headers: { cookie: cookie.split(";")[0] } });
+  assert.deepEqual(requireUser(sent), { userId: BigInt(42) });
+
+  // Over https in production it is never sent on plain http.
+  const env = process.env as Record<string, string | undefined>;
+  const before = env.NODE_ENV;
+  env.NODE_ENV = "production";
+  assert.ok(sessionCookie(token).endsWith("; SameSite=Lax; Secure"));
+  env.NODE_ENV = before;
 });
 
 test("a guest endpoint reads a valid login and treats anything else as a guest", () => {
