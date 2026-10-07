@@ -1,4 +1,4 @@
-import type { Destination, Trip } from "./types";
+import type { Destination } from "./types";
 
 export const ORIGIN = { city: "Copenhagen", airport: "CPH" };
 
@@ -103,39 +103,5 @@ export function addDays(isoDate: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-const DEFAULT_NIGHTLY_RATE = 130;
-/** A one-way search has no return date, so the hotel stay needs a length of its own. */
-const ONE_WAY_NIGHTS = 3;
-
-function nightsBetween(from: string, to: string) {
-  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
-}
-
-/** The stay that goes with a flight search, for the hotels column. */
-export function stayForSearch(
-  place: { city: string; airport: string; countryCode: string | null },
-  origin: { city: string; airport: string },
-  departDate: string,
-  returnDate: string | null,
-): Trip {
-  const known = destinations.find((d) => d.airport === place.airport);
-  const nights = Math.max(returnDate ? nightsBetween(departDate, returnDate) : ONE_WAY_NIGHTS, 1);
-
-  return {
-    origin,
-    destination: known ?? {
-      city: place.city,
-      country: place.countryCode ?? "",
-      flag: "",
-      airport: place.airport,
-      flightMinutes: 0,
-      basePrice: 0,
-      nightlyRate: DEFAULT_NIGHTLY_RATE,
-      keywords: [],
-    },
-    departDate,
-    returnDate: addDays(departDate, nights),
-    nights,
-    travelers: 1,
-  };
-}
+/** How long a stay is taken to be when the trip has no return date. */
+export const ONE_WAY_NIGHTS = 3;

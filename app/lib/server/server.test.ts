@@ -45,6 +45,12 @@ test("normalizes what the model returns", () => {
       preferred_airlines: [],
       baggage_required: null,
       departure_time: null,
+      hotel_rooms: null,
+      hotel_max_price: null,
+      hotel_max_price_currency: null,
+      hotel_min_stars: null,
+      hotel_free_cancellation: null,
+      hotel_amenities: [],
     },
   );
 

@@ -34,7 +34,42 @@ test("cleans a one-way search", () => {
     preferred_airlines: [],
     baggage_required: null,
     departure_time: null,
+    hotel_rooms: null,
+    hotel_max_price: null,
+    hotel_max_price_currency: null,
+    hotel_min_stars: null,
+    hotel_free_cancellation: null,
+    hotel_amenities: [],
   });
+});
+
+test("cleans what was asked of the hotel", () => {
+  const wishes = normalizeTripQuery({
+    hotel_rooms: "2",
+    hotel_max_price: "150",
+    hotel_max_price_currency: "€",
+    hotel_min_stars: 7,
+    hotel_free_cancellation: "yes",
+    hotel_amenities: ["Swimming pool", "free Wi-Fi", "pool", "dog friendly", "ocean view"],
+  });
+
+  assert.equal(wishes.hotel_rooms, 2);
+  assert.equal(wishes.hotel_max_price, 150);
+  assert.equal(wishes.hotel_max_price_currency, "EUR");
+  // There is no such thing as a seven-star hotel to filter on.
+  assert.equal(wishes.hotel_min_stars, 5);
+  assert.equal(wishes.hotel_free_cancellation, true);
+  // In the list's order, each once, and nothing that isn't on it.
+  assert.deepEqual(wishes.hotel_amenities, ["wifi", "pool", "pet_friendly"]);
+  // The hotel's price limit is its own; the flights have none here.
+  assert.equal(wishes.max_price, null);
+
+  const none = normalizeTripQuery({ hotel_rooms: 0, hotel_min_stars: "many", hotel_max_price_currency: "EUR", hotel_amenities: null });
+  assert.equal(none.hotel_rooms, null);
+  assert.equal(none.hotel_min_stars, null);
+  // A currency without a price limits nothing.
+  assert.equal(none.hotel_max_price_currency, null);
+  assert.deepEqual(none.hotel_amenities, []);
 });
 
 test("cleans a return search with loosely written filters", () => {

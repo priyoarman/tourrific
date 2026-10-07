@@ -4,21 +4,17 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/app/components/account/AccountProvider";
 import { BedIcon, ChatIcon, PlaneIcon } from "@/app/components/ui/Icons";
-import { stayForSearch } from "@/app/lib/destinations";
 import { SearchRejected, searchFlights, toSearchResult, type FlightSearchResult } from "@/app/lib/flight-search";
 import { formatDate, formatNights, formatPrice } from "@/app/lib/format";
 import { MAX_PROMPT_LENGTH } from "@/app/lib/limits";
-import { getHotels } from "@/app/lib/mock-results";
 import { isRoadTripPrompt, plannerHref } from "@/app/lib/routes";
 import type { ChatMessage, FlightOffer, Hotel } from "@/app/lib/types";
-import type { SearchContext, SearchQuestion, StreamComplete } from "@/app/lib/types/stream-events";
+import type { SearchContext, SearchQuestion, StreamComplete, StreamHotels } from "@/app/lib/types/stream-events";
 import ChatPanel from "./chat/ChatPanel";
 import { useChatHistory } from "./chat/useChatHistory";
 import FlightResults, { FLIGHTS_PAGE_SIZE, type FlightSearchStatus, type FlightSort } from "./flights/FlightResults";
-import HotelResults, { type HotelSort } from "./hotels/HotelResults";
+import HotelResults, { staySummary, type HotelSearchStatus, type HotelSort } from "./hotels/HotelResults";
 import MobileTabs from "./MobileTabs";
-import ResultsColumn from "./results/ResultsColumn";
-import SampleBadge from "./results/SampleBadge";
 
 // The backend gives up on Groq after 10s and on Duffel after 20s, and says why.
 // This is the fallback for when not even that arrives.
@@ -101,7 +97,34 @@ function resultsMessage(result: FlightSearchResult) {
   const party = (result.query.passengers ?? 1) > 1 ? ` for ${travellers(result)}` : "";
   const matching = filters ? `\nFilters: **${result.filters.join(" · ")}**.` : "";
 
-  return `I found ${count} ${route}${dates ? ` for ${dates}` : ""}.${matching}\nPrices start at **${formatPrice(cheapest.totalPrice, cheapest.currency)}**${party} with ${cheapest.airline.name}.\nI've also listed sample hotels for ${destination.city}.`;
+  return `I found ${count} ${route}${dates ? ` for ${dates}` : ""}.${matching}\nPrices start at **${formatPrice(cheapest.totalPrice, cheapest.currency)}**${party} with ${cheapest.airline.name}.`;
+}
+
+/** What the assistant says once the hotels are in. Null when there is nothing worth saying. */
+function hotelsMessage({ hotels, totalHotels, stay, sample, filters }: StreamHotels, fallbackCity: string) {
+  const wishes = filters?.labels ?? [];
+  const city = `**${stay.city ?? fallbackCity}**`;
+
+  if (hotels.length === 0) {
+    // Without wishes, the hotels column says what there is to say.
+    const found = filters?.unfilteredCount ?? 0;
+    return found > 0 && wishes.length > 0
+      ? `I found ${found.toLocaleString("en-US")} places to stay in ${city}, but none match what you asked for (${wishes.join(", ")}). Want me to relax one of those?`
+      : null;
+  }
+  if (sample) {
+    return `I couldn't reach the hotel search, so I've listed **sample hotels** for ${stay.city ?? fallbackCity}. They are examples, not real availability or prices.`;
+  }
+
+  const cheapest = hotels.reduce((best, hotel) => (hotel.nightlyPrice < best.nightlyPrice ? hotel : best));
+  const count = `**${totalHotels.toLocaleString("en-US")} place${totalHotels === 1 ? "" : "s"} to stay**`;
+  const dates = `${formatDate(stay.checkIn)} – ${formatDate(stay.checkOut)}`;
+  // A one-way trip doesn't say how long the stay is.
+  const guessed = stay.nightsAssumed ? `\nIt's a one-way trip, so I looked at ${formatNights(stay.nights)}.` : "";
+
+  const matching = wishes.length > 0 ? `\nHotel filters: **${wishes.join(" · ")}**.` : "";
+
+  return `I also found ${count} in ${city} for ${dates}, from **${formatPrice(cheapest.nightlyPrice, cheapest.currency)}** a night.${matching}${guessed}`;
 }
 
 export default function PlannerView({ initialPrompt, initialDestination }: Props) {
@@ -144,12 +167,10 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   /** A message turned away because the guest's searches ran out; sent again once they log in. */
   const blockedPrompt = useRef<string | null>(null);
 
-  // Hotels are still sample data; they follow the destination and dates of the flight search.
-  const stay =
-    result?.query.departure_date && result.offers.length > 0
-      ? stayForSearch(result.destination, result.origin, result.query.departure_date, result.query.return_date)
-      : null;
-  const hotels = stay ? getHotels(stay) : [];
+  // The hotels that go with `result`. They arrive after the flights, or not at all when the trip has no night to stay.
+  const [hotelSearch, setHotelSearch] = useState<StreamHotels | null>(null);
+  const stay = hotelSearch?.stay ?? null;
+  const hotels = hotelSearch?.hotels ?? [];
 
   function addMessage(role: ChatMessage["role"], text: string, action?: ChatMessage["action"]) {
     setMessages((prev) => [...prev, { id: newId(), role, text, action }]);
@@ -159,12 +180,15 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     const next = toSearchResult(event);
     context.current = { destination: event.destination, tripQuery: event.extracted };
     setResult(next);
+    // The previous search's hotels go; this one's are on their way.
+    setHotelSearch(null);
     setSelectedFlight(null);
     setSelectedHotel(null);
     setFlightSort("best");
     setVisibleFlights(FLIGHTS_PAGE_SIZE);
     setHotelSort("recommended");
     addMessage("assistant", resultsMessage(next));
+    return next;
   }
 
   async function runSearch(prompt: string) {
@@ -178,6 +202,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     setAsking(null);
 
     let gotResults = false;
+    let destinationCity = "";
     let sawDone = false;
     let reported = false;
     // At most one problem is reported per search, however many ways it fails.
@@ -207,7 +232,12 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
           complete: (event) => {
             clearTimeout(timeout);
             gotResults = true;
-            showResults(event);
+            destinationCity = showResults(event).destination.city;
+          },
+          hotels: (event) => {
+            setHotelSearch(event);
+            const text = hotelsMessage(event, destinationCity);
+            if (text) addMessage("assistant", text);
           },
           done: ({ needsInput, asking: question, context: next }) => {
             clearTimeout(timeout);
@@ -289,10 +319,10 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   function tripMessage(flight: FlightOffer, hotel: Hotel, nights: number) {
     const stayCost = hotel.nightlyPrice * nights;
     const flightPrice = formatPrice(flight.totalPrice, flight.currency);
-    // Hotel prices are in USD; only add the two up when the flight is as well.
-    return flight.currency === "USD"
-      ? `Your trip is taking shape: **${flight.airline.name}** plus **${hotel.name}** comes to **${formatPrice(flight.totalPrice + stayCost)}** in total.`
-      : `Your trip is taking shape: **${flight.airline.name}** (${flightPrice}) plus **${hotel.name}** (${formatPrice(stayCost)} for ${formatNights(nights)}).`;
+    // The two are only added up when they are priced in the same currency.
+    return flight.currency === hotel.currency
+      ? `Your trip is taking shape: **${flight.airline.name}** plus **${hotel.name}** comes to **${formatPrice(flight.totalPrice + stayCost, flight.currency)}** in total.`
+      : `Your trip is taking shape: **${flight.airline.name}** (${flightPrice}) plus **${hotel.name}** (${formatPrice(stayCost, hotel.currency)} for ${formatNights(nights)}).`;
   }
 
   // Select saves the flight to the account (or removes it again). Guests are asked to sign in.
@@ -327,7 +357,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       "assistant",
       selectedFlight
         ? tripMessage(selectedFlight, hotel, stay.nights)
-        : `Lovely choice! **${hotel.name}** is ${formatPrice(hotel.nightlyPrice * stay.nights)} for ${formatNights(stay.nights)}. Want to pick a flight to go with it?`,
+        : `Lovely choice! **${hotel.name}** is ${formatPrice(hotel.nightlyPrice * stay.nights, hotel.currency)} for ${formatNights(stay.nights)}. Want to pick a flight to go with it?`,
     );
   }
 
@@ -338,6 +368,17 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       : result
         ? "ready"
         : "idle";
+
+  // While a search runs, the hotels are either the previous search's or still to come.
+  const hotelStatus: HotelSearchStatus = isSearching
+    ? "searching"
+    : hotelSearch?.failed
+      ? "error"
+      : hotelSearch
+        ? "ready"
+        : result
+          ? "no-stay"
+          : "idle";
 
   function changeFlightSort(sort: FlightSort) {
     setFlightSort(sort);
@@ -381,7 +422,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             statusLines={statusLines}
             suggestions={suggestions}
             onSend={send}
-            footnote="AI-assisted travel planning. Hotels are sample data."
+            footnote="AI-assisted travel planning. Prices can change before you book."
           />
         </div>
         <div id="panel-flights" role="tabpanel" aria-labelledby="tab-flights" className={`${panelClass("flights")} bg-white/40`}>
@@ -401,28 +442,25 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
           />
         </div>
         <div id="panel-hotels" role="tabpanel" aria-labelledby="tab-hotels" className={`${panelClass("hotels")} bg-white/40`}>
-          {stay ? (
-            <HotelResults
-              sample
-              trip={stay}
-              hotels={hotels}
-              sort={hotelSort}
-              onSortChange={setHotelSort}
-              selectedId={selectedHotel?.id ?? null}
-              onSelect={selectHotel}
-            />
-          ) : (
-            <ResultsColumn
-              title="Hotels"
-              icon={<BedIcon size={18} />}
-              badge={<SampleBadge />}
-              subtitle="Follows your flight search"
-              count={0}
-              emptyState="Hotel ideas appear here once your flight search has results."
-            >
-              {null}
-            </ResultsColumn>
-          )}
+          <HotelResults
+            subtitle={
+              stay && result
+                ? staySummary(stay.city ?? result.destination.city, stay.checkIn, stay.checkOut, stay.nights, hotelSearch?.filters?.labels)
+                : isSearching
+                  ? "Looking for places to stay"
+                  : "Follows your flight search"
+            }
+            hotels={hotels}
+            nights={stay?.nights ?? 1}
+            status={hotelStatus}
+            total={hotelSearch?.totalHotels}
+            filteredOut={hotelSearch?.filters ? hotelSearch.filters.unfilteredCount - hotelSearch.totalHotels : 0}
+            sample={hotelSearch?.sample}
+            sort={hotelSort}
+            onSortChange={setHotelSort}
+            selectedId={selectedHotel?.id ?? null}
+            onSelect={selectHotel}
+          />
         </div>
       </div>
     </div>

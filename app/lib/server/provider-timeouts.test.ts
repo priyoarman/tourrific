@@ -146,10 +146,10 @@ test("an abandoned search stops where it is and never reaches Duffel", async () 
   calls = [];
   stubFetch((url) => (url.includes("duffel") ? "hang" : groqAnswer()));
   visitor = new AbortController();
-  const leave = setInterval(() => calls.some((url) => url.includes("duffel")) && visitor.abort(), 20);
+  const leave = setInterval(() => calls.some((url) => url.includes("/air/")) && visitor.abort(), 20);
   events = await search(visitor.signal);
   clearInterval(leave);
-  assert.equal(calls.filter((url) => url.includes("duffel")).length, 1);
+  assert.equal(calls.filter((url) => url.includes("/air/")).length, 1);
   // No results, no error message, no `done`: nobody is listening.
   assert.ok(events.every(([event]) => event === "status" || event === "message"));
   assert.ok(!events.some(([, data]) => /too long|Error searching/.test(data.text ?? "")));
@@ -224,7 +224,8 @@ test("the answer to the return date question completes the search it belongs to"
   const providers = () => {
     const realStub = globalThis.fetch;
     globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input).includes("duffel")) duffelBody = JSON.parse(String(init?.body));
+      // The flight search; the hotel search that goes with it is not looked at here.
+      if (String(input).includes("/air/")) duffelBody = JSON.parse(String(init?.body));
       return realStub(input, init);
     }) as typeof fetch;
   };
@@ -246,7 +247,7 @@ test("the answer to the return date question completes the search it belongs to"
     await runFlightSearch({ prompt, context: waiting }, new Headers(), (event, data) => events.push([event, data]));
     return events;
   };
-  const groqCalls = () => calls.filter((url) => !url.includes("duffel")).length;
+  const groqCalls = () => calls.filter((url) => url.includes("groq")).length;
 
   // "A week later" needs no model: Groq is not called, and Duffel gets both directions.
   let events = await answer("A week later");

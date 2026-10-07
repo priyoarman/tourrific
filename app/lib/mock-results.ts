@@ -1,7 +1,9 @@
-import type { Hotel, Trip } from "./types";
+import { HOTEL_GRADIENTS } from "./duffel-to-hotel.ts";
+import type { Hotel } from "./types";
 
-// Sample hotels only; there is no hotel API yet. Results are seeded by
-// destination so they stay stable between renders (and between server and client).
+// Sample hotels: what the road trip page lists, and what the planner falls back
+// to when Duffel can't be asked and DUFFEL_USE_MOCK is on. Results are seeded by
+// place so they stay stable between renders (and between server and client).
 
 function seededRandom(seed: string) {
   let h = 1779033703 ^ seed.length;
@@ -32,17 +34,16 @@ const areas = ["City centre", "Old town", "Waterfront", "Arts district", "Near m
 
 const amenityPool = ["Free Wi-Fi", "Breakfast", "Pool", "Gym", "Spa", "Rooftop bar", "Parking"];
 
-const gradients = [
-  "from-[#f6c79b] to-[#d9776b]",
-  "from-[#a8c8f0] to-[#5f7fd1]",
-  "from-[#c7b2f5] to-[#8b6ad8]",
-  "from-[#9fdcc7] to-[#3f9a86]",
-  "from-[#f3b6c8] to-[#c46a8e]",
-  "from-[#f2dfa0] to-[#c99a45]",
-];
+/** Where sample hotels are made up for. */
+export type SamplePlace = {
+  city: string;
+  /** Starts every hotel's id: an airport code, or a road trip stop's id. */
+  airport: string;
+  /** Typical nightly rate for a mid-range hotel there, in USD. */
+  nightlyRate: number;
+};
 
-export function getHotels(trip: Trip): Hotel[] {
-  const dest = trip.destination;
+export function getHotels(dest: SamplePlace): Hotel[] {
   const rand = seededRandom(`hotels-${dest.city}`);
   const names = hotelNames
     .map((name) => ({ name, order: rand() }))
@@ -65,8 +66,10 @@ export function getHotels(trip: Trip): Hotel[] {
       nightlyPrice: Math.round(
         dest.nightlyRate * (0.55 + (stars - 3) * 0.3 + rand() * 0.4),
       ),
+      currency: "USD",
       amenities: amenities.length ? amenities : ["Free Wi-Fi"],
-      gradient: gradients[i % gradients.length],
+      photoUrl: null,
+      gradient: HOTEL_GRADIENTS[i % HOTEL_GRADIENTS.length],
       freeCancellation: rand() > 0.4,
     };
   });
