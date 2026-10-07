@@ -19,7 +19,6 @@ export type SaveOutcome =
 
 type Account = {
   user: AuthUser | null;
-  token: string | null;
   /** `alert` shows the note as a warning. */
   openAuth: (mode?: AuthMode, note?: string, alert?: boolean) => void;
   logOut: () => void;
@@ -41,7 +40,7 @@ export function useAccount() {
   return account;
 }
 
-type SavedState = { token: string; flights: SavedFlight[]; status: "ready" | "error" };
+type SavedState = { userId: string; flights: SavedFlight[]; status: "ready" | "error" };
 
 /**
  * Everything about the visitor's account that more than one part of the page
@@ -50,7 +49,7 @@ type SavedState = { token: string; flights: SavedFlight[]; status: "ready" | "er
  */
 export default function AccountProvider({ children }: { children: ReactNode }) {
   const session = useSession();
-  const token = session?.token ?? null;
+  const userId = session?.user.id ?? null;
 
   const [auth, setAuth] = useState<{ mode: AuthMode; note?: string; alert?: boolean } | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -60,30 +59,30 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
   const pendingSave = useRef<{ offer: FlightOffer; done: (outcome: SaveOutcome) => void } | null>(null);
 
   // Saved flights belong to one login. Anything loaded for another is ignored.
-  const current = saved && saved.token === token ? saved : null;
+  const current = saved && saved.userId === userId ? saved : null;
   const savedFlights = current?.flights ?? [];
 
-  function update(forToken: string, change: (flights: SavedFlight[]) => SavedFlight[]) {
+  function update(forUser: string, change: (flights: SavedFlight[]) => SavedFlight[]) {
     setSaved((state) =>
-      state?.token === forToken ? { ...state, flights: change(state.flights) } : state,
+      state?.userId === forUser ? { ...state, flights: change(state.flights) } : state,
     );
   }
 
   useEffect(() => {
-    if (!token) return;
+    if (!userId) return;
     let cancelled = false;
-    listSavedFlights(token)
+    listSavedFlights()
       .then((flights) => {
-        if (!cancelled) setSaved({ token, flights, status: "ready" });
+        if (!cancelled) setSaved({ userId, flights, status: "ready" });
       })
       .catch(() => {
-        // An expired token has already been logged out by `api`.
-        if (!cancelled) setSaved({ token, flights: [], status: "error" });
+        // An expired login has already been logged out by `api`.
+        if (!cancelled) setSaved({ userId, flights: [], status: "error" });
       });
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [userId]);
 
   function openAuth(mode: AuthMode = "signin", note?: string, alert?: boolean) {
     setDrawerOpen(false);
@@ -110,10 +109,10 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     return error instanceof Error ? error.message : "Something went wrong. Please try again.";
   }
 
-  async function save(withToken: string, offer: FlightOffer): Promise<SaveOutcome> {
+  async function save(forUser: string, offer: FlightOffer): Promise<SaveOutcome> {
     try {
-      const flight = await saveFlight(withToken, offer);
-      update(withToken, (flights) => [...flights, flight]);
+      const flight = await saveFlight(offer);
+      update(forUser, (flights) => [...flights, flight]);
       return { status: "saved", flight };
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
@@ -127,10 +126,10 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function remove(withToken: string, flight: SavedFlight): Promise<SaveOutcome> {
+  async function remove(forUser: string, flight: SavedFlight): Promise<SaveOutcome> {
     setRemovingId(flight.id);
     try {
-      await removeSavedFlight(withToken, flight.id);
+      await removeSavedFlight(flight.id);
     } catch (error) {
       // Already gone (removed in another tab) is as good as removed.
       if (!(error instanceof ApiError && error.status === 404)) {
@@ -139,19 +138,19 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     } finally {
       setRemovingId(null);
     }
-    update(withToken, (flights) => flights.filter((f) => f.id !== flight.id));
+    update(forUser, (flights) => flights.filter((f) => f.id !== flight.id));
     return { status: "removed" };
   }
 
   async function toggleSaved(offer: FlightOffer): Promise<SaveOutcome> {
-    if (!token) {
+    if (!userId) {
       setAuth({ mode: "signin", note: "Sign in to save this flight to your trips." });
       return new Promise((done) => {
         pendingSave.current = { offer, done };
       });
     }
     const existing = findSaved(savedFlights, offer);
-    return existing ? remove(token, existing) : save(token, offer);
+    return existing ? remove(userId, existing) : save(userId, offer);
   }
 
   async function onSignedIn(next: Session) {
@@ -163,10 +162,10 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     // Finish the save that prompted the sign-in, unless it was saved on an earlier visit.
     const { offer, done } = pending;
     try {
-      const flights = await listSavedFlights(next.token);
-      setSaved({ token: next.token, flights, status: "ready" });
+      const flights = await listSavedFlights();
+      setSaved({ userId: next.user.id, flights, status: "ready" });
       const existing = findSaved(flights, offer);
-      done(existing ? { status: "saved", flight: existing } : await save(next.token, offer));
+      done(existing ? { status: "saved", flight: existing } : await save(next.user.id, offer));
     } catch (error) {
       done({ status: "error", message: problem(error) });
     }
@@ -174,7 +173,6 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
 
   const account: Account = {
     user: session?.user ?? null,
-    token,
     openAuth,
     logOut,
     savedFlights,
@@ -195,13 +193,13 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
         onSignedIn={onSignedIn}
       />
       <SavedTripsDrawer
-        open={drawerOpen && Boolean(token)}
+        open={drawerOpen && Boolean(userId)}
         onClose={() => setDrawerOpen(false)}
         user={session?.user ?? null}
         flights={savedFlights}
         status={current ? current.status : "loading"}
         removingId={removingId}
-        onRemove={(flight) => token && remove(token, flight)}
+        onRemove={(flight) => userId && remove(userId, flight)}
         onLogOut={logOut}
       />
     </AccountContext>

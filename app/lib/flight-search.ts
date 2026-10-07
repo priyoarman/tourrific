@@ -1,4 +1,3 @@
-import { getSession } from "./auth-store";
 import { toFlightOffer } from "./duffel-to-flight-offer";
 import { consumeSseStream } from "./sse";
 import type { FlightOffer } from "./types";
@@ -54,15 +53,10 @@ export async function searchFlights(
   };
 
   // Searching needs no login, but the backend allows a logged-in user more searches.
-  // Read at call time, so a search sent right after signing in already carries it.
-  const token = getSession()?.token;
-
+  // It knows them by the session cookie, which the browser sends along by itself.
   const response = await fetch("/api/flights/search-stream", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal,
   });
