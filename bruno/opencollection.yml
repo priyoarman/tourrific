@@ -1,7 +1,8 @@
 opencollection: 1.0.0
 
 info:
-  name: Trip Weave
+  name: Tourrific
+  description: A travel planning application that helps users discover and organize their trips.
 config:
   proxy:
     inherit: true
