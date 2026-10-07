@@ -19,11 +19,9 @@ frontend, built by four people:
 | --- | --- | --- |
 | **Abirame** ([@abikrithika](https://github.com/abikrithika)) | Scrum master and frontend lead | Express server and repository setup, database ERD, split-screen interface, dashboard, sign-in modals, chat history, frontend modules, steadier chat streaming, Swagger docs, most pull request merges |
 | **Annamani** ([@annamani](https://github.com/annamani)) | Backend and API testing | Sign-up and log-in with bcrypt and JWT, saved flights (backend and frontend), pagination, Postman collection, testing instructions |
+| **Annamani** and **Arman** | | The Duffel flight search, built together, with its Zod validation, central error handling and mock flights |
 | **Arman** ([@priyoarman](https://github.com/priyoarman)) | AI integrations and API fetching | Groq setup and extraction schema, the link to Duffel, one-way, return and follow-up requests, origin detection by IP, flight filtering, detailed flight cards, Leaflet map, streamed AI chat |
 | **Fatima** ([@ftshn84](https://github.com/ftshn84)) | Database and UI | Database schema with currencies and seeding, serving the frontend from Express, notifications, dashboard layout, destination resolution, access token checks |
-
-Annamani and Arman built the Duffel flight search together, with its Zod
-validation, central error handling and mock flights.
 
 Then the project went solo. [Priyo Arman](https://github.com/priyoarman)
 rewrote it in Next.js and TypeScript, gave it the Tourrific interface, and made
