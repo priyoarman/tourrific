@@ -44,7 +44,7 @@ export const MAX_PASSENGERS = 9;
 const hhmm = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
-function money(amount: number, currency: string) {
+export function money(amount: number, currency: string) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
@@ -131,15 +131,19 @@ function airlineNames(wanted: string[], offers: DuffelOffer[]) {
   });
 }
 
+/** `amount` of one currency in another, roughly. Null when either isn't in the table above. */
+export function convertPrice(amount: number, from: string, to: string) {
+  if (from === to) return amount;
+
+  const rateFrom = UNITS_PER_EUR[from];
+  const rateTo = UNITS_PER_EUR[to];
+  return rateFrom && rateTo ? (amount / rateFrom) * rateTo : null;
+}
+
 /** The visitor's price limit in the currency the offers are priced in, or null when it can't be compared. */
 function priceLimitIn(currency: string, query: TripQuery) {
   if (!query.max_price) return null;
-  const from = query.max_price_currency ?? currency;
-  if (from === currency) return query.max_price;
-
-  const rateFrom = UNITS_PER_EUR[from];
-  const rateTo = UNITS_PER_EUR[currency];
-  return rateFrom && rateTo ? (query.max_price / rateFrom) * rateTo : null;
+  return convertPrice(query.max_price, query.max_price_currency ?? currency, currency);
 }
 
 export type FilterResult = {

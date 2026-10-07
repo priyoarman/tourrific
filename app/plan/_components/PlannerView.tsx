@@ -101,8 +101,17 @@ function resultsMessage(result: FlightSearchResult) {
 }
 
 /** What the assistant says once the hotels are in. Null when there is nothing worth saying. */
-function hotelsMessage({ hotels, totalHotels, stay, sample }: StreamHotels, fallbackCity: string) {
-  if (hotels.length === 0) return null;
+function hotelsMessage({ hotels, totalHotels, stay, sample, filters }: StreamHotels, fallbackCity: string) {
+  const wishes = filters?.labels ?? [];
+  const city = `**${stay.city ?? fallbackCity}**`;
+
+  if (hotels.length === 0) {
+    // Without wishes, the hotels column says what there is to say.
+    const found = filters?.unfilteredCount ?? 0;
+    return found > 0 && wishes.length > 0
+      ? `I found ${found.toLocaleString("en-US")} places to stay in ${city}, but none match what you asked for (${wishes.join(", ")}). Want me to relax one of those?`
+      : null;
+  }
   if (sample) {
     return `I couldn't reach the hotel search, so I've listed **sample hotels** for ${stay.city ?? fallbackCity}. They are examples, not real availability or prices.`;
   }
@@ -113,7 +122,9 @@ function hotelsMessage({ hotels, totalHotels, stay, sample }: StreamHotels, fall
   // A one-way trip doesn't say how long the stay is.
   const guessed = stay.nightsAssumed ? `\nIt's a one-way trip, so I looked at ${formatNights(stay.nights)}.` : "";
 
-  return `I also found ${count} in **${stay.city ?? fallbackCity}** for ${dates}, from **${formatPrice(cheapest.nightlyPrice, cheapest.currency)}** a night.${guessed}`;
+  const matching = wishes.length > 0 ? `\nHotel filters: **${wishes.join(" · ")}**.` : "";
+
+  return `I also found ${count} in ${city} for ${dates}, from **${formatPrice(cheapest.nightlyPrice, cheapest.currency)}** a night.${matching}${guessed}`;
 }
 
 export default function PlannerView({ initialPrompt, initialDestination }: Props) {
@@ -434,7 +445,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
           <HotelResults
             subtitle={
               stay && result
-                ? staySummary(stay.city ?? result.destination.city, stay.checkIn, stay.checkOut, stay.nights)
+                ? staySummary(stay.city ?? result.destination.city, stay.checkIn, stay.checkOut, stay.nights, hotelSearch?.filters?.labels)
                 : isSearching
                   ? "Looking for places to stay"
                   : "Follows your flight search"
@@ -443,6 +454,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             nights={stay?.nights ?? 1}
             status={hotelStatus}
             total={hotelSearch?.totalHotels}
+            filteredOut={hotelSearch?.filters ? hotelSearch.filters.unfilteredCount - hotelSearch.totalHotels : 0}
             sample={hotelSearch?.sample}
             sort={hotelSort}
             onSortChange={setHotelSort}

@@ -1,5 +1,6 @@
 import type { Hotel } from "./types";
 import type { DuffelStaysAccommodation, DuffelStaysResult } from "./types/duffel-stays";
+import type { HotelAmenity } from "./types/trip-query";
 
 /** Shown in place of a photo when a hotel has none. */
 export const HOTEL_GRADIENTS = [
@@ -13,7 +14,7 @@ export const HOTEL_GRADIENTS = [
 
 // The amenities worth one of the three places on a card, most wanted first.
 // Anything else is named by Duffel's own description.
-const AMENITY_LABELS: Record<string, string> = {
+export const AMENITY_LABELS: Record<HotelAmenity, string> = {
   wifi: "Wi-Fi",
   pool: "Pool",
   spa: "Spa",
@@ -38,16 +39,18 @@ export function distanceKm(a: Coordinates, b: Coordinates) {
 }
 
 /** Nights between two dates written as YYYY-MM-DD. At least 1. */
-function nightsBetween(checkIn: string, checkOut: string) {
+export function nightsBetween(checkIn: string, checkOut: string) {
   return Math.max(Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000), 1);
 }
 
-function amenityLabels(accommodation: DuffelStaysAccommodation) {
+const isKnown = (type: string): type is HotelAmenity => type in AMENITY_LABELS;
+
+function amenityLabels(accommodation: DuffelStaysAccommodation, wanted: HotelAmenity[]) {
   const offered = accommodation.amenities ?? [];
-  const known = Object.keys(AMENITY_LABELS)
-    .filter((type) => offered.some((amenity) => amenity.type === type))
-    .map((type) => AMENITY_LABELS[type]);
-  const others = offered.filter((amenity) => !AMENITY_LABELS[amenity.type]).map((amenity) => amenity.description);
+  // What the visitor asked for goes first, so the card shows the hotel has it.
+  const order = [...wanted, ...(Object.keys(AMENITY_LABELS) as HotelAmenity[])];
+  const known = order.filter((type) => offered.some((amenity) => amenity.type === type)).map((type) => AMENITY_LABELS[type]);
+  const others = offered.filter((amenity) => !isKnown(amenity.type)).map((amenity) => amenity.description);
   return [...new Set([...known, ...others])].filter(Boolean).slice(0, AMENITIES_SHOWN);
 }
 
@@ -69,16 +72,21 @@ function gradientFor(id: string) {
   return HOTEL_GRADIENTS[sum % HOTEL_GRADIENTS.length];
 }
 
+/** What one night costs at the cheapest rate found. Duffel prices the whole stay. */
+export function nightlyPrice(result: DuffelStaysResult) {
+  const total = Number.parseFloat(result.cheapest_rate_total_amount);
+  return Math.round((total / nightsBetween(result.check_in_date, result.check_out_date)) * 100) / 100;
+}
+
 /**
  * Converts one Duffel stays result into the shape the hotel cards render.
  * `centre` is the point the search was made around; distances are measured from it.
+ * `wanted` are the amenities the visitor asked for, which are listed before the others.
  */
-export function toHotel(result: DuffelStaysResult, centre?: Coordinates | null): Hotel {
+export function toHotel(result: DuffelStaysResult, centre?: Coordinates | null, wanted: HotelAmenity[] = []): Hotel {
   const { accommodation } = result;
   const address = accommodation.location.address;
   const position = accommodation.location.geographic_coordinates;
-  const total = Number.parseFloat(result.cheapest_rate_total_amount);
-  const nights = nightsBetween(result.check_in_date, result.check_out_date);
 
   return {
     id: accommodation.id,
@@ -88,10 +96,9 @@ export function toHotel(result: DuffelStaysResult, centre?: Coordinates | null):
     stars: accommodation.rating ?? null,
     rating: accommodation.review_score ?? null,
     reviewCount: accommodation.review_count ?? null,
-    // Duffel prices the whole stay; the cards show a night.
-    nightlyPrice: Math.round((total / nights) * 100) / 100,
+    nightlyPrice: nightlyPrice(result),
     currency: result.cheapest_rate_currency,
-    amenities: amenityLabels(accommodation),
+    amenities: amenityLabels(accommodation, wanted),
     photoUrl: accommodation.photos?.[0]?.url ?? null,
     gradient: gradientFor(accommodation.id),
     freeCancellation: hasFreeCancellation(accommodation),

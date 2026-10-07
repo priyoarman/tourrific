@@ -69,6 +69,15 @@ const tripQuerySchema = z.object({
   preferred_airlines: tagList.nullish(),
   baggage_required: z.boolean().nullish(),
   departure_time: z.enum(["morning", "afternoon", "evening", "night"]).nullish(),
+  hotel_rooms: z.number().int().min(1).max(9).nullish(),
+  hotel_max_price: z.number().positive().max(10_000_000).nullish(),
+  hotel_max_price_currency: z.string().max(3).nullish(),
+  hotel_min_stars: z.number().int().min(1).max(5).nullish(),
+  hotel_free_cancellation: z.boolean().nullish(),
+  hotel_amenities: z
+    .array(z.enum(["wifi", "pool", "spa", "gym", "parking", "restaurant", "room_service", "pet_friendly"]))
+    .max(8)
+    .nullish(),
   destination_country: shortText.nullish(),
   destination_country_code: z.string().max(3).nullish(),
   destination_continent_code: z.string().max(3).nullish(),

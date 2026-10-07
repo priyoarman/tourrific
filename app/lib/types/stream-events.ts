@@ -83,8 +83,15 @@ export type StreamComplete = {
 export type StreamHotels = {
   /** The first hotels Duffel found, in its order. Empty when it found none or the search failed. */
   hotels: Hotel[];
-  /** How many Duffel found in all. */
+  /** How many Duffel found in all that fit what the visitor asked of the hotel. */
   totalHotels: number;
+  /** The hotel wishes the search applied. `hotels` and `totalHotels` only count hotels that passed them. */
+  filters?: {
+    /** One short label per wish, e.g. "4+ stars", "Pool", "Under €150 a night". */
+    labels: string[];
+    /** How many hotels there were before filtering. */
+    unfilteredCount: number;
+  };
   /** What was searched. */
   stay: {
     /** The city the hotels are in, e.g. "Lisbon". Null when the airport list doesn't name one. */

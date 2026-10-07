@@ -7,13 +7,13 @@ import type { StreamHotels } from "../types/stream-events";
 import type { TripQuery } from "../types/trip-query";
 import { searchStaysCached } from "./duffel-stays.ts";
 import { passengerCount } from "./flight-filters.ts";
+import { duffelStaysOptions, filterStays } from "./hotel-filters.ts";
 import { stayLocation } from "./stay-location.ts";
 
 /** Duffel can answer with hundreds; the column shows the first of them, in Duffel's order. */
 const MAX_HOTELS = 30;
 /** The longest stay Duffel searches. */
 const MAX_NIGHTS = 99;
-const GUESTS_PER_ROOM = 2;
 /** What a night costs in the sample hotels of a place the app has no figure for, in USD. */
 const SAMPLE_NIGHTLY_RATE = 130;
 
@@ -46,7 +46,8 @@ export async function searchHotels(query: TripQuery, destination: string, signal
   const location = await stayLocation(destination, signal);
   if (!location) return null;
 
-  const guests = passengerCount(query);
+  // Duffel narrows the search where it can; the rest is filtered once the hotels are in.
+  const options = duffelStaysOptions(query);
   const stay: StreamHotels["stay"] = {
     city: location.city,
     around: location.around,
@@ -54,8 +55,8 @@ export async function searchHotels(query: TripQuery, destination: string, signal
     checkOut: addDays(checkIn, nights),
     nights,
     nightsAssumed: !query.return_date,
-    guests,
-    rooms: Math.ceil(guests / GUESTS_PER_ROOM),
+    guests: passengerCount(query),
+    rooms: options.rooms,
   };
 
   try {
@@ -67,16 +68,20 @@ export async function searchHotels(query: TripQuery, destination: string, signal
         location: { radius, geographic_coordinates: { latitude, longitude } },
         check_in_date: stay.checkIn,
         check_out_date: stay.checkOut,
-        guests: Array.from({ length: guests }, () => ({ type: "adult" })),
-        rooms: stay.rooms,
+        ...options,
       },
       signal,
     );
-    const found = answer.data?.results ?? [];
+    const { results, labels, unfilteredCount } = filterStays(answer.data?.results ?? [], query);
     // Distances are only "from the centre" when the centre is what was searched around.
     const centre = location.around === "city" ? { latitude, longitude } : null;
+    const hotels = results.slice(0, MAX_HOTELS).map((result) => {
+      const hotel = toHotel(result, centre, query.hotel_amenities ?? []);
+      // Duffel was asked for nothing else, whether or not this answer shows the rate's terms.
+      return options.free_cancellation_only ? { ...hotel, freeCancellation: true } : hotel;
+    });
 
-    return { hotels: found.slice(0, MAX_HOTELS).map((result) => toHotel(result, centre)), totalHotels: found.length, stay };
+    return { hotels, totalHotels: results.length, stay, filters: { labels, unfilteredCount } };
   } catch (error) {
     const failed: StreamHotels = { hotels: [], totalHotels: 0, stay, failed: true };
     // Nobody is waiting for the answer any more, sample or not.

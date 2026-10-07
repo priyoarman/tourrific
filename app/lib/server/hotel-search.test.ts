@@ -122,6 +122,47 @@ test("hotels are searched for the place, nights and travellers of the trip", asy
   ]);
 });
 
+test("what was asked of the hotel is sent to Duffel where it can be, and filtered here where it can't", async () => {
+  const hotel = (id: string, stars: number | null, total: string, amenities: string[]) => {
+    const found = result(id, total);
+    return { ...found, accommodation: { ...found.accommodation, rating: stars, amenities: amenities.map((type) => ({ type, description: type })) } };
+  };
+  stubProviders({
+    stays: () =>
+      Response.json({
+        data: {
+          results: [
+            hotel("cheap", 3, "240.00", ["wifi", "pool"]),
+            hotel("fits", 4, "420.00", ["wifi", "pool", "spa", "gym", "parking"]),
+            hotel("dear", 5, "900.00", ["wifi", "pool", "parking"]),
+            hotel("dry", 4, "300.00", ["wifi", "parking"]),
+            hotel("unrated", null, "300.00", ["pool", "parking"]),
+          ],
+        },
+      }),
+  });
+
+  const found = await searchHotels(
+    trip({ passengers: 2, hotel_rooms: 2, hotel_min_stars: 4, hotel_max_price: 150, hotel_max_price_currency: "EUR", hotel_free_cancellation: true, hotel_amenities: ["pool", "parking"] }),
+    "LIS",
+  );
+
+  assert.equal(staysBodies[0].data.rooms, 2);
+  assert.equal(staysBodies[0].data.free_cancellation_only, true);
+
+  // Three nights each: 80, 140, 300, 100 and 100 a night.
+  assert.deepEqual(found?.hotels.map((hotel) => hotel.id), ["acc_fits"]);
+  assert.equal(found?.totalHotels, 1);
+  assert.deepEqual(found?.filters, {
+    labels: ["4+ stars", "Pool", "Parking", "Free cancellation", "Under €150 a night", "2 rooms"],
+    unfilteredCount: 5,
+  });
+  // The card shows it has what was asked for, and that it can be cancelled.
+  assert.deepEqual(found?.hotels[0].amenities, ["Pool", "Parking", "Wi-Fi"]);
+  assert.equal(found?.hotels[0].freeCancellation, true);
+  assert.equal(found?.stay.rooms, 2);
+});
+
 test("a one-way trip is given a few nights, and says they are a guess", async () => {
   stubProviders();
 

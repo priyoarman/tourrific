@@ -1,4 +1,5 @@
-// The structured flight search the backend extracts from a chat message with Groq.
+// The structured search the backend extracts from a chat message with Groq:
+// the flights, and what the visitor wants of the hotel that goes with them.
 // Mirrors app/lib/server/groq/schema.ts, so field names stay in snake_case as they
 // arrive over the wire. Every field can be null when the user didn't mention it.
 
@@ -7,6 +8,9 @@ export type TripType = "one_way" | "return";
 export type DepartureTime = "morning" | "afternoon" | "evening" | "night";
 
 export type CabinClass = "economy" | "premium_economy" | "business" | "first";
+
+/** What a hotel can be asked to have. The words are Duffel's amenity types. */
+export type HotelAmenity = "wifi" | "pool" | "spa" | "gym" | "parking" | "restaurant" | "room_service" | "pet_friendly";
 
 export type TripQuery = {
   trip_type: TripType | null;
@@ -37,6 +41,18 @@ export type TripQuery = {
   preferred_airlines: string[] | null;
   baggage_required: boolean | null;
   departure_time: DepartureTime | null;
+
+  /** Rooms to book. Null means two travellers to a room. */
+  hotel_rooms: number | null;
+  /** The most one night may cost, as the user said it, e.g. 150. */
+  hotel_max_price: number | null;
+  /** ISO 4217 code of that limit. Null means the currency the hotels are priced in. */
+  hotel_max_price_currency: string | null;
+  /** Fewest stars the hotel may have, 1 to 5. */
+  hotel_min_stars: number | null;
+  hotel_free_cancellation: boolean | null;
+  /** What the hotel must have. Empty means nothing in particular. */
+  hotel_amenities: HotelAmenity[] | null;
 
   // Set when the user names a country, continent or region rather than a city.
   destination_country: string | null;

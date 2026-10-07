@@ -31,9 +31,12 @@ function sortHotels(hotels: Hotel[], sort: HotelSort) {
   );
 }
 
-/** "Lisbon · Thu 12 Nov – Sun 15 Nov · 3 nights". Dates are YYYY-MM-DD. */
-export function staySummary(city: string, checkIn: string, checkOut: string, nights: number) {
-  return `${city} · ${formatDate(checkIn)} – ${formatDate(checkOut)} · ${formatNights(nights)}`;
+/**
+ * "Lisbon · Thu 12 Nov – Sun 15 Nov · 3 nights". Dates are YYYY-MM-DD.
+ * `filters` are added at the end, e.g. "· 4+ stars · Pool".
+ */
+export function staySummary(city: string, checkIn: string, checkOut: string, nights: number, filters: string[] = []) {
+  return [city, `${formatDate(checkIn)} – ${formatDate(checkOut)}`, formatNights(nights), ...filters].join(" · ");
 }
 
 type Props = {
@@ -46,6 +49,8 @@ type Props = {
   status?: HotelSearchStatus;
   /** How many hotels the search found, when that is more than the ones listed. */
   total?: number;
+  /** How many hotels the search found but the visitor's wishes removed. */
+  filteredOut?: number;
   sort: HotelSort;
   onSortChange: (sort: HotelSort) => void;
   selectedId: string | null;
@@ -62,6 +67,7 @@ export default function HotelResults({
   nights,
   status = "ready",
   total,
+  filteredOut = 0,
   sort,
   onSortChange,
   selectedId,
@@ -89,9 +95,16 @@ export default function HotelResults({
         The hotel search didn&apos;t answer. Your flights are not affected; try the search again in a moment.
       </ColumnMessage>
     ) : status === "ready" ? (
-      <ColumnMessage icon={<BedIcon size={26} />} title="No hotels found">
-        Nothing is available for those dates. Try different ones.
-      </ColumnMessage>
+      filteredOut > 0 ? (
+        <ColumnMessage icon={<BedIcon size={26} />} title="No hotels match your wishes">
+          {filteredOut.toLocaleString("en-US")} hotel{filteredOut === 1 ? " was" : "s were"} found, but none fit
+          everything you asked for. Try relaxing one, for example “any hotel price” or “no pool needed”.
+        </ColumnMessage>
+      ) : (
+        <ColumnMessage icon={<BedIcon size={26} />} title="No hotels found">
+          Nothing is available for those dates. Try different ones.
+        </ColumnMessage>
+      )
     ) : status === "no-stay" ? (
       <ColumnMessage icon={<BedIcon size={26} />} title="No stay to search">
         Hotels are listed for trips with at least one night away.

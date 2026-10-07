@@ -1,7 +1,7 @@
 // Asks Groq to turn a chat message into a structured flight search (a
 // TripQuery), then tidies the answer. Ported from api/src/groq/extractor.js.
 import { createGroq } from "@ai-sdk/groq";
-import type { CabinClass, DepartureTime, TripQuery, TripType } from "../../types/trip-query";
+import type { CabinClass, DepartureTime, HotelAmenity, TripQuery, TripType } from "../../types/trip-query";
 import { resolveDestination } from "../destination-resolver.ts";
 import TRIP_QUERY_SCHEMA from "./schema.ts";
 import SYSTEM_PROMPT from "./system-prompt.ts";
@@ -115,6 +115,30 @@ function normalizeCurrency(value: unknown) {
   if (typeof value !== "string") return null;
   const code = value.trim().toUpperCase();
   return CURRENCY_ALIASES[code] ?? (/^[A-Z]{3}$/.test(code) ? code : null);
+}
+
+/** A whole number from `min` to `max`, or null. Anything above `max` counts as `max`. */
+function normalizeCount(value: unknown, min: number, max: number) {
+  const count = typeof value === "string" ? Number.parseInt(value, 10) : value;
+  return typeof count === "number" && Number.isFinite(count) && count >= min ? Math.min(Math.round(count), max) : null;
+}
+
+// How the model, or a visitor it quotes, may write each amenity.
+const AMENITY_WORDS: [HotelAmenity, RegExp][] = [
+  ["wifi", /wi-?fi|internet/],
+  ["pool", /pool/],
+  ["spa", /\bspa\b|sauna|wellness/],
+  ["gym", /gym|fitness/],
+  ["parking", /parking|garage/],
+  ["restaurant", /restaurant/],
+  ["room_service", /room[\s_-]?service/],
+  ["pet_friendly", /\bpets?\b|\bdogs?\b|pet[\s_-]?friendly/],
+];
+
+/** The amenities on the list the model named, each once. Anything else is dropped. */
+function normalizeAmenities(value: unknown): HotelAmenity[] {
+  const named = normalizeStringList(value).map((item) => item.toLowerCase());
+  return AMENITY_WORDS.filter(([, words]) => named.some((item) => words.test(item))).map(([amenity]) => amenity);
 }
 
 const stringOrNull = (value: unknown) => (typeof value === "string" && value ? value : null);
@@ -236,6 +260,13 @@ export function normalizeTripQuery(raw: unknown): TripQuery {
     preferred_airlines: normalizeStringList(source.preferred_airlines),
     baggage_required: normalizeBoolean(source.baggage_required),
     departure_time: normalizeDepartureTime(source.departure_time),
+
+    hotel_rooms: normalizeCount(source.hotel_rooms, 1, 9),
+    hotel_max_price: normalizeMaxPrice(source.hotel_max_price),
+    hotel_max_price_currency: normalizeMaxPrice(source.hotel_max_price) ? normalizeCurrency(source.hotel_max_price_currency) : null,
+    hotel_min_stars: normalizeCount(source.hotel_min_stars, 1, 5),
+    hotel_free_cancellation: normalizeBoolean(source.hotel_free_cancellation),
+    hotel_amenities: normalizeAmenities(source.hotel_amenities),
   };
 }
 
@@ -297,7 +328,7 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
       responseFormat: {
         type: "json",
         name: "trip_query_extraction",
-        description: "Extract a flight search query from natural language.",
+        description: "Extract a flight search query, and any wishes for the hotel, from natural language.",
         // The schema is a readonly literal; the SDK's type wants a mutable one.
         schema: TRIP_QUERY_SCHEMA as unknown as Record<string, never>,
       },

@@ -60,6 +60,12 @@ test("converts a Duffel stays result into a hotel card", () => {
   assert.equal(toHotel(result(), centre).gradient, hotel.gradient);
 });
 
+test("what the visitor asked for is listed before the other amenities", () => {
+  assert.deepEqual(toHotel(result(), centre, ["parking"]).amenities, ["Parking", "Wi-Fi", "Gym"]);
+  // Asking for something the hotel hasn't got changes nothing.
+  assert.deepEqual(toHotel(result(), centre, ["pool"]).amenities, ["Wi-Fi", "Gym", "Parking"]);
+});
+
 test("a hotel with little known about it still converts", () => {
   const hotel = toHotel(
     result({ rating: null, review_score: null, review_count: null, photos: null, amenities: null, rooms: null, location: {} }),
