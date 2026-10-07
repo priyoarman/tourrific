@@ -275,6 +275,14 @@ the host's proxy.
 Code: `rate-limit.ts`, `search-limits.ts`, `auth-limits.ts`, `schemas.ts` and
 `ttl-cache.ts` in `app/lib/server/`.
 
+## Testing
+
+`npm test` runs the unit tests with Node's built-in test runner. They cover the
+converters, flight filters and hotel wishes, dates and follow-ups, the hotel
+search and its fallback, login sessions, and the abuse protection. They use a
+saved sample of real Duffel offers and need no network. The hotel tests use
+hand-written answers shaped like Duffel's API reference.
+
 ## Deploying to Render
 
 `render.yaml` describes one free web service, with `/api/health` as the health
@@ -292,11 +300,3 @@ To apply migrations by hand:
 ```bash
 DATABASE_URL="<production connection string>" npm run db:deploy
 ```
-
-## Testing
-
-`npm test` runs the unit tests with Node's built-in test runner. They cover the
-converters, flight filters and hotel wishes, dates and follow-ups, the hotel
-search and its fallback, login sessions, and the abuse protection. They use a
-saved sample of real Duffel offers and need no network. The hotel tests use
-hand-written answers shaped like Duffel's API reference.
