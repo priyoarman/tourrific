@@ -101,8 +101,11 @@ function resultsMessage(result: FlightSearchResult) {
 }
 
 /** What the assistant says once the hotels are in. Null when there is nothing worth saying. */
-function hotelsMessage({ hotels, totalHotels, stay }: StreamHotels, fallbackCity: string) {
+function hotelsMessage({ hotels, totalHotels, stay, sample }: StreamHotels, fallbackCity: string) {
   if (hotels.length === 0) return null;
+  if (sample) {
+    return `I couldn't reach the hotel search, so I've listed **sample hotels** for ${stay.city ?? fallbackCity}. They are examples, not real availability or prices.`;
+  }
 
   const cheapest = hotels.reduce((best, hotel) => (hotel.nightlyPrice < best.nightlyPrice ? hotel : best));
   const count = `**${totalHotels.toLocaleString("en-US")} place${totalHotels === 1 ? "" : "s"} to stay**`;
@@ -440,6 +443,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             nights={stay?.nights ?? 1}
             status={hotelStatus}
             total={hotelSearch?.totalHotels}
+            sample={hotelSearch?.sample}
             sort={hotelSort}
             onSortChange={setHotelSort}
             selectedId={selectedHotel?.id ?? null}

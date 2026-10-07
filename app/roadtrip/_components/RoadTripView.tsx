@@ -33,7 +33,7 @@ export default function RoadTripView({ initialPrompt, today }: Props) {
   const [activeStopId, setActiveStopId] = useState(route.stops[0].id);
   const activeStop = trip.stops.find((s) => s.id === activeStopId) ?? trip.stops[0];
   const stopTrip = stopAsTrip(trip, activeStop);
-  const hotels = getHotels(stopTrip);
+  const hotels = getHotels(stopTrip.destination);
 
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
     initialPrompt

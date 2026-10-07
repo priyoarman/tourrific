@@ -1,8 +1,9 @@
-import { HOTEL_GRADIENTS } from "./duffel-to-hotel";
-import type { Hotel, Trip } from "./types";
+import { HOTEL_GRADIENTS } from "./duffel-to-hotel.ts";
+import type { Hotel } from "./types";
 
-// Sample hotels only; there is no hotel API yet. Results are seeded by
-// destination so they stay stable between renders (and between server and client).
+// Sample hotels: what the road trip page lists, and what the planner falls back
+// to when Duffel can't be asked and DUFFEL_USE_MOCK is on. Results are seeded by
+// place so they stay stable between renders (and between server and client).
 
 function seededRandom(seed: string) {
   let h = 1779033703 ^ seed.length;
@@ -33,8 +34,16 @@ const areas = ["City centre", "Old town", "Waterfront", "Arts district", "Near m
 
 const amenityPool = ["Free Wi-Fi", "Breakfast", "Pool", "Gym", "Spa", "Rooftop bar", "Parking"];
 
-export function getHotels(trip: Trip): Hotel[] {
-  const dest = trip.destination;
+/** Where sample hotels are made up for. */
+export type SamplePlace = {
+  city: string;
+  /** Starts every hotel's id: an airport code, or a road trip stop's id. */
+  airport: string;
+  /** Typical nightly rate for a mid-range hotel there, in USD. */
+  nightlyRate: number;
+};
+
+export function getHotels(dest: SamplePlace): Hotel[] {
   const rand = seededRandom(`hotels-${dest.city}`);
   const names = hotelNames
     .map((name) => ({ name, order: rand() }))

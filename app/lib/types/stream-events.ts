@@ -103,6 +103,8 @@ export type StreamHotels = {
   };
   /** True when the hotel search failed. The flights are unaffected. */
   failed?: boolean;
+  /** True when the hotels are made-up examples, listed because the search failed and DUFFEL_USE_MOCK is on. */
+  sample?: boolean;
 };
 
 /** What the assistant asked for when it needs an answer before it can search. */

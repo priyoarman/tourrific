@@ -84,6 +84,7 @@ afterEach(() => {
   console.warn = realWarn;
   console.error = realError;
   delete process.env.DUFFEL_TIMEOUT_MS;
+  delete process.env.DUFFEL_USE_MOCK;
 });
 
 test("hotels are searched for the place, nights and travellers of the trip", async () => {
@@ -179,6 +180,34 @@ test("a hotel search that fails says so and has no hotels", async () => {
   const visitor = new AbortController();
   setTimeout(() => visitor.abort(), 10);
   assert.deepEqual(await outcome(visitor.signal), failed);
+});
+
+test("with DUFFEL_USE_MOCK, a failed hotel search answers with sample hotels that say what they are", async () => {
+  process.env.DUFFEL_USE_MOCK = "true";
+  stubProviders({ stays: () => Response.json({ errors: [{ message: "This feature is not enabled for your account." }] }, { status: 403 }) });
+
+  const found = await searchHotels(trip(), "LIS");
+  assert.equal(found?.sample, true);
+  assert.equal(found?.failed, undefined);
+  assert.equal(found?.hotels.length, 6);
+  assert.equal(found?.totalHotels, 6);
+  assert.equal(found?.stay.nights, 3);
+  assert.ok(found?.hotels.every((hotel) => hotel.id.startsWith("LIS-hotel-") && hotel.currency === "USD" && hotel.photoUrl === null));
+  // The same place gets the same hotels every time.
+  assert.deepEqual((await searchHotels(trip(), "LIS"))?.hotels, found?.hotels);
+
+  // Real hotels are never marked, and the sample ones are never kept in their place.
+  stubProviders({ stays: () => stays("1") });
+  const real = await searchHotels(trip(), "LIS");
+  assert.equal(real?.sample, undefined);
+  assert.deepEqual(real?.hotels.map((hotel) => hotel.id), ["acc_1"]);
+
+  // A visitor who left gets nothing made up for them.
+  stubProviders({ stays: () => "hang" });
+  clearStaysCache();
+  const visitor = new AbortController();
+  setTimeout(() => visitor.abort(), 10);
+  assert.equal((await searchHotels(trip(), "LIS", visitor.signal))?.failed, true);
 });
 
 /** Runs a chat search for a return trip to Lisbon and collects what it sends. */
