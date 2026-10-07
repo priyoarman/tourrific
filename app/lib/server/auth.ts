@@ -21,9 +21,18 @@ export function signToken(user: { id: bigint; email: string }) {
  * stops other sites from sending it along with their requests.
  */
 export function sessionCookie(token: string) {
+  return cookie(token, TOKEN_LIFETIME_SECONDS);
+}
+
+/** The `Set-Cookie` value that makes the browser forget its session cookie. */
+export function clearedSessionCookie() {
+  return cookie("", 0);
+}
+
+function cookie(value: string, maxAgeSeconds: number) {
   // Local development runs on plain http, where a Secure cookie would be dropped.
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${TOKEN_LIFETIME_SECONDS}; HttpOnly; SameSite=Lax${secure}`;
+  return `${SESSION_COOKIE}=${value}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; SameSite=Lax${secure}`;
 }
 
 /** The token a request carries: its session cookie, or else an `Authorization: Bearer <token>` header. */

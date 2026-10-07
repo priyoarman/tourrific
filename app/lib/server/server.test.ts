@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import jwt from "jsonwebtoken";
-import { optionalUser, requireUser, sessionCookie, signToken } from "./auth.ts";
+import { clearedSessionCookie, optionalUser, requireUser, sessionCookie, signToken } from "./auth.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
 import { mergeFollowUpTripQuery } from "./follow-up.ts";
 import { normalizeTripQuery, parseNaturalTravelDates } from "./groq/extractor.ts";
@@ -224,11 +224,18 @@ test("the session cookie is hidden from scripts and lasts as long as the token",
   const sent = new Request("http://localhost/api", { headers: { cookie: cookie.split(";")[0] } });
   assert.deepEqual(requireUser(sent), { userId: BigInt(42) });
 
+  // Logging out replaces it with one that expires at once, leaving a guest.
+  const cleared = clearedSessionCookie();
+  assert.equal(cleared, "session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
+  const afterLogout = new Request("http://localhost/api", { headers: { cookie: cleared.split(";")[0] } });
+  assert.equal(optionalUser(afterLogout), null);
+
   // Over https in production it is never sent on plain http.
   const env = process.env as Record<string, string | undefined>;
   const before = env.NODE_ENV;
   env.NODE_ENV = "production";
   assert.ok(sessionCookie(token).endsWith("; SameSite=Lax; Secure"));
+  assert.ok(clearedSessionCookie().endsWith("; SameSite=Lax; Secure"));
   env.NODE_ENV = before;
 });
 
