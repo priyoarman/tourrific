@@ -130,9 +130,10 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [tab, setTab] = useState<PlannerTab>("chat");
   const router = useRouter();
-  const { token, isSaved, toggleSaved, openAuth } = useAccount();
+  const { user, isSaved, toggleSaved, openAuth } = useAccount();
+  const userId = user?.id ?? null;
   // Signed-in users get their earlier messages back, and this visit's messages stored.
-  const earlierMessages = useChatHistory(token, messages, [WELCOME_ID]);
+  const earlierMessages = useChatHistory(userId, messages, [WELCOME_ID]);
 
   // What the backend learned so far, sent back with every message so follow-ups
   // like "a little later" build on the previous search.
@@ -267,12 +268,12 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   // Logging in gives more searches, so the message that was turned away is sent again.
   useEffect(() => {
     const prompt = blockedPrompt.current;
-    if (!token || !prompt) return;
+    if (!userId || !prompt) return;
     const start = setTimeout(() => runSearch(prompt), 0);
     return () => clearTimeout(start);
     // Only a new login triggers it; `runSearch` is new on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [userId]);
 
   function send(text: string) {
     // Road trips are planned on their own page, with a route map instead of flights.

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "f2cc4996-d4d3-582a-ae85-b1b8b5dbace6",
     "name": "Trip-Weave",
-    "description": "API of the Trip-Weave Next.js app (routes under app/api/).\n\nStart the app with `npm run dev`, run **Sign up** once, then **Log in**: it stores the token the protected requests use. Change `base_url` to test a deployed copy.",
+    "description": "API of the Trip-Weave Next.js app (routes under app/api/).\n\nStart the app with `npm run dev`, run **Sign up** once, then **Log in**: it sets the session cookie that the protected requests need, which Postman keeps and sends by itself. Change `base_url` to test a deployed copy.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -57,7 +57,7 @@
                 "signup"
               ]
             },
-            "description": "Creates an account. Returns no token: log in next. 409 if the email is taken.\n\n429 (with a Retry-After header) after 5 sign-up attempts from one IP address in a day.",
+            "description": "Creates an account. It does not sign in: log in next. 409 if the email is taken.\n\n429 (with a Retry-After header) after 5 sign-up attempts from one IP address in a day.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Test Traveller\",\n  \"email\": \"traveller@example.com\",\n  \"password\": \"testpass123\"\n}",
@@ -142,7 +142,7 @@
                 "login"
               ]
             },
-            "description": "Returns a token that lasts 1 hour and stores it in the `token` variable for the other requests.\n\n429 (with a Retry-After header) after 10 login attempts from one IP address in 15 minutes, right or wrong.",
+            "description": "Signs in: the answer sets a `session` cookie that lasts 1 hour, which is kept in the cookie jar and sent with the other requests. The token is in that cookie only, not in the body.\n\n429 (with a Retry-After header) after 10 login attempts from one IP address in 15 minutes, right or wrong.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"traveller@example.com\",\n  \"password\": \"testpass123\"\n}",
@@ -204,22 +204,10 @@
               "cookie": [],
               "body": "{\n  \"success\": false,\n  \"message\": \"Too many login attempts. Please try again in 15 minutes.\",\n  \"retryAfterSeconds\": 900\n}"
             }
-          ],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const body = pm.response.json();",
-                  "if (body.token) pm.collectionVariables.set(\"token\", body.token);"
-                ]
-              }
-            }
           ]
         },
         {
-          "name": "Verify token",
+          "name": "Verify login",
           "request": {
             "method": "GET",
             "header": [],
@@ -234,16 +222,32 @@
                 "verify"
               ]
             },
-            "description": "200 while the token is valid, 401 once it has expired.",
+            "description": "200 with the signed-in user while the session cookie is valid, 401 once it has expired or after logging out.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Log out",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
               ]
+            },
+            "description": "Removes the session cookie. The requests that need a login answer 401 until you log in again.",
+            "auth": {
+              "type": "noauth"
             }
           },
           "response": []
@@ -274,7 +278,7 @@
                 "search-stream"
               ]
             },
-            "description": "The endpoint the app uses. Answers with server-sent events: status, message, complete, done. Add \"context\": { \"destination\", \"tripQuery\" } from a previous `complete` event to send a follow-up such as \"a little later\".\n\nNo login needed. A guest gets 10 searches a day per IP address; with `Authorization: Bearer {{token}}` the search counts against the account instead, which gets 50. Everyone is limited to 5 a minute.\n\n400 (JSON) when the body is over 8 KB, the prompt is empty or longer than 500 characters, or the context isn't a valid previous search.\n\n429 (JSON, with a Retry-After header) when a limit is reached. `reason` is one of: `burst` (5 a minute), `guest_limit` (10 a day, not logged in), `user_limit` (50 a day, logged in), `busy` (500 a day across all visitors).",
+            "description": "The endpoint the app uses. Answers with server-sent events: status, message, complete, done. Add \"context\": { \"destination\", \"tripQuery\" } from a previous `complete` event to send a follow-up such as \"a little later\".\n\nNo login needed. A guest gets 10 searches a day per IP address; after **Log in** the search counts against the account instead, which gets 50. Everyone is limited to 5 a minute.\n\n400 (JSON) when the body is over 8 KB, the prompt is empty or longer than 500 characters, or the context isn't a valid previous search.\n\n429 (JSON, with a Retry-After header) when a limit is reached. `reason` is one of: `burst` (5 a minute), `guest_limit` (10 a day, not logged in), `user_limit` (50 a day, logged in), `busy` (500 a day across all visitors).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"prompt\": \"Direct flights from Copenhagen to London next Friday with a checked bag\",\n  \"limit\": \"all\"\n}",
@@ -408,14 +412,7 @@
             },
             "description": "The logged-in user's saved flights, soonest departure first.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -452,14 +449,7 @@
               }
             },
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": [],
@@ -495,14 +485,7 @@
             },
             "description": "Removes one of your own saved flights. 404 for an id that isn't yours.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -530,14 +513,7 @@
             },
             "description": "The logged-in user's conversation, created on first use. Stores its id in `conversation_id`.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": [],
@@ -572,14 +548,7 @@
             },
             "description": "Messages of your conversation, oldest first. 404 for someone else's conversation.",
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -617,14 +586,7 @@
               }
             },
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -666,14 +628,7 @@
               }
             },
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -710,14 +665,7 @@
               }
             },
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -754,14 +702,7 @@
               }
             },
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             }
           },
           "response": []
@@ -773,10 +714,6 @@
     {
       "key": "base_url",
       "value": "http://localhost:3000"
-    },
-    {
-      "key": "token",
-      "value": ""
     },
     {
       "key": "saved_flight_id",

@@ -12,9 +12,7 @@ http:
       {
         "prompt": "Find direct return flights from Copenhagen to Barcelona for 2 passengers from 2027-07-15 to 2027-07-22 under 2500 DKK with baggage included."
       }
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
 
 settings:
   encodeUrl: true

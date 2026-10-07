@@ -67,20 +67,19 @@ export function findSaved(saved: SavedFlight[], offer: FlightOffer) {
   return saved.find((flight) => key(flight) === wanted);
 }
 
-export async function listSavedFlights(token: string) {
-  const { flights } = await api<{ flights: SavedFlightRow[] }>("/api/saved-flights/saved", { token });
+export async function listSavedFlights() {
+  const { flights } = await api<{ flights: SavedFlightRow[] }>("/api/saved-flights/saved");
   return flights.map(toSavedFlight);
 }
 
-export async function saveFlight(token: string, offer: FlightOffer) {
+export async function saveFlight(offer: FlightOffer) {
   const { flight } = await api<{ flight: SavedFlightRow }>("/api/saved-flights/save", {
     method: "POST",
-    token,
     body: toSavePayload(offer),
   });
   return toSavedFlight(flight);
 }
 
-export async function removeSavedFlight(token: string, id: string) {
-  await api(`/api/saved-flights/save/${encodeURIComponent(id)}`, { method: "DELETE", token });
+export async function removeSavedFlight(id: string) {
+  await api(`/api/saved-flights/save/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

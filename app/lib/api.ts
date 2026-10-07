@@ -30,20 +30,20 @@ export function errorMessage(data: unknown): string | null {
 type Options = {
   method?: "GET" | "POST" | "DELETE";
   body?: unknown;
-  /** Sent as a Bearer token. A 401 answer to it ends the login. */
-  token?: string | null;
 };
 
-/** Calls a JSON endpoint of the backend and returns its answer, or throws an ApiError. */
-export async function api<T>(path: string, { method = "GET", body, token }: Options = {}): Promise<T> {
+/**
+ * Calls a JSON endpoint of the backend and returns its answer, or throws an
+ * ApiError. The browser sends the session cookie along by itself; a 401 answer
+ * while signed in ends the login.
+ */
+export async function api<T>(path: string, { method = "GET", body }: Options = {}): Promise<T> {
+  const sentAs = getSession();
   let response: Response;
   try {
     response = await fetch(path, {
       method,
-      headers: {
-        ...(body !== undefined && { "Content-Type": "application/json" }),
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
@@ -53,8 +53,8 @@ export async function api<T>(path: string, { method = "GET", body, token }: Opti
   const data: unknown = await response.json().catch(() => null);
   if (response.ok) return data as T;
 
-  // The token expired or was rejected: log out, unless a newer login replaced it meanwhile.
-  if (response.status === 401 && token && getSession()?.token === token) logOut();
+  // The login expired or was rejected: log out, unless a newer login replaced it meanwhile.
+  if (response.status === 401 && sentAs && getSession() === sentAs) logOut();
 
   const fallback =
     response.status >= 500

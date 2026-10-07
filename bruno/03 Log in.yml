@@ -15,12 +15,6 @@ http:
       }
   auth: inherit
 
-runtime:
-  scripts:
-    - type: after-response
-      code: |-
-        if (res.body.token) bru.setVar("token", res.body.token);
-
 settings:
   encodeUrl: true
   timeout: 0
@@ -28,7 +22,7 @@ settings:
   maxRedirects: 5
 
 docs: |-
-  Returns a token that lasts 1 hour and stores it in the `token` variable for the other requests.
+  Signs in: the answer sets a `session` cookie that lasts 1 hour, which is kept in the cookie jar and sent with the other requests. The token is in that cookie only, not in the body.
 
   429 (with a Retry-After header) after 10 login attempts from one IP address in 15 minutes, right or wrong.
 

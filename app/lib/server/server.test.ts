@@ -2,11 +2,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import jwt from "jsonwebtoken";
-import { optionalUser, requireUser, signToken } from "./auth.ts";
+import { clearedSessionCookie, optionalUser, requireUser, sessionCookie, signToken } from "./auth.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
 import { mergeFollowUpTripQuery } from "./follow-up.ts";
 import { normalizeTripQuery, parseNaturalTravelDates } from "./groq/extractor.ts";
-import { parseId, readJsonWithin, serialize } from "./http.ts";
+import { handle, isCrossSite, parseId, readJsonWithin, serialize } from "./http.ts";
 import { clientIp, detectFallbackOrigin } from "./origin-fallback.ts";
 import { runFlightSearch } from "./flight-search-stream.ts";
 import { searchStreamSchema } from "./schemas.ts";
@@ -171,43 +171,113 @@ test("reads the visitor's IP from x-forwarded-for", () => {
   assert.match(detectFallbackOrigin(new Headers({ "x-forwarded-for": "8.8.8.8" })), /^[A-Z]{3}$/);
 });
 
-test("accepts its own tokens and nothing else", async () => {
-  const withToken = (value?: string) =>
-    new Request("http://localhost/api", { headers: value ? { authorization: value } : {} });
+test("accepts its own tokens from the session cookie and nothing else", () => {
+  const withCookie = (cookie?: string, authorization?: string) =>
+    new Request("http://localhost/api", {
+      headers: { ...(cookie !== undefined && { cookie }), ...(authorization && { authorization }) },
+    });
   const token = signToken({ id: BigInt(42), email: "a@example.com" });
 
-  assert.deepEqual(requireUser(withToken(`Bearer ${token}`)), { userId: BigInt(42) });
-
-  for (const bad of [undefined, token, "Bearer nope", `Bearer ${token}x`, `Basic ${token}`]) {
-    const answer = requireUser(withToken(bad));
-    assert.ok(answer instanceof Response);
-    assert.equal(answer.status, 401);
-  }
+  assert.deepEqual(requireUser(withCookie(`session=${token}`)), { userId: BigInt(42) });
+  assert.deepEqual(requireUser(withCookie(`theme=dark; session=${token}; lang=en`)), { userId: BigInt(42) });
 
   // Signed with another secret.
   process.env.JWT_SECRET = "other-secret";
   const forged = signToken({ id: BigInt(42), email: "a@example.com" });
   process.env.JWT_SECRET = "test-secret";
-  assert.ok(requireUser(withToken(`Bearer ${forged}`)) instanceof Response);
+
+  for (const bad of [undefined, "", "session=", "session=nope", `session=${token}x`, `session=${forged}`, `mysession=${token}`, `token=${token}`]) {
+    const answer = requireUser(withCookie(bad));
+    assert.ok(answer instanceof Response);
+    assert.equal(answer.status, 401);
+  }
+
+  // A token in a header is not a login: only the cookie, which scripts cannot read, counts.
+  const inHeader = requireUser(withCookie(undefined, `Bearer ${token}`));
+  assert.ok(inHeader instanceof Response);
+  assert.equal(inHeader.status, 401);
+});
+
+test("the session cookie is hidden from scripts and lasts as long as the token", () => {
+  const token = signToken({ id: BigInt(42), email: "a@example.com" });
+  const { exp, iat } = jwt.decode(token) as { exp: number; iat: number };
+
+  const cookie = sessionCookie(token);
+  assert.equal(cookie, `session=${token}; Path=/; Max-Age=${exp - iat}; HttpOnly; SameSite=Lax`);
+  // What the browser sends back is read as the same login.
+  const sent = new Request("http://localhost/api", { headers: { cookie: cookie.split(";")[0] } });
+  assert.deepEqual(requireUser(sent), { userId: BigInt(42) });
+
+  // Logging out replaces it with one that expires at once, leaving a guest.
+  const cleared = clearedSessionCookie();
+  assert.equal(cleared, "session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
+  const afterLogout = new Request("http://localhost/api", { headers: { cookie: cleared.split(";")[0] } });
+  assert.equal(optionalUser(afterLogout), null);
+
+  // Over https in production it is never sent on plain http.
+  const env = process.env as Record<string, string | undefined>;
+  const before = env.NODE_ENV;
+  env.NODE_ENV = "production";
+  assert.ok(sessionCookie(token).endsWith("; SameSite=Lax; Secure"));
+  assert.ok(clearedSessionCookie().endsWith("; SameSite=Lax; Secure"));
+  env.NODE_ENV = before;
 });
 
 test("a guest endpoint reads a valid login and treats anything else as a guest", () => {
-  const withToken = (value?: string) =>
-    new Request("http://localhost/api", { headers: value ? { authorization: value } : {} });
+  const withCookie = (cookie?: string) =>
+    new Request("http://localhost/api", { headers: cookie ? { cookie } : {} });
   const token = signToken({ id: BigInt(42), email: "a@example.com" });
 
-  assert.deepEqual(optionalUser(withToken(`Bearer ${token}`)), { userId: BigInt(42) });
+  assert.deepEqual(optionalUser(withCookie(`session=${token}`)), { userId: BigInt(42) });
 
   const expired = jwt.sign({ userId: "42" }, "test-secret", { expiresIn: -60 });
   const forged = jwt.sign({ userId: "42" }, "other-secret");
-  for (const bad of [undefined, token, "Bearer nope", `Bearer ${token}x`, `Bearer ${expired}`, `Bearer ${forged}`]) {
-    assert.equal(optionalUser(withToken(bad)), null);
+  for (const bad of [undefined, "session=nope", `session=${token}x`, `session=${expired}`, `session=${forged}`, `token=${token}`]) {
+    assert.equal(optionalUser(withCookie(bad)), null);
   }
 
   // A server without a secret still serves guests.
   delete process.env.JWT_SECRET;
-  assert.equal(optionalUser(withToken(`Bearer ${token}`)), null);
+  assert.equal(optionalUser(withCookie(`session=${token}`)), null);
   process.env.JWT_SECRET = "test-secret";
+});
+
+test("refuses requests that another site sends", async () => {
+  const from = (method: string, headers: Record<string, string>) =>
+    new Request("http://internal:10000/api", { method, headers: { host: "tourrific.example", ...headers } });
+
+  // Our own pages, and tools that send no Origin.
+  assert.equal(isCrossSite(from("POST", { origin: "https://tourrific.example" })), false);
+  assert.equal(isCrossSite(from("DELETE", { origin: "https://tourrific.example" })), false);
+  assert.equal(isCrossSite(from("POST", {})), false);
+  // A proxy that rewrites Host passes our public name along separately.
+  assert.equal(
+    isCrossSite(from("POST", { host: "internal:10000", "x-forwarded-host": "tourrific.example", origin: "https://tourrific.example" })),
+    false,
+  );
+  // The port is part of the name.
+  assert.equal(isCrossSite(from("POST", { host: "localhost:3000", origin: "http://localhost:3000" })), false);
+  assert.equal(isCrossSite(from("POST", { host: "localhost:3000", origin: "http://localhost:4000" })), true);
+
+  for (const origin of ["https://evil.example", "https://tourrific.example.evil.example", "https://sub.tourrific.example", "null", ""]) {
+    assert.equal(isCrossSite(from("POST", { origin })), true, origin);
+    assert.equal(isCrossSite(from("DELETE", { origin })), true, origin);
+    // Reading changes nothing, and the answer is not shown to the other site.
+    assert.equal(isCrossSite(from("GET", { origin })), false, origin);
+  }
+
+  // A wrapped route never runs for such a request.
+  let ran = 0;
+  const route = handle(async (request: Request) => {
+    ran += 1;
+    return Response.json({ method: request.method });
+  });
+  const refused = await route(from("POST", { origin: "https://evil.example" }));
+  assert.equal(refused.status, 403);
+  assert.equal(ran, 0);
+  assert.equal((await route(from("POST", { origin: "https://tourrific.example" }))).status, 200);
+  assert.equal((await route(from("GET", { origin: "https://evil.example" }))).status, 200);
+  assert.equal(ran, 2);
 });
 
 test("serializes ids and parses them back", () => {

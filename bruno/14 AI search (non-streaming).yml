@@ -12,9 +12,7 @@ http:
       {
         "prompt": "Find me a flight from Copenhagen to London on 2026-11-12"
       }
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
 
 settings:
   encodeUrl: true

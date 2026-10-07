@@ -1,14 +1,12 @@
 info:
-  name: Verify token
+  name: Verify login
   type: http
   seq: 4
 
 http:
   method: GET
   url: http://localhost:3000/api/auth/verify
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
 
 settings:
   encodeUrl: true
@@ -17,4 +15,4 @@ settings:
   maxRedirects: 5
 
 docs: |-
-  200 while the token is valid, 401 once it has expired.
+  200 with the signed-in user while the session cookie is valid, 401 once it has expired or after logging out.

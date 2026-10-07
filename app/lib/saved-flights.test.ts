@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { errorMessage } from "./api.ts";
-import { isExpired } from "./auth-store.ts";
+import { getSession, setSession } from "./auth-store.ts";
 import { toFlightOffer } from "./duffel-to-flight-offer.ts";
 import { findSaved, toSavedFlight, toSavePayload } from "./saved-flights.ts";
 
@@ -59,10 +59,29 @@ test("reads a message out of each backend error shape", () => {
   assert.equal(errorMessage("Internal Server Error"), null);
 });
 
-test("knows when a token has expired", () => {
-  const token = (exp: number) => `x.${btoa(JSON.stringify({ exp }))}.y`;
-  const now = Date.parse("2026-10-03T12:00:00Z");
-  assert.equal(isExpired(token(now / 1000 - 1), now), true);
-  assert.equal(isExpired(token(now / 1000 + 3600), now), false);
-  assert.equal(isExpired("not-a-token", now), false);
+test("remembers who signed in, and never a token", () => {
+  const user = { id: "42", name: "Ada", email: "a@example.com", currency: { code: "DKK" } };
+  // What a login from before the session cookie left behind.
+  const items = new Map([["tourrific.session", JSON.stringify({ token: "old.jwt.token", user })]]);
+  (globalThis as { window?: unknown }).window = {
+    localStorage: {
+      getItem: (key: string) => items.get(key) ?? null,
+      setItem: (key: string, value: string) => void items.set(key, value),
+      removeItem: (key: string) => void items.delete(key),
+    },
+  };
+
+  assert.deepEqual(getSession(), { user });
+  assert.equal(items.get("tourrific.session"), JSON.stringify({ user }));
+
+  const other = { ...user, id: "7", email: "b@example.com" };
+  setSession({ user: other });
+  assert.deepEqual(getSession(), { user: other });
+  assert.equal(items.get("tourrific.session"), JSON.stringify({ user: other }));
+
+  setSession(null);
+  assert.equal(getSession(), null);
+  assert.equal(items.size, 0);
+
+  delete (globalThis as { window?: unknown }).window;
 });

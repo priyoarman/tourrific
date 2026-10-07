@@ -24,7 +24,7 @@ settings:
 docs: |-
   The endpoint the app uses. Answers with server-sent events: status, message, complete, done. Add "context": { "destination", "tripQuery" } from a previous `complete` event to send a follow-up such as "a little later".
 
-  No login needed. A guest gets 10 searches a day per IP address; with `Authorization: Bearer {{token}}` the search counts against the account instead, which gets 50. Everyone is limited to 5 a minute.
+  No login needed. A guest gets 10 searches a day per IP address; after **Log in** the search counts against the account instead, which gets 50. Everyone is limited to 5 a minute.
 
   400 (JSON) when the body is over 8 KB, the prompt is empty or longer than 500 characters, or the context isn't a valid previous search.
 

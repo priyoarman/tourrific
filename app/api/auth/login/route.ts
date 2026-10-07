@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { signToken } from "@/app/lib/server/auth";
+import { sessionCookie, signToken } from "@/app/lib/server/auth";
 import { loginLimitRules } from "@/app/lib/server/auth-limits";
 import { handle, readJson, tooManyRequests } from "@/app/lib/server/http";
 import prisma from "@/app/lib/server/prisma";
@@ -10,8 +10,10 @@ import { loginSchema } from "@/app/lib/server/schemas";
 const invalid = () => Response.json({ success: false, message: "Invalid email or password" }, { status: 401 });
 
 /**
- * POST /api/auth/login — checks the password and returns a 1-hour token. One
- * address gets a limited number of attempts (429 after that).
+ * POST /api/auth/login — checks the password and sets a 1-hour session cookie.
+ * The token is in that cookie only, never in the answer's body, so scripts on
+ * the page cannot read it. One address gets a limited number of attempts (429
+ * after that).
  */
 export const POST = handle(async (request: Request) => {
   const validation = loginSchema.safeParse(await readJson(request));
@@ -34,15 +36,17 @@ export const POST = handle(async (request: Request) => {
 
   if (!(await bcrypt.compare(password, user.passwordHash))) return invalid();
 
-  return Response.json({
-    success: true,
-    message: "Login successful",
-    token: signToken(user),
-    user: {
-      id: user.id.toString(),
-      name: user.name,
-      email: user.email,
-      currency: user.currency ? { code: user.currency.code } : null,
+  return Response.json(
+    {
+      success: true,
+      message: "Login successful",
+      user: {
+        id: user.id.toString(),
+        name: user.name,
+        email: user.email,
+        currency: user.currency ? { code: user.currency.code } : null,
+      },
     },
-  });
+    { headers: { "Set-Cookie": sessionCookie(signToken(user)) } },
+  );
 });
