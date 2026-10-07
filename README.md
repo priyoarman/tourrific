@@ -23,7 +23,7 @@ frontend, built by four people:
 | **Arman** ([@priyoarman](https://github.com/priyoarman)) | AI integrations and API fetching | Groq setup and extraction schema, the link to Duffel, one-way, return and follow-up requests, origin detection by IP, flight filtering, detailed flight cards, Leaflet map, streamed AI chat |
 | **Fatima** ([@ftshn84](https://github.com/ftshn84)) | Database and UI | Database schema with currencies and seeding, serving the frontend from Express, notifications, dashboard layout, destination resolution, access token checks |
 
-## Then the project went solo
+### Then the project went solo
 
 [Arman Hossain](https://github.com/priyoarman)
 rewrote it in Next.js and TypeScript, gave it the Tourrific interface, and made
