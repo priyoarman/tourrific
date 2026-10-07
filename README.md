@@ -43,8 +43,8 @@ them, are labelled as such.
 You need Node.js 22 or newer, npm, and a PostgreSQL database.
 
 ```bash
-git clone https://github.com/priyoarman/trip-weave.git
-cd trip-weave
+git clone https://github.com/priyoarman/tourrific.git
+cd tourrific
 npm install
 cp .env.example .env.local   # then fill in the values
 npm run db:deploy            # creates the tables
@@ -350,18 +350,38 @@ hotel tests use hand-written answers shaped like Duffel's API reference.
 
 ## Origins and credits
 
-Trip-Weave began as a team project. The original version, an Express API with
+Tourrific first began named TripWeave, as a team project at HackYourFuture Denmark. The original version, an Express API with
 an HTML, CSS and JavaScript frontend, was built by:
 
-| Name | GitHub |
-| --- | --- |
-| **Abikrithika** | [@abikrithika](https://github.com/abikrithika) |
-| **Annamani** | [@annamani](https://github.com/annamani) |
-| **Priyo Arman** | [@priyoarman](https://github.com/priyoarman) |
-| **Ftshn84** | [@ftshn84](https://github.com/ftshn84) |
+| Name | GitHub | Role |
+| --- | --- | --- |
+| **Abikrithika** | [@abikrithika](https://github.com/abikrithika) | Scrum master and frontend lead |
+| **Annamani** | [@annamani](https://github.com/annamani) | Backend and API testing |
+| **Arman Hossain** | [@priyoarman](https://github.com/priyoarman) | AI integrations and API fetching |
+| **Ftshn84** | [@ftshn84](https://github.com/ftshn84) | Database and UI |
+
+- **Abikrithika** set up the Express server and the repository, drew the
+  database ERD, and built the split-screen interface, the dashboard and the
+  sign-in modals. Abikrithika also added chat history, split the frontend into
+  modules, steadied the chat streaming, documented the endpoints in Swagger
+  and merged most of the pull requests.
+- **Annamani** wrote sign-up and log-in with bcrypt and JWT,
+  saved flights on both the backend and the frontend, pagination, the Postman
+  collection and most of the testing instructions.
+- **Arman Hossain** set up Groq and its extraction schema, connected it to
+  Duffel, and handled one-way, return and follow-up requests, along with
+  fallback origin detection by IP, flight filtering, the detailed flight
+  cards, the Leaflet map and the streamed AI chat.
+- **Annamani** and **Arman** jointly built the Duffel flight search, its Zod validation and the
+  central error handling, plus the mock flights used when Duffel is
+  unavailable. 
+- **Ftshn84** built the database schema with its currency relationships and
+  seeding, served the frontend from Express, and added the notification
+  system, restructured the dashboard layout and added destination
+  resolution and access token checks to the flight search.
 
 That version lives at
-[abikrithika/trip-weave](https://github.com/abikrithika/trip-weave), and in
+[abikrithika/trip-weave](https://github.com/abikrithika/trip-weave/master), and in
 this repository's history before the Next.js migration. The Groq extraction
 prompt, the destination resolver, the follow-up handling and the database
 schema here are ports of the team's work.

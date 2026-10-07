@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "f2cc4996-d4d3-582a-ae85-b1b8b5dbace6",
-    "name": "Trip-Weave",
-    "description": "API of the Trip-Weave Next.js app (routes under app/api/).\n\nStart the app with `npm run dev`, run **Sign up** once, then **Log in**: it sets the session cookie that the protected requests need, which Postman keeps and sends by itself. Change `base_url` to test a deployed copy.",
+    "name": "Tourrific",
+    "description": "API of the Tourrific Next.js app (routes under app/api/).\n\nStart the app with `npm run dev`, run **Sign up** once, then **Log in**: it sets the session cookie that the protected requests need, which Postman keeps and sends by itself. Change `base_url` to test a deployed copy.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

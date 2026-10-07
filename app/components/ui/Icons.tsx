@@ -174,3 +174,87 @@ export function CloseIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function ArrowRightIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14M12.5 5.5 19 12l-6.5 6.5" />
+    </Icon>
+  );
+}
+
+export function ChevronLeftIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m14.5 6-6 6 6 6" />
+    </Icon>
+  );
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m9.5 6 6 6-6 6" />
+    </Icon>
+  );
+}
+
+export function BookmarkIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6.5 3.5h11v17L12 16.5l-5.5 4z" />
+    </Icon>
+  );
+}
+
+export function MailIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="3" />
+      <path d="m4 8 8 5.5 8-5.5" />
+    </Icon>
+  );
+}
+
+export function SunIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3 7 7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7" />
+    </Icon>
+  );
+}
+
+export function CloudSunIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3v1.5M5.6 5.6l1.1 1.1M18.4 5.6l-1.1 1.1M8.3 9.6a4 4 0 0 1 7.2-1.1" />
+      <path d="M8 20.5h8.5a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.5 1.3A3 3 0 0 0 8 20.5Z" />
+    </Icon>
+  );
+}
+
+export function CloudRainIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M7.5 16a4 4 0 0 1 .6-7.9 5.5 5.5 0 0 1 10.5 1.4A3.3 3.3 0 0 1 17.5 16" />
+      <path d="M9 14.5v4M12.5 15.5v5.5M16 14.5v4" />
+    </Icon>
+  );
+}
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.5h-4.5" />
+    </Icon>
+  );
+}
+
+export function ExpandIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14 4h6v6M20 4l-6.5 6.5M10 20H4v-6M4 20l6.5-6.5" />
+    </Icon>
+  );
+}
