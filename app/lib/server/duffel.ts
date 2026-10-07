@@ -35,8 +35,11 @@ export type DuffelSearchPayload = {
 /** Duffel's answer to an offer request. Only the offers are used. */
 export type DuffelSearchResponse = { data?: { offers?: DuffelOffer[] } };
 
-/** Asks Duffel for offers and returns its answer as text. Throws when the request fails or takes too long. */
-async function requestOffers(payload: DuffelSearchPayload, signal?: AbortSignal) {
+/**
+ * Posts `payload` to a Duffel endpoint such as "/air/offer_requests" and returns the answer as text.
+ * Throws DuffelTimeout when Duffel takes too long, and an Error with Duffel's answer when it refuses.
+ */
+export async function postToDuffel(path: string, payload: unknown, signal?: AbortSignal) {
   // Read per call, so a changed .env.local is picked up without a restart.
   const baseUrl = process.env.DUFFEL_API_URL || DEFAULT_API_URL;
   const token = process.env.DUFFEL_ACCESS_TOKEN || process.env.DUFFEL_TOKEN;
@@ -45,7 +48,7 @@ async function requestOffers(payload: DuffelSearchPayload, signal?: AbortSignal)
   const timeout = AbortSignal.timeout(Number(process.env.DUFFEL_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${baseUrl}/air/offer_requests`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -94,7 +97,7 @@ async function orSampleOffers(search: () => Promise<DuffelSearchResponse>, signa
  * visitor is no longer waiting) drops the request and throws an AbortError.
  */
 export function searchFlights(payload: DuffelSearchPayload, signal?: AbortSignal): Promise<DuffelSearchResponse> {
-  return orSampleOffers(async () => JSON.parse(await requestOffers(payload, signal)), signal);
+  return orSampleOffers(async () => JSON.parse(await postToDuffel("/air/offer_requests", payload, signal)), signal);
 }
 
 // Prices move, but not within minutes, and nothing is booked from these offers.
@@ -106,13 +109,13 @@ const DEFAULT_CACHE_MINUTES = 10;
 const cache = createTtlCache({ maxEntries: 50, maxSize: 40_000_000 });
 
 /** How long an answer is reused, in milliseconds. DUFFEL_CACHE_MINUTES=0 switches the cache off. */
-function cacheTtlMs() {
+export function cacheTtlMs() {
   const minutes = Number(process.env.DUFFEL_CACHE_MINUTES ?? "");
   return (process.env.DUFFEL_CACHE_MINUTES && minutes >= 0 ? minutes : DEFAULT_CACHE_MINUTES) * 60_000;
 }
 
 /** JSON with object keys in alphabetical order, so the same data always gives the same text. */
-function stableJson(value: unknown): string {
+export function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value && typeof value === "object") {
     const fields = Object.entries(value)
@@ -155,7 +158,7 @@ export function searchFlightsCached(
     const kept = cache.get(key);
     if (kept) return JSON.parse(kept);
 
-    const text = await requestOffers(payload, signal);
+    const text = await postToDuffel("/air/offer_requests", payload, signal);
     const answer = JSON.parse(text);
     cache.set(key, text, cacheTtlMs());
     return answer;
