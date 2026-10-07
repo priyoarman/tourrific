@@ -23,7 +23,7 @@ settings:
   maxRedirects: 5
 
 docs: |-
-  Creates an account. Returns no token: log in next. 409 if the email is taken.
+  Creates an account. It does not sign in: log in next. 409 if the email is taken.
 
   429 (with a Retry-After header) after 5 sign-up attempts from one IP address in a day.
 

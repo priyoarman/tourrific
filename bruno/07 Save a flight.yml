@@ -19,9 +19,7 @@ http:
         "airline_code": "BA",
         "airline_name": "British Airways"
       }
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
 
 runtime:
   scripts:

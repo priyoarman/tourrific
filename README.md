@@ -32,7 +32,7 @@ Hotels and road trips in the UI are sample data, and are labelled as such.
 - PostgreSQL with Prisma 6
 - [Groq](https://groq.com) through the AI SDK, for turning messages into searches
 - [Duffel](https://duffel.com) for flight offers
-- JWT login tokens, bcrypt password hashes, Zod request validation
+- JWT logins kept in an HttpOnly session cookie, bcrypt password hashes, Zod request validation
 
 ## Getting started
 
@@ -111,15 +111,16 @@ render.yaml                 Render deployment
 
 ## API
 
-All routes live under `app/api/`. Protected routes expect
-`Authorization: Bearer <token>`, where the token comes from logging in.
+All routes live under `app/api/`. Protected routes expect the `session` cookie
+that logging in sets; see [Login sessions](#login-sessions).
 
 | Method and path | Login | What it does |
 | --- | --- | --- |
 | `GET /api/health` | | Health check |
 | `POST /api/auth/signup` | | Create an account. Rate limited |
-| `POST /api/auth/login` | | Get a token (valid for 1 hour). Rate limited |
-| `GET /api/auth/verify` | yes | Check a token |
+| `POST /api/auth/login` | | Sign in: sets the session cookie (valid for 1 hour). Rate limited |
+| `POST /api/auth/logout` | | Sign out: removes the session cookie |
+| `GET /api/auth/verify` | yes | Check the login and return its user |
 | `POST /api/flights/search-stream` | optional | Chat message in, streamed search out. Rate limited; logging in gives a larger allowance |
 | `GET /api/saved-flights/saved` | yes | List saved flights |
 | `POST /api/saved-flights/save` | yes | Save a flight |
@@ -132,10 +133,42 @@ All routes live under `app/api/`. Protected routes expect
 
 ### Trying the API
 
-The `postman/` and `bruno/` folders hold the same 14 requests. Run **Sign up**
-once, then **Log in**: it stores the token that the protected requests use.
-Both collections point at `http://localhost:3000`. The notes on **Sign up**,
-**Log in** and **Search (streaming)** describe their `429` responses.
+The `postman/` and `bruno/` folders hold the same 15 requests. Run **Sign up**
+once, then **Log in**: it sets the session cookie, which both tools keep in
+their cookie jar and send with the protected requests. Both collections point
+at `http://localhost:3000`. The notes on **Sign up**, **Log in** and
+**Search (streaming)** describe their `429` responses.
+
+### Login sessions
+
+Logging in signs a JWT that lasts 1 hour and sends it to the browser as a
+cookie:
+
+```
+Set-Cookie: session=<jwt>; Path=/; Max-Age=3600; HttpOnly; SameSite=Lax; Secure
+```
+
+- **`HttpOnly`** keeps the token out of reach of JavaScript. It is never in a
+  response body or in `localStorage`, so a script injected into the page (XSS)
+  cannot read it and send it elsewhere. The browser stores only the user's
+  name, email and currency, to show who is signed in, and checks them against
+  `GET /api/auth/verify` on each page load.
+- **`Secure`** (in production) keeps it off plain http.
+- **`SameSite=Lax`** stops other sites from sending it with their requests.
+
+A cookie is sent by the browser on its own, which a token in a header is not,
+so another site could try to make a signed-in visitor's browser act for them
+(CSRF). Besides `SameSite`, every `POST` and `DELETE` whose `Origin` header
+names another site answers `403`. Requests without an `Origin`, as tools like
+curl send them, are let through: they hold no visitor's cookie.
+
+What this does not do: a script injected into the page could still make
+requests as the visitor while the page is open, and the token is not kept on
+the server, so logging out removes the cookie but a copy of the token would
+stay valid until its hour is up.
+
+The code is in `app/lib/server/auth.ts` (cookie and token) and
+`app/lib/server/http.ts` (the cross-site check).
 
 ## Abuse protection
 
@@ -241,9 +274,9 @@ DATABASE_URL="<production connection string>" npm run db:deploy
 
 `npm test` runs the unit tests with Node's built-in test runner: the
 Duffel-to-UI converter, the filters, the date and follow-up logic, login
-tokens, and the abuse protection (rate limits, input limits, provider
-timeouts, cancellation and the cache). They use a saved sample of real Duffel
-offers and a stand-in for the network, so they need none.
+sessions and the cross-site check, and the abuse protection (rate limits,
+input limits, provider timeouts, cancellation and the cache). They use a saved
+sample of real Duffel offers and a stand-in for the network, so they need none.
 
 ## Origins and credits
 

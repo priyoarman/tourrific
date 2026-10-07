@@ -13,9 +13,7 @@ http:
         "senderRole": "user",
         "textContent": "Copenhagen to London next Friday"
       }
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
 
 settings:
   encodeUrl: true
