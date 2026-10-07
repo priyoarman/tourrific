@@ -22,7 +22,9 @@ settings:
   maxRedirects: 5
 
 docs: |-
-  The endpoint the app uses. Answers with server-sent events: status, message, complete, done. Add "context": { "destination", "tripQuery" } from a previous `complete` event to send a follow-up such as "a little later".
+  The endpoint the app uses. Answers with server-sent events: status, message, complete (the flights), hotels (the places to stay that go with them), done. Add "context": { "destination", "tripQuery" } from a previous `complete` event to send a follow-up such as "a little later".
+
+  Hotels: the `hotels` event follows `complete` when the trip has at least one night; a one-way trip is given 3. Hotel wishes go in the prompt, for example "... and a 4-star hotel with a pool under 150 euros a night". `failed: true` means the hotel search didn't answer, which is also what happens until Duffel has switched Stays on for the account. `sample: true` means made-up hotels, sent instead when DUFFEL_USE_MOCK=true.
 
   No login needed. A guest gets 10 searches a day per IP address; after **Log in** the search counts against the account instead, which gets 50. Everyone is limited to 5 a minute.
 

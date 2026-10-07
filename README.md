@@ -2,12 +2,12 @@
 
 Tourrific is an AI travel planner. You describe a trip in plain English
 ("direct flights from Copenhagen to London next Friday, with a checked bag,
-under 1500 kr") and it finds real flights, with no airport codes or date
-pickers. The interface is branded **Tourrific**.
+under 1500 kr") and it finds real flights and the hotels to go with them, with
+no airport codes or date pickers. The interface is branded **Tourrific**.
 
 A chat message is turned into a structured search by an LLM (Groq), the search
-runs against the Duffel Flights API, and the results stream back into a
-three-column planner: chat, flights, hotels.
+runs against the Duffel Flights and Stays APIs, and the results stream back
+into a three-column planner: chat, flights, hotels.
 
 Try it live here: [Tourrific Live Demo](https://tourrific-iowv.onrender.com/)
 
@@ -15,15 +15,18 @@ Try it live here: [Tourrific Live Demo](https://tourrific-iowv.onrender.com/)
 
 - Flight search in natural language, with follow-ups ("a little later", "somewhere else", "stops are fine")
 - Filters that are really applied: direct only, time of day, checked bag, airlines, maximum price, cabin class, number of travellers
+- Hotels for the same trip, searched alongside the flights: same city, nights and travellers (see [Hotels](#hotels))
+- Hotel wishes in the same message: stars, price a night, free cancellation, rooms, and amenities such as a pool or parking
 - Vague destinations: a country, a region ("south of Spain") or a mood ("somewhere with beaches")
 - Live progress while searching, streamed with server-sent events
 - Sort by best, cheapest or fastest without re-running the search
 - Accounts: sign up, sign in, save flights, and chat history that survives a reload
 - Search without an account, protected against abuse: rate limits per visitor and overall, input limits, provider timeouts and a short-lived cache (see [Abuse protection](#abuse-protection))
 - Departure airport guessed from the visitor's location when they don't name one
-- Sample flights as a fallback when Duffel is unreachable (`DUFFEL_USE_MOCK=true`)
+- Sample flights and sample hotels as a fallback when Duffel is unreachable (`DUFFEL_USE_MOCK=true`)
 
-Hotels and road trips in the UI are sample data, and are labelled as such.
+Road trips in the UI are sample data. Sample hotels, when the fallback shows
+them, are labelled as such.
 
 ## Tech stack
 
@@ -31,7 +34,8 @@ Hotels and road trips in the UI are sample data, and are labelled as such.
 - Tailwind CSS 4
 - PostgreSQL with Prisma 6
 - [Groq](https://groq.com) through the AI SDK, for turning messages into searches
-- [Duffel](https://duffel.com) for flight offers
+- [Duffel](https://duffel.com) for flight offers and hotels
+- [Open-Meteo geocoding](https://open-meteo.com/en/docs/geocoding-api) for the city centre a hotel search starts from
 - JWT logins kept in an HttpOnly session cookie, bcrypt password hashes, Zod request validation
 
 ## Getting started
@@ -59,9 +63,9 @@ Set these in `.env.local` (never commit it):
 | `JWT_SECRET` | Long random string used to sign login tokens |
 | `GROQ_API_KEY` | Groq API key |
 | `GROQ_MODEL` | Groq model, e.g. `openai/gpt-oss-120b` |
-| `DUFFEL_TOKEN` | Duffel access token (a test-mode token works) |
+| `DUFFEL_TOKEN` | Duffel access token (a test-mode token works). Hotels also need Stays switched on for the account; see [Hotels](#hotels) |
 | `DUFFEL_API_URL` | `https://api.duffel.com` |
-| `DUFFEL_USE_MOCK` | Optional. `true` returns sample flights when a Duffel request fails |
+| `DUFFEL_USE_MOCK` | Optional. `true` returns sample flights and sample hotels when a Duffel request fails |
 
 These are optional and tune the [abuse protection](#abuse-protection). Each
 falls back to its default when unset.
@@ -75,7 +79,8 @@ falls back to its default when unset.
 | `AUTH_LIMIT_SIGNUPS_PER_DAY` | `5` | Sign-up attempts per IP address per day |
 | `AUTH_LIMIT_LOGINS_PER_15_MIN` | `10` | Login attempts per IP address per 15 minutes |
 | `GROQ_TIMEOUT_MS` | `10000` | How long to wait for Groq |
-| `DUFFEL_TIMEOUT_MS` | `20000` | How long to wait for Duffel |
+| `DUFFEL_TIMEOUT_MS` | `20000` | How long to wait for Duffel, for flights and for hotels |
+| `GEOCODER_TIMEOUT_MS` | `4000` | How long to wait for the city-centre lookup before a hotel search |
 | `DUFFEL_CACHE_MINUTES` | `10` | How long a Duffel answer is reused for the same search. `0` switches the cache off |
 
 Run locally, every request comes from the same address and counts as one
@@ -103,7 +108,7 @@ app/
   roadtrip/                 Road trip planner (sample data)
   api/                      The API (route handlers)
   lib/                      Code shared by the UI: types, formatting, API clients
-  lib/server/               Server-only logic: Groq extraction, Duffel, filters, auth, rate limits
+  lib/server/               Server-only logic: Groq extraction, Duffel flights and stays, filters, auth, rate limits
 prisma/                     Database schema and migrations
 bruno/, postman/            API collections
 render.yaml                 Render deployment
@@ -121,7 +126,7 @@ that logging in sets; see [Login sessions](#login-sessions).
 | `POST /api/auth/login` | | Sign in: sets the session cookie (valid for 1 hour). Rate limited |
 | `POST /api/auth/logout` | | Sign out: removes the session cookie |
 | `GET /api/auth/verify` | yes | Check the login and return its user |
-| `POST /api/flights/search-stream` | optional | Chat message in, streamed search out. Rate limited; logging in gives a larger allowance |
+| `POST /api/flights/search-stream` | optional | Chat message in, streamed flights and hotels out. Rate limited; logging in gives a larger allowance |
 | `GET /api/saved-flights/saved` | yes | List saved flights |
 | `POST /api/saved-flights/save` | yes | Save a flight |
 | `DELETE /api/saved-flights/save/:id` | yes | Remove a saved flight |
@@ -138,6 +143,21 @@ once, then **Log in**: it sets the session cookie, which both tools keep in
 their cookie jar and send with the protected requests. Both collections point
 at `http://localhost:3000`. The notes on **Sign up**, **Log in** and
 **Search (streaming)** describe their `429` responses.
+
+### The search stream
+
+`POST /api/flights/search-stream` answers with server-sent events, in this
+order:
+
+| Event | When | What it carries |
+| --- | --- | --- |
+| `status` | several times | A progress line, e.g. "Comparing prices across airlines..." |
+| `message` | sometimes | Something the assistant says: a question, an explanation or an error |
+| `complete` | when flights were searched | The flights, the search that was extracted, and the filters applied |
+| `hotels` | after `complete`, when there is a stay | The hotels, the stay that was searched, and the hotel wishes applied |
+| `done` | always last | Whether the assistant is waiting for an answer, and the context to send back with it |
+
+The shapes are in `app/lib/types/stream-events.ts`.
 
 ### Login sessions
 
@@ -169,6 +189,52 @@ stay valid until its hour is up.
 
 The code is in `app/lib/server/auth.ts` (cookie and token) and
 `app/lib/server/http.ts` (the cross-site check).
+
+## Hotels
+
+Every flight search is also a hotel search. The two run side by side, and the
+hotels arrive in their own `hotels` event after the flights.
+
+- **Where.** Duffel Stays searches around a point. The destination airport is
+  looked up in the airport list, the city it serves is geocoded, and hotels
+  are searched within 5 km of that centre. When the city can't be found, the
+  search is 25 km around the airport instead.
+- **When.** Check-in is the day of the outbound flight and check-out the day
+  of the return. A one-way trip is given 3 nights, and the assistant says so.
+  A return on the day of departure has no stay, so no hotels are searched.
+- **Who.** One guest per traveller, two to a room unless the message says how
+  many rooms.
+- **Wishes.** Free cancellation and the number of rooms are sent to Duffel.
+  Stars, the price a night and amenities are filtered once the hotels are in,
+  and listed as labels like the flight filters. A price limit only counts for
+  the hotel when the message ties it to the hotel, a room or a night ("hotel
+  under 150 euros a night"); otherwise it is for the flights.
+- **How many.** The first 30 hotels in Duffel's order are sent, with the total.
+
+A hotel search that fails never costs the visitor their flights: the hotels
+column says it couldn't load, or lists sample hotels when `DUFFEL_USE_MOCK` is
+on.
+
+Three things to know:
+
+- **Stays has to be switched on by Duffel.** It is not part of a new account;
+  [ask Duffel for access](https://duffel.com/contact-us). Until then every
+  hotel search answers `403` and the column shows the failure (or the sample
+  hotels).
+- **The hotel follows the airport's town.** Tokyo Narita gives hotels in
+  Narita, and Denpasar gives Denpasar rather than the resorts of Bali.
+- **The Stays code was written from Duffel's API reference**, not against real
+  answers, and its tests use stand-ins. Check `app/lib/types/duffel-stays.ts`
+  and `app/lib/duffel-to-hotel.ts` against a real answer once the account has
+  access.
+
+Hotels can be searched and picked, not booked. The road trip page still lists
+sample hotels.
+
+The code is in `app/lib/server/`: `duffel-stays.ts` (the Duffel client and its
+cache), `stay-location.ts` (airport to city centre), `hotel-search.ts` (the
+search and the fallback) and `hotel-filters.ts` (the wishes), with
+`app/lib/duffel-to-hotel.ts` converting Duffel's answer for the hotel cards.
 
 ## Abuse protection
 
@@ -212,8 +278,9 @@ everyone together holds whatever else happens.
 checked field by field before it reaches the Groq prompt. Anything else
 answers `400`.
 
-**Timeouts.** Groq gets 10 seconds and Duffel 20. A provider that hangs ends
-the search with a message saying so. Groq is not asked a second time after a
+**Timeouts.** Groq gets 10 seconds, Duffel 20 for flights and for hotels, and
+the city-centre lookup 4. A provider that hangs ends the search with a message
+saying so; a hotel search that hangs only costs the hotels. Groq is not asked a second time after a
 timeout or when its own quota is used up.
 
 **Cancellation.** When the visitor leaves or starts a newer search, the calls
@@ -221,7 +288,8 @@ to Groq and Duffel in progress are dropped and later ones are never made.
 
 **Cache.** A Duffel answer is reused for 10 minutes when the same search comes
 in again (same route, dates, passengers, cabin and stops), so repeats cost a
-Groq call but no Duffel call. Failures and sample flights are never kept.
+Groq call but no Duffel call. Hotel answers are kept the same way, by place,
+dates, guests and rooms. Failures and sample data are never kept.
 
 ### Where the counts are kept
 
@@ -245,7 +313,7 @@ one more reason the limit for everyone together exists.
 
 The code is in `app/lib/server/`: `rate-limit.ts` (the limiter),
 `search-limits.ts` and `auth-limits.ts` (the limits), `schemas.ts` (input
-limits), `ttl-cache.ts` and `duffel.ts` (cache and Duffel timeout), and
+limits), `ttl-cache.ts`, `duffel.ts` and `duffel-stays.ts` (cache and Duffel timeout), and
 `groq/extractor.ts` (Groq timeout).
 
 ## Deploying to Render
@@ -273,10 +341,12 @@ DATABASE_URL="<production connection string>" npm run db:deploy
 ## Testing
 
 `npm test` runs the unit tests with Node's built-in test runner: the
-Duffel-to-UI converter, the filters, the date and follow-up logic, login
-sessions and the cross-site check, and the abuse protection (rate limits,
-input limits, provider timeouts, cancellation and the cache). They use a saved
-sample of real Duffel offers and a stand-in for the network, so they need none.
+Duffel-to-UI converters, the flight filters and hotel wishes, the date and
+follow-up logic, the hotel search and its fallback, login sessions and the
+cross-site check, and the abuse protection (rate limits, input limits,
+provider timeouts, cancellation and the cache). They use a saved sample of
+real Duffel offers and a stand-in for the network, so they need none. The
+hotel tests use hand-written answers shaped like Duffel's API reference.
 
 ## Origins and credits
 
