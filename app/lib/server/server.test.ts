@@ -171,47 +171,31 @@ test("reads the visitor's IP from x-forwarded-for", () => {
   assert.match(detectFallbackOrigin(new Headers({ "x-forwarded-for": "8.8.8.8" })), /^[A-Z]{3}$/);
 });
 
-test("accepts its own tokens and nothing else", async () => {
-  const withToken = (value?: string) =>
-    new Request("http://localhost/api", { headers: value ? { authorization: value } : {} });
+test("accepts its own tokens from the session cookie and nothing else", () => {
+  const withCookie = (cookie?: string, authorization?: string) =>
+    new Request("http://localhost/api", {
+      headers: { ...(cookie !== undefined && { cookie }), ...(authorization && { authorization }) },
+    });
   const token = signToken({ id: BigInt(42), email: "a@example.com" });
 
-  assert.deepEqual(requireUser(withToken(`Bearer ${token}`)), { userId: BigInt(42) });
-
-  for (const bad of [undefined, token, "Bearer nope", `Bearer ${token}x`, `Basic ${token}`]) {
-    const answer = requireUser(withToken(bad));
-    assert.ok(answer instanceof Response);
-    assert.equal(answer.status, 401);
-  }
+  assert.deepEqual(requireUser(withCookie(`session=${token}`)), { userId: BigInt(42) });
+  assert.deepEqual(requireUser(withCookie(`theme=dark; session=${token}; lang=en`)), { userId: BigInt(42) });
 
   // Signed with another secret.
   process.env.JWT_SECRET = "other-secret";
   const forged = signToken({ id: BigInt(42), email: "a@example.com" });
   process.env.JWT_SECRET = "test-secret";
-  assert.ok(requireUser(withToken(`Bearer ${forged}`)) instanceof Response);
-});
 
-test("accepts the token from the session cookie", () => {
-  const withCookie = (cookie: string, authorization?: string) =>
-    new Request("http://localhost/api", { headers: { cookie, ...(authorization && { authorization }) } });
-  const token = signToken({ id: BigInt(42), email: "a@example.com" });
-  const other = signToken({ id: BigInt(7), email: "b@example.com" });
-
-  assert.deepEqual(requireUser(withCookie(`session=${token}`)), { userId: BigInt(42) });
-  assert.deepEqual(requireUser(withCookie(`theme=dark; session=${token}; lang=en`)), { userId: BigInt(42) });
-  assert.deepEqual(optionalUser(withCookie(`session=${token}`)), { userId: BigInt(42) });
-
-  // The cookie wins over a header sent with it.
-  assert.deepEqual(requireUser(withCookie(`session=${token}`, `Bearer ${other}`)), { userId: BigInt(42) });
-  // Without a session cookie the header still works.
-  assert.deepEqual(requireUser(withCookie("theme=dark", `Bearer ${other}`)), { userId: BigInt(7) });
-
-  for (const bad of ["session=", "session=nope", `session=${token}x`, `mysession=${token}`, `token=${token}`]) {
+  for (const bad of [undefined, "", "session=", "session=nope", `session=${token}x`, `session=${forged}`, `mysession=${token}`, `token=${token}`]) {
     const answer = requireUser(withCookie(bad));
     assert.ok(answer instanceof Response);
     assert.equal(answer.status, 401);
-    assert.equal(optionalUser(withCookie(bad)), null);
   }
+
+  // A token in a header is not a login: only the cookie, which scripts cannot read, counts.
+  const inHeader = requireUser(withCookie(undefined, `Bearer ${token}`));
+  assert.ok(inHeader instanceof Response);
+  assert.equal(inHeader.status, 401);
 });
 
 test("the session cookie is hidden from scripts and lasts as long as the token", () => {
@@ -240,21 +224,21 @@ test("the session cookie is hidden from scripts and lasts as long as the token",
 });
 
 test("a guest endpoint reads a valid login and treats anything else as a guest", () => {
-  const withToken = (value?: string) =>
-    new Request("http://localhost/api", { headers: value ? { authorization: value } : {} });
+  const withCookie = (cookie?: string) =>
+    new Request("http://localhost/api", { headers: cookie ? { cookie } : {} });
   const token = signToken({ id: BigInt(42), email: "a@example.com" });
 
-  assert.deepEqual(optionalUser(withToken(`Bearer ${token}`)), { userId: BigInt(42) });
+  assert.deepEqual(optionalUser(withCookie(`session=${token}`)), { userId: BigInt(42) });
 
   const expired = jwt.sign({ userId: "42" }, "test-secret", { expiresIn: -60 });
   const forged = jwt.sign({ userId: "42" }, "other-secret");
-  for (const bad of [undefined, token, "Bearer nope", `Bearer ${token}x`, `Bearer ${expired}`, `Bearer ${forged}`]) {
-    assert.equal(optionalUser(withToken(bad)), null);
+  for (const bad of [undefined, "session=nope", `session=${token}x`, `session=${expired}`, `session=${forged}`, `token=${token}`]) {
+    assert.equal(optionalUser(withCookie(bad)), null);
   }
 
   // A server without a secret still serves guests.
   delete process.env.JWT_SECRET;
-  assert.equal(optionalUser(withToken(`Bearer ${token}`)), null);
+  assert.equal(optionalUser(withCookie(`session=${token}`)), null);
   process.env.JWT_SECRET = "test-secret";
 });
 

@@ -10,8 +10,9 @@ import { loginSchema } from "@/app/lib/server/schemas";
 const invalid = () => Response.json({ success: false, message: "Invalid email or password" }, { status: 401 });
 
 /**
- * POST /api/auth/login — checks the password and returns a 1-hour token, also
- * set as the session cookie. One address gets a limited number of attempts (429
+ * POST /api/auth/login — checks the password and sets a 1-hour session cookie.
+ * The token is in that cookie only, never in the answer's body, so scripts on
+ * the page cannot read it. One address gets a limited number of attempts (429
  * after that).
  */
 export const POST = handle(async (request: Request) => {
@@ -35,12 +36,10 @@ export const POST = handle(async (request: Request) => {
 
   if (!(await bcrypt.compare(password, user.passwordHash))) return invalid();
 
-  const token = signToken(user);
   return Response.json(
     {
       success: true,
       message: "Login successful",
-      token,
       user: {
         id: user.id.toString(),
         name: user.name,
@@ -48,6 +47,6 @@ export const POST = handle(async (request: Request) => {
         currency: user.currency ? { code: user.currency.code } : null,
       },
     },
-    { headers: { "Set-Cookie": sessionCookie(token) } },
+    { headers: { "Set-Cookie": sessionCookie(signToken(user)) } },
   );
 });

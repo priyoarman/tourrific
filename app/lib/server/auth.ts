@@ -35,30 +35,28 @@ function cookie(value: string, maxAgeSeconds: number) {
   return `${SESSION_COOKIE}=${value}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; SameSite=Lax${secure}`;
 }
 
-/** The token a request carries: its session cookie, or else an `Authorization: Bearer <token>` header. */
+/** The token in the request's session cookie, or null. */
 function readToken(request: Request) {
   for (const pair of request.headers.get("cookie")?.split(";") ?? []) {
     const [name, value] = pair.trim().split("=");
     if (name === SESSION_COOKIE && value) return value;
   }
-
-  const header = request.headers.get("authorization");
-  return header?.startsWith("Bearer ") ? header.split(" ")[1] : null;
+  return null;
 }
 
 const unauthorized = (message: string) => Response.json({ status: "error", message }, { status: 401 });
 
 /**
- * Who is making the request, read from its session cookie or its
- * `Authorization: Bearer <token>` header. Returns a 401 response instead when
- * the token is missing, expired or forged, so a route starts with:
+ * Who is making the request, read from its session cookie. Returns a 401
+ * response instead when the token is missing, expired or forged, so a route
+ * starts with:
  *
  *   const user = requireUser(request);
  *   if (user instanceof Response) return user;
  */
 export function requireUser(request: Request): { userId: bigint } | Response {
   const token = readToken(request);
-  if (!token) return unauthorized("Authorization token missing or invalid");
+  if (!token) return unauthorized("Not signed in");
 
   try {
     const decoded = jwt.verify(token, secret());
