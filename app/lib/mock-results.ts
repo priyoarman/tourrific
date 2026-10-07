@@ -1,3 +1,4 @@
+import { HOTEL_GRADIENTS } from "./duffel-to-hotel";
 import type { Hotel, Trip } from "./types";
 
 // Sample hotels only; there is no hotel API yet. Results are seeded by
@@ -32,15 +33,6 @@ const areas = ["City centre", "Old town", "Waterfront", "Arts district", "Near m
 
 const amenityPool = ["Free Wi-Fi", "Breakfast", "Pool", "Gym", "Spa", "Rooftop bar", "Parking"];
 
-const gradients = [
-  "from-[#f6c79b] to-[#d9776b]",
-  "from-[#a8c8f0] to-[#5f7fd1]",
-  "from-[#c7b2f5] to-[#8b6ad8]",
-  "from-[#9fdcc7] to-[#3f9a86]",
-  "from-[#f3b6c8] to-[#c46a8e]",
-  "from-[#f2dfa0] to-[#c99a45]",
-];
-
 export function getHotels(trip: Trip): Hotel[] {
   const dest = trip.destination;
   const rand = seededRandom(`hotels-${dest.city}`);
@@ -65,8 +57,10 @@ export function getHotels(trip: Trip): Hotel[] {
       nightlyPrice: Math.round(
         dest.nightlyRate * (0.55 + (stars - 3) * 0.3 + rand() * 0.4),
       ),
+      currency: "USD",
       amenities: amenities.length ? amenities : ["Free Wi-Fi"],
-      gradient: gradients[i % gradients.length],
+      photoUrl: null,
+      gradient: HOTEL_GRADIENTS[i % HOTEL_GRADIENTS.length],
       freeCancellation: rand() > 0.4,
     };
   });

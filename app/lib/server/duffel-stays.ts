@@ -1,5 +1,6 @@
 // Searches hotels with the Duffel Stays API. The account has to have Stays
 // switched on by Duffel; until then every search is refused with a 403.
+import type { DuffelStaysResult } from "../types/duffel-stays";
 import { cacheTtlMs, postToDuffel, stableJson } from "./duffel.ts";
 import { createTtlCache } from "./ttl-cache.ts";
 
@@ -21,7 +22,7 @@ export type DuffelStaysSearch = {
 };
 
 /** Duffel's answer to a stays search: one result per hotel, with its cheapest rate. */
-export type DuffelStaysResponse = { data?: { results?: unknown[] } };
+export type DuffelStaysResponse = { data?: { results?: DuffelStaysResult[] } };
 
 /**
  * Asks Duffel for hotels.

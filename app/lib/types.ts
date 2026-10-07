@@ -60,16 +60,26 @@ export type FlightOffer = {
   baggage: string;
 };
 
+// What the hotel cards render. Real Duffel stays are converted into this shape
+// by `toHotel` in duffel-to-hotel.ts; the sample hotels are built in mock-results.ts.
 export type Hotel = {
   id: string;
   name: string;
+  /** Street address or neighbourhood, or "" when unknown. */
   area: string;
-  distanceKm: number;
-  stars: number;
-  rating: number;
-  reviewCount: number;
+  /** From the point the search was made around. Null when unknown. */
+  distanceKm: number | null;
+  /** 1 to 5, or null for a hotel without stars. */
+  stars: number | null;
+  /** What guests gave it, out of 10. Null when nobody reviewed it. */
+  rating: number | null;
+  reviewCount: number | null;
   nightlyPrice: number;
+  /** ISO 4217 code, e.g. "EUR". */
+  currency: string;
   amenities: string[];
+  photoUrl: string | null;
+  /** Tailwind gradient classes, shown when there is no photo. */
   gradient: string;
   freeCancellation: boolean;
 };

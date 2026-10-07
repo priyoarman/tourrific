@@ -18,7 +18,8 @@ const sortOptions: { value: HotelSort; label: string }[] = [
 function sortHotels(hotels: Hotel[], sort: HotelSort) {
   if (sort === "recommended") return hotels;
   return [...hotels].sort((a, b) =>
-    sort === "price" ? a.nightlyPrice - b.nightlyPrice : b.rating - a.rating,
+    // A hotel nobody reviewed goes last.
+    sort === "price" ? a.nightlyPrice - b.nightlyPrice : (b.rating ?? 0) - (a.rating ?? 0),
   );
 }
 
