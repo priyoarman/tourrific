@@ -28,7 +28,7 @@ const AMENITIES_SHOWN = 3;
 export type Coordinates = { latitude: number; longitude: number };
 
 /** Kilometres between two points, as the crow flies. */
-function distanceKm(a: Coordinates, b: Coordinates) {
+export function distanceKm(a: Coordinates, b: Coordinates) {
   const radians = (degrees: number) => (degrees * Math.PI) / 180;
   const dLat = radians(b.latitude - a.latitude);
   const dLon = radians(b.longitude - a.longitude);
