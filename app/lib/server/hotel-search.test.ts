@@ -300,3 +300,46 @@ test("hotels are sent with the first page of flights only, and not for a day tri
   assert.deepEqual(names(await chatSearch()), ["complete", "done"]);
   assert.equal(staysBodies.length, 0);
 });
+
+const statuses = (events: [string, unknown][]) =>
+  events.flatMap(([event, data]) => (event === "status" ? [(data as { text: string }).text.trim()] : []));
+
+test("the progress lines of a chat search count the hotels with the flights", async () => {
+  const sample = (await import("./data/mock-flights.json", { with: { type: "json" } })).default;
+  const flightCount = sample.data.offers.length;
+  stubProviders({ groq: READS, flights: () => Response.json(sample), stays: () => stays("1", "2") });
+
+  assert.deepEqual(statuses(await chatSearch()), [
+    "Understanding your request...",
+    "Searching return flights from CPH to LIS...",
+    "Searching hotels near LIS...",
+    "Pricing it for 2 travellers...",
+    "Comparing prices across airlines and hotels...",
+    `Found ${flightCount} possible flights and 2 possible hotels.`,
+  ]);
+});
+
+test("the progress lines say when only one of the two was found, and leave out hotels that failed", async () => {
+  stubProviders({ groq: READS, stays: () => stays("1") });
+  assert.equal(statuses(await chatSearch()).at(-1), "No flights found for those dates. Found 1 possible hotel.");
+
+  clearStaysCache();
+  stubProviders({ groq: READS, stays: () => Response.json({ data: { results: [] } }) });
+  assert.equal(statuses(await chatSearch()).at(-1), "No flights found for those dates. No hotels found.");
+
+  clearStaysCache();
+  stubProviders({ groq: READS, stays: () => new Response("down", { status: 503 }) });
+  assert.equal(statuses(await chatSearch()).at(-1), "No flights found for those dates.");
+});
+
+test("a search without a stay has no hotel progress lines", async () => {
+  stubProviders({ groq: { ...READS, return_date: "2099-01-05" } });
+
+  assert.deepEqual(statuses(await chatSearch()), [
+    "Understanding your request...",
+    "Searching return flights from CPH to LIS...",
+    "Pricing it for 2 travellers...",
+    "Comparing prices across airlines...",
+    "No flights found for those dates.",
+  ]);
+});

@@ -60,7 +60,8 @@ data for now.
 - Tailwind CSS 4
 - PostgreSQL with Prisma 6
 - [Groq](https://groq.com) through the AI SDK
-- [Duffel](https://duffel.com) for flights and hotels
+- [Duffel](https://duffel.com) for flights
+- [LiteAPI](https://www.liteapi.travel) for hotels, with Duffel Stays as the fallback
 - [Open-Meteo geocoding](https://open-meteo.com/en/docs/geocoding-api) to find the city centre for a hotel search
 - JWT logins in an HttpOnly cookie, bcrypt password hashes, Zod validation
 
@@ -91,7 +92,9 @@ Put these in `.env.local`. Never commit it.
 | `GROQ_MODEL` | Groq model, e.g. `openai/gpt-oss-120b` |
 | `DUFFEL_TOKEN` | Duffel access token. A test-mode token works |
 | `DUFFEL_API_URL` | `https://api.duffel.com` |
-| `DUFFEL_USE_MOCK` | Optional. `true` shows sample flights and hotels when Duffel fails |
+| `DUFFEL_USE_MOCK` | Optional. `true` shows sample flights and hotels when a search fails |
+| `LITEAPI_KEY` | LiteAPI key for hotels. A free sandbox key (`sand_...`) works. Without it, hotels are asked of Duffel Stays |
+| `LITEAPI_CURRENCY` | Optional. The currency hotel prices come in. Default `EUR` |
 
 These are optional. Each one has a default.
 
@@ -187,19 +190,21 @@ Every flight search is also a hotel search.
 - **Where.** Within 5 km of the centre of the city the destination airport serves. If the city can't be found, 25 km around the airport.
 - **When.** Check-in on the outbound day, check-out on the return day. A one-way trip gets 3 nights. A same-day return gets no hotels.
 - **Who.** One guest per traveller, two to a room unless you say how many rooms.
-- **Wishes.** Free cancellation and rooms are sent to Duffel. Stars, price a night and amenities are filtered afterwards. A price limit only counts for the hotel when you tie it to the hotel ("hotel under 150 euros a night").
+- **Wishes.** Free cancellation and rooms are sent with the search. Stars, price a night and amenities are filtered afterwards. A price limit only counts for the hotel when you tie it to the hotel ("hotel under 150 euros a night").
 - **How many.** The first 30 hotels, with the total.
 
 A failed hotel search never costs you your flights.
 
 Good to know:
 
-- **Duffel must switch Stays on.** New accounts don't have it. [Ask Duffel for access](https://duffel.com/contact-us). Until then hotel searches answer `403` and you see the failure or the sample hotels.
+- **LiteAPI first, Duffel Stays second.** With `LITEAPI_KEY` set, hotels come from [LiteAPI](https://docs.liteapi.travel). A sandbox key is free and returns test hotels and prices. Without the key, hotels are asked of Duffel Stays.
+- **Duffel must switch Stays on.** New accounts don't have it. [Ask Duffel for access](https://duffel.com/contact-us). Until then its hotel searches answer `403`.
+- **One LiteAPI search is up to three requests.** The rates, then the facilities of the hotels found, and once per server start the list of facility names. Amenities are matched by name ("Outdoor swimming pool" is a pool).
 - **The hotel follows the airport's town.** Tokyo Narita gives hotels in Narita, not Tokyo.
-- **The Stays code is untested against real answers.** It was written from Duffel's API reference. Check `app/lib/types/duffel-stays.ts` and `app/lib/duffel-to-hotel.ts` once you have access.
+- **Neither hotel provider is tested against real answers.** Both were written from the API reference. Check `app/lib/server/liteapi-stays.ts`, `app/lib/types/duffel-stays.ts` and `app/lib/duffel-to-hotel.ts` against a real one.
 - **Hotels can be searched and picked, not booked.**
 
-Code: `duffel-stays.ts`, `stay-location.ts`, `hotel-search.ts` and
+Code: `liteapi-stays.ts`, `duffel-stays.ts`, `stay-location.ts`, `hotel-search.ts` and
 `hotel-filters.ts` in `app/lib/server/`.
 
 ## Staying safe
@@ -256,7 +261,7 @@ not a way around the limits.
 **2. Input limits.** A message is at most 500 characters, a request body 8 KB.
 Anything else answers `400`.
 
-**3. Timeouts.** Groq gets 10 seconds, Duffel 20, the city lookup 4. A hotel
+**3. Timeouts.** Groq gets 10 seconds, Duffel 20, LiteAPI 20, the city lookup 4. A hotel
 search that hangs only costs the hotels.
 
 **4. Cancellation.** Leave or start a new search, and the calls in progress are
@@ -281,7 +286,7 @@ Code: `rate-limit.ts`, `search-limits.ts`, `auth-limits.ts`, `schemas.ts` and
 converters, flight filters and hotel wishes, dates and follow-ups, the hotel
 search and its fallback, login sessions, and the abuse protection. They use a
 saved sample of real Duffel offers and need no network. The hotel tests use
-hand-written answers shaped like Duffel's API reference.
+hand-written answers shaped like Duffel's and LiteAPI's API references.
 
 ## Deploying to Render
 

@@ -16,7 +16,7 @@ import {
   returnDateFromAnswer,
 } from "./follow-up.ts";
 import { extractTripQuery } from "./groq/extractor.ts";
-import { searchHotels } from "./hotel-search.ts";
+import { searchHotels, stayNights } from "./hotel-search.ts";
 import { detectFallbackOrigin } from "./origin-fallback.ts";
 
 const PAGE_SIZE = 7;
@@ -25,6 +25,24 @@ const PAGE_SIZE = 7;
 export type SendEvent = <K extends StreamEventName>(event: K, data: StreamEventMap[K]) => void;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * How long found flights wait for the hotels, so one line can count both.
+ * Hotels that take longer are left out of that line and still arrive after the flights.
+ */
+const HOTEL_WAIT_MS = 4_000;
+
+/** What `promise` resolves to, or undefined when it takes longer than `ms`. */
+function within<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+  const waiting = new AbortController();
+  const late = new Promise<undefined>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    waiting.signal.addEventListener("abort", () => clearTimeout(timer));
+  });
+  return Promise.race([promise, late]).finally(() => waiting.abort());
+}
+
+const counted = (count: number, thing: string) => `${count} possible ${thing}${count === 1 ? "" : "s"}`;
 
 /** What the visitor is told when Groq can't turn their message into a search. */
 const EXTRACTION_PROBLEMS: Record<string, string> = {
@@ -53,11 +71,13 @@ function buildSearchSlices(extracted: TripQuery, destination: string) {
   return slices;
 }
 
-function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean) {
+/** The progress lines of a search. `withHotels` when hotels are searched alongside the flights. */
+function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean, withHotels: boolean) {
   const origin = extracted.origin_airport || "your location";
   const messages = [
     `Searching ${returnTrip ? "return " : ""}flights from ${origin} to ${extracted.destination_airport}...`,
   ];
+  if (withHotels) messages.push(`Searching hotels near ${extracted.destination_airport}...`);
 
   const travellers = passengerCount(extracted);
   if (travellers > 1) messages.push(`Pricing it for ${travellers} travellers...`);
@@ -72,7 +92,7 @@ function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean) {
   if (extracted.departure_time) messages.push(`Narrowing to ${extracted.departure_time} departures...`);
   if (extracted.max_price) messages.push("Keeping to your budget...");
 
-  messages.push("Comparing prices across airlines...");
+  messages.push(`Comparing prices across airlines${withHotels ? " and hotels" : ""}...`);
   return messages;
 }
 
@@ -245,7 +265,9 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     }
 
     extracted.destination_airport = destination;
-    for (const text of buildSearchStatusMessages(extracted, returnTrip)) {
+    // The other pages of the same search already have their hotels.
+    const withHotels = page === 1 && stayNights(extracted) !== null;
+    for (const text of buildSearchStatusMessages(extracted, returnTrip, withHotels)) {
       send("status", { text: `${text} ` });
       await delay(400);
     }
@@ -257,8 +279,7 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
 
     if (signal?.aborted) return;
     // Started now and waited for after the flights, so the two searches run side by side.
-    // The other pages of the same search already have their hotels.
-    const hotelsFound = page === 1 ? searchHotels(extracted, destination, hotelSignal) : null;
+    const hotelsFound = withHotels ? searchHotels(extracted, destination, hotelSignal) : null;
     const flights = await searchFlightsCached({ slices, ...searchOptions }, signal);
     const found: DuffelOffer[] = flights?.data?.offers ?? [];
     const { offers, labels, unfilteredCount } = filterOffers(found, extracted);
@@ -268,16 +289,24 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     const start = (page - 1) * limit;
     const end = start + limit;
 
+    // A failed hotel search has nothing to count; the hotels column says so.
+    const hotelsInTime = hotelsFound ? await within(hotelsFound, HOTEL_WAIT_MS) : null;
+    if (signal?.aborted) return;
+    const hotelCount = hotelsInTime && !hotelsInTime.failed ? hotelsInTime.totalHotels : null;
+    const hotelsToo = hotelCount === null ? "" : hotelCount > 0 ? ` Found ${counted(hotelCount, "hotel")}.` : " No hotels found.";
+
     if (count < unfilteredCount) {
       send("status", {
-        text: `Found ${unfilteredCount} flight${unfilteredCount === 1 ? "" : "s"}, ${count || "none"} of them match${count === 1 ? "es" : ""} what you asked for.`,
+        text: `Found ${unfilteredCount} flight${unfilteredCount === 1 ? "" : "s"}, ${count || "none"} of them match${count === 1 ? "es" : ""} what you asked for.${hotelsToo}`,
       });
       await delay(300);
     } else if (count > 0) {
-      send("status", { text: `Found ${count} possible flight${count === 1 ? "" : "s"}.` });
+      send("status", {
+        text: hotelCount ? `Found ${counted(count, "flight")} and ${counted(hotelCount, "hotel")}.` : `Found ${counted(count, "flight")}.${hotelsToo}`,
+      });
       await delay(300);
     } else {
-      send("status", { text: "No flights found for those dates." });
+      send("status", { text: `No flights found for those dates.${hotelsToo}` });
       await delay(200);
     }
 
