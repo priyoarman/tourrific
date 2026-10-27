@@ -82,6 +82,24 @@ function removedByFilters(result: FlightSearchResult) {
   return result.unfilteredCount - result.offers.length;
 }
 
+/** "1-week" for 1 week, "7-day" for 7 days: how the trip's length was said, as an adjective. */
+const STAY_WORDS = { days: "day", nights: "night", weeks: "week" } as const;
+
+/**
+ * What kind of trip was searched, so the visitor sees what was understood:
+ * "A **7-day trip** to **Athens**: out Fri 6 Nov, back Thu 12 Nov." or
+ * "**One way** to **Lisbon** on Fri 6 Nov."
+ */
+function tripLine(result: FlightSearchResult) {
+  const { departure_date: depart, return_date: back, stay_length, stay_unit } = result.query;
+  const to = `**${result.destination.city}**`;
+  if (!depart) return `A trip to ${to}.`;
+  if (!back) return `**One way** to ${to} on ${formatDate(depart)}.`;
+
+  const kind = stay_length && stay_unit ? `${stay_length}-${STAY_WORDS[stay_unit]} trip` : "return trip";
+  return `A **${kind}** to ${to}: out ${formatDate(depart)}, back ${formatDate(back)}.`;
+}
+
 /** What the assistant says once the results are in. */
 function resultsMessage(result: FlightSearchResult) {
   const { offers, origin, destination } = result;
@@ -102,7 +120,7 @@ function resultsMessage(result: FlightSearchResult) {
   const party = (result.query.passengers ?? 1) > 1 ? ` for ${travellers(result)}` : "";
   const matching = filters ? `\nFilters: **${result.filters.join(" · ")}**.` : "";
 
-  return `I found ${count} ${route}${dates ? ` for ${dates}` : ""}.${matching}\nPrices start at **${formatPrice(cheapest.totalPrice, cheapest.currency)}**${party} with ${cheapest.airline.name}.`;
+  return `${tripLine(result)}\nI found ${count} ${route}.${matching}\nPrices start at **${formatPrice(cheapest.totalPrice, cheapest.currency)}**${party} with ${cheapest.airline.name}.`;
 }
 
 /** What the assistant says once the hotels are in. Null when there is nothing worth saying. */
