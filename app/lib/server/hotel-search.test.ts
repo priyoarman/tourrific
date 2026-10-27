@@ -367,6 +367,24 @@ test("a chat search says which side of the trip it changes, before it searches",
   assert.equal(scopeOf(await followUp({ return_date: "2099-01-10" })), "both");
 });
 
+test("a stay length makes it a return trip, and the hotels follow it", async () => {
+  // "A seven-day plan", with no return date: out on the 5th, back on the 11th.
+  stubProviders({ groq: { ...READS, return_date: null, trip_type: "one_way", stay_length: 7, stay_unit: "days" } });
+
+  const events = await chatSearch();
+  const { extracted } = events.find(([event]) => event === "complete")?.[1] as { extracted: TripQuery };
+  assert.equal(extracted.trip_type, "return");
+  assert.equal(extracted.return_date, "2099-01-11");
+
+  const { stay } = events.find(([event]) => event === "hotels")?.[1] as StreamHotels;
+  assert.deepEqual([stay.checkIn, stay.checkOut, stay.nights, stay.nightsAssumed], ["2099-01-05", "2099-01-11", 6, false]);
+
+  // A return date that was said wins over the length.
+  stubProviders({ groq: { ...READS, stay_length: 7, stay_unit: "days" } });
+  const said = (await chatSearch()).find(([event]) => event === "complete")?.[1] as { extracted: TripQuery };
+  assert.equal(said.extracted.return_date, "2099-01-08");
+});
+
 test("a question is not a search, and says no scope", async () => {
   stubProviders({ groq: { ...READS, departure_date: null, return_date: null } });
 

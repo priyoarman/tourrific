@@ -19,6 +19,7 @@ import { extractTripQuery } from "./groq/extractor.ts";
 import { searchHotels, stayNights } from "./hotel-search.ts";
 import { detectFallbackOrigin } from "./origin-fallback.ts";
 import { searchScope } from "./search-scope.ts";
+import { returnDateFor } from "./stay-length.ts";
 
 const PAGE_SIZE = 7;
 
@@ -235,6 +236,12 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     if (!extracted.departure_date) {
       ask("departure_date", "That's great. Could you please tell me when you'd like to travel?", { destination });
       return;
+    }
+
+    // "A seven-day plan" says when they fly back, now that it's known when they leave.
+    if (!extracted.return_date && extracted.stay_length && extracted.stay_unit) {
+      extracted.return_date = returnDateFor(extracted.departure_date, extracted.stay_length, extracted.stay_unit);
+      extracted.trip_type = "return";
     }
 
     const returnTrip = isReturnTrip(extracted);
