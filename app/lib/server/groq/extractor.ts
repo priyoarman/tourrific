@@ -285,6 +285,29 @@ export function normalizeTripQuery(raw: unknown): TripQuery {
   };
 }
 
+const COUNT_WORDS = ["a", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen"];
+
+type StayLength = { stay_length: number | null; stay_unit: StayUnit | null };
+
+/**
+ * Finds how long the stay is ("a seven-day plan", "5 nights", "a week") with a
+ * plain pattern, for when the model leaves it out. When to leave ("in 2 weeks",
+ * "3 days from now") is not a stay. Words above fourteen are left to the model.
+ */
+export function parseStayLength(text: unknown): StayLength {
+  const none = { stay_length: null, stay_unit: null };
+  if (typeof text !== "string") return none;
+
+  const count = `\\d{1,2}|${COUNT_WORDS.join("|")}|an`;
+  const pattern = new RegExp(`(?:\\b(in|within|after|next)\\s+)?\\b(${count})[\\s-]+(day|night|week)s?\\b(\\s+(?:from now|later|ahead|ago))?`, "g");
+  for (const [, before, amount, unit, after] of text.toLowerCase().matchAll(pattern)) {
+    if (before || after) continue;
+    const length = /^\d/.test(amount) ? Number(amount) : Math.max(COUNT_WORDS.indexOf(amount), 1);
+    return normalizeStay(length, unit);
+  }
+  return none;
+}
+
 export type ExtractionResult =
   | { ok: true; parsed: TripQuery; errors: string[] }
   | { ok: false; parsed: null; errors: string[] };
@@ -314,7 +337,8 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
 
   const referenceDate = opts.referenceDate || new Date();
   const currentDate = toDateOnlyString(startOfToday(referenceDate));
-  const localDates = parseNaturalTravelDates(opts.datesFrom === undefined ? userText : opts.datesFrom, referenceDate);
+  const datesText = opts.datesFrom === undefined ? userText : opts.datesFrom;
+  const localDates = parseNaturalTravelDates(datesText, referenceDate);
   const prompt = [
     { role: "system" as const, content: SYSTEM_PROMPT.replace("{{CURRENT_DATE}}", currentDate) },
     { role: "user" as const, content: [{ type: "text" as const, text: userText }] },
@@ -384,6 +408,8 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
 
   if (localDates.departure_date) parsed.departure_date = localDates.departure_date;
   if (localDates.return_date) parsed.return_date = localDates.return_date;
+  // The model now and then misses "a week"; a stay length it did find is kept.
+  if (!parsed.stay_length) Object.assign(parsed, parseStayLength(datesText));
   parsed.trip_type = normalizeTripType(parsed.trip_type, parsed.return_date);
 
   // A country, region or mood becomes one specific airport, with a line explaining the pick.

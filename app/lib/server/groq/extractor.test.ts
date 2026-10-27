@@ -3,7 +3,7 @@
 // api/src/groq/testNormalize.js (`npm run test:extract:normalize`).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalizeTripQuery, parseNaturalTravelDates } from "./extractor.ts";
+import { normalizeTripQuery, parseNaturalTravelDates, parseStayLength } from "./extractor.ts";
 
 test("cleans a one-way search", () => {
   const oneWay = normalizeTripQuery({
@@ -144,4 +144,28 @@ test("works out relative dates from a Monday", () => {
   const september = dates("Flights to Rome in September");
   assert.match(september.departure_date!, /^2026-09-\d{2}$/);
   assert.equal(september.return_date, null);
+});
+
+test("finds how long the stay is in the message", () => {
+  const stay = (text: string) => {
+    const { stay_length, stay_unit } = parseStayLength(text);
+    return [stay_length, stay_unit];
+  };
+
+  assert.deepEqual(stay("A seven-day plan to Greece"), [7, "days"]);
+  assert.deepEqual(stay("5 nights in Rome next month"), [5, "nights"]);
+  assert.deepEqual(stay("A week in Lisbon in December"), [1, "weeks"]);
+  assert.deepEqual(stay("two weeks in Japan"), [2, "weeks"]);
+  assert.deepEqual(stay("a 10 day trip to Bali"), [10, "days"]);
+  assert.deepEqual(stay("Paris for 3 Nights"), [3, "nights"]);
+
+  // No stay at all.
+  assert.deepEqual(stay("Flights to Lisbon next Friday"), [null, null]);
+  assert.deepEqual(stay("Flights to Paris next weekend"), [null, null]);
+  // When to leave is not how long to stay.
+  assert.deepEqual(stay("Flights to Rome in 2 weeks"), [null, null]);
+  assert.deepEqual(stay("Somewhere sunny 3 days from now"), [null, null]);
+  assert.deepEqual(stay("Leaving in two weeks, staying 4 nights"), [4, "nights"]);
+  // A previous search's JSON in the prompt is not a stay either.
+  assert.deepEqual(stay('Previous flight search JSON: {"stay_length":7,"stay_unit":"days"}'), [null, null]);
 });
