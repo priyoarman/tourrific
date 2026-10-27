@@ -542,7 +542,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
 
       <TripReadyDialog
         trip={tripReady && selectedFlight && selectedHotel && stay ? { flight: selectedFlight, hotel: selectedHotel, stay } : null}
-        onShowItinerary={() => setTripReady(false)}
+        // The itinerary page still shows its sample trip; the picks are passed to it in a later step.
+        onShowItinerary={() => router.push("/itinerary")}
         onClose={() => setTripReady(false)}
       />
     </div>
