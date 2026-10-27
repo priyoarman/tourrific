@@ -16,6 +16,7 @@ const SYSTEM_PROMPT = `You are a headless JSON extraction engine. Follow these r
 - Normalize trip_type as "return" when the user gives a return date or a date range (e.g. "from July 10 to July 17", "July 10-17", "until July 17"); otherwise use "one_way".
 - For return trips, set departure_date to the outbound date and return_date to the inbound date.
 - Relative dates like "tomorrow", "this weekend", "next weekend", or "next Friday" must be resolved against the current date and formatted as YYYY-MM-DD.
+- When the user says how long they stay, set stay_length to that number exactly as said and stay_unit to "days", "nights" or "weeks" (e.g. "a seven-day plan" -> 7, "days"; "5 nights in Rome" -> 5, "nights"; "a week" -> 1, "weeks"). Never work it out from dates. Otherwise set both to null.
 - Set passengers to the number of travellers when the user says it (e.g. "for two", "me and my wife", "3 tickets"); otherwise null.
 - Set cabin_class to "economy", "premium_economy", "business" or "first" when the user names a cabin; otherwise null.
 - If the user asks for direct/non-stop flights, set direct_only to true.
@@ -50,7 +51,7 @@ Destination parsing rules:
   1. Add the vibe name (e.g., "beaches", "hills", "cozy", "summer vibes") to the vibe_tags array.
   2. If no specific city, country, or area is mentioned, set destination_airport, destination_country, destination_country_code, destination_continent_code, and destination_area to null.
 
-The examples leave out the six hotel_ fields to save space. Always include them, null or empty when the user asks nothing of the hotel.
+The examples leave out the six hotel_ fields and the two stay_ fields to save space. Always include them, null or empty when the user asks nothing of the hotel or says nothing of how long they stay.
 
 Example return trip to a specific airport (follow structure only):
 {

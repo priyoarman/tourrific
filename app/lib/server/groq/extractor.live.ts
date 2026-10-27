@@ -4,6 +4,7 @@
 // api/src/groq/testExtract.js.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { setTimeout as wait } from "node:timers/promises";
 import { extractTripQuery } from "./extractor.ts";
 
 const PROMPT =
@@ -40,4 +41,21 @@ test("Groq extracts a full flight search from one sentence", { skip: !process.en
       max_price_currency: "DKK",
     },
   );
+});
+
+const STAYS: [string, number | null, string | null][] = [
+  ["A seven-day plan to Greece", 7, "days"],
+  ["5 nights in Rome next month", 5, "nights"],
+  ["A week in Lisbon in December", 1, "weeks"],
+  ["Flights to Lisbon next Friday", null, null],
+];
+
+test("Groq copies how long the stay is, as it was said", { skip: !process.env.GROQ_API_KEY && "GROQ_API_KEY is not set", timeout: 180_000 }, async () => {
+  for (const [prompt, length, unit] of STAYS) {
+    // Each call is about 3,600 tokens and the free tier allows 8,000 a minute.
+    await wait(30_000);
+    const result = await extractTripQuery(prompt);
+    assert.equal(result.ok, true, result.errors.join(", "));
+    assert.deepEqual([result.parsed?.stay_length, result.parsed?.stay_unit], [length, unit], prompt);
+  }
 });
