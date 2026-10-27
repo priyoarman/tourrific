@@ -12,14 +12,14 @@ import WeatherCard from "./_components/WeatherCard";
 import { sampleTrip } from "./sample-trip";
 
 export const metadata: Metadata = {
-  title: "Your complete plan – Tourrific",
+  title: "Your itinerary – Tourrific",
   description: "Your whole trip on one page: flights, hotel, budget, calendar, map and weather.",
 };
 
 const actionClass =
   "flex flex-1 items-center justify-center gap-2.5 rounded-full py-4 text-sm font-semibold transition-colors";
 
-export default function CompletePlanPage() {
+export default function ItineraryPage() {
   const trip = sampleTrip;
 
   return (

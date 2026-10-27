@@ -44,7 +44,7 @@ follow-up handling and the database schema are ports of the team's work.
 - **Knows where you are.** It guesses your departure airport from your location.
 - **Keeps going when Duffel is down.** Sample flights and hotels step in, clearly labelled (`DUFFEL_USE_MOCK=true`).
 
-The road trip page and the complete plan page (`/complete-plan`) show sample
+The road trip page and the itinerary page (`/itinerary`) show sample
 data for now.
 
 ## How one search travels
@@ -133,7 +133,7 @@ resets the counts.
 app/
   page.tsx, components/     Landing page
   plan/                     The planner: chat, flights and hotels columns
-  complete-plan/            The whole trip on one page (sample data)
+  itinerary/                The whole trip on one page (sample data)
   roadtrip/                 Road trip planner (sample data)
   api/                      The API (route handlers)
   lib/                      Shared by the UI: types, formatting, API clients

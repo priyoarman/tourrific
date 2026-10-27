@@ -1,4 +1,4 @@
-// Placeholder content for the complete-plan page, which is UI only for now.
+// Placeholder content for the itinerary page, which is UI only for now.
 // Everything here gets replaced by the traveller's real plan once it is wired up.
 
 export type Scene = "island" | "temple" | "lake" | "beach";
