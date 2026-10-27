@@ -3,7 +3,7 @@
 // api/src/groq/testNormalize.js (`npm run test:extract:normalize`).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalizeTripQuery, parseNaturalTravelDates, parseStayLength } from "./extractor.ts";
+import { asksForWayBack, normalizeTripQuery, parseNaturalTravelDates, parseStayLength } from "./extractor.ts";
 
 test("cleans a one-way search", () => {
   const oneWay = normalizeTripQuery({
@@ -175,4 +175,20 @@ test("finds how long the stay is in the message", () => {
   assert.deepEqual(stay("Leaving in two weeks, staying 4 nights"), [4, "nights"]);
   // A previous search's JSON in the prompt is not a stay either.
   assert.deepEqual(stay('Previous flight search JSON: {"stay_length":7,"stay_unit":"days"}'), [null, null]);
+});
+
+test("finds a way back asked for in so many words", () => {
+  assert.equal(asksForWayBack("Round trip to Rome next Friday"), true);
+  assert.equal(asksForWayBack("a round-trip to Oslo"), true);
+  assert.equal(asksForWayBack("Return flights to Athens on 12 November"), true);
+  assert.equal(asksForWayBack("Berlin there and back"), true);
+
+  // A departure day alone is one way.
+  assert.equal(asksForWayBack("Flights to Lisbon next Friday"), false);
+  assert.equal(asksForWayBack("I want to return to Lisbon"), false);
+  // Saying one way wins.
+  assert.equal(asksForWayBack("One way, no return flight"), false);
+  // A previous search's JSON in the prompt asks for nothing.
+  assert.equal(asksForWayBack('Previous flight search JSON: {"trip_type":"return"}'), false);
+  assert.equal(asksForWayBack(null), false);
 });

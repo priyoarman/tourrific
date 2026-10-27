@@ -59,3 +59,18 @@ test("Groq copies how long the stay is, as it was said", { skip: !process.env.GR
     assert.deepEqual([result.parsed?.stay_length, result.parsed?.stay_unit], [length, unit], prompt);
   }
 });
+
+const TRIP_TYPES: [string, string][] = [
+  ["Flights to Lisbon next Friday", "one_way"],
+  ["A return trip to Rome next Friday", "return"],
+];
+
+test("Groq tells a one-way trip from a return trip", { skip: !process.env.GROQ_API_KEY && "GROQ_API_KEY is not set", timeout: 120_000 }, async () => {
+  for (const [prompt, tripType] of TRIP_TYPES) {
+    // Each call is about 3,600 tokens and the free tier allows 8,000 a minute.
+    await wait(30_000);
+    const result = await extractTripQuery(prompt);
+    assert.equal(result.ok, true, result.errors.join(", "));
+    assert.equal(result.parsed?.trip_type, tripType, prompt);
+  }
+});

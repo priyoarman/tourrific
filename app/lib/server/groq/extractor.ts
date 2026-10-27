@@ -315,6 +315,15 @@ export function parseStayLength(text: unknown): StayLength {
   return none;
 }
 
+/**
+ * True when the message asks for a way back in so many words: "round trip", "a
+ * return flight", "there and back". Not when it says one way ("one way, no return flight").
+ */
+export function asksForWayBack(text: unknown) {
+  if (typeof text !== "string" || /\bone[\s-]?way\b|\bno return\b/i.test(text)) return false;
+  return /\bround[\s-]?trip\b|\breturn\s+(?:trip|flight|ticket)s?\b|\bthere and back\b/i.test(text);
+}
+
 export type ExtractionResult =
   | { ok: true; parsed: TripQuery; errors: string[] }
   | { ok: false; parsed: null; errors: string[] };
@@ -418,6 +427,7 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
   // The model now and then misses "a week"; a stay length it did find is kept.
   if (!parsed.stay_length) Object.assign(parsed, parseStayLength(datesText));
   parsed.trip_type = normalizeTripType(parsed.trip_type, parsed.return_date);
+  if (asksForWayBack(datesText)) parsed.trip_type = "return";
 
   // A country, region or mood becomes one specific airport, with a line explaining the pick.
   const resolved = resolveDestination(parsed);

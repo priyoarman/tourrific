@@ -13,7 +13,7 @@ const SYSTEM_PROMPT = `You are a headless JSON extraction engine. Follow these r
 - If the user provides only a month name, choose any valid future date in that month.
 - Return null for departure_date only when the user has not provided a date, relative date, weekend phrase, weekday phrase, month, or date range.
 - Output date strictly as YYYY-MM-DD.
-- Normalize trip_type as "return" when the user gives a return date or a date range (e.g. "from July 10 to July 17", "July 10-17", "until July 17"); otherwise use "one_way".
+- Normalize trip_type as "return" when the user gives a return date or a date range (e.g. "from July 10 to July 17", "July 10-17", "until July 17"), says how long they stay (e.g. "a seven-day plan", "a weekend in Paris"), or asks for a way back (e.g. "round trip", "return flight", "there and back"). Otherwise use "one_way", also when only a departure day is given (e.g. "Flights to Lisbon next Friday").
 - For return trips, set departure_date to the outbound date and return_date to the inbound date.
 - Relative dates like "tomorrow", "this weekend", "next weekend", or "next Friday" must be resolved against the current date and formatted as YYYY-MM-DD.
 - When the user says how long they stay, set stay_length to that number exactly as said and stay_unit to "days", "nights" or "weeks" (e.g. "a seven-day plan" -> 7, "days"; "5 nights in Rome" -> 5, "nights"; "a week" -> 1, "weeks"). Never work it out from dates. Otherwise set both to null.
