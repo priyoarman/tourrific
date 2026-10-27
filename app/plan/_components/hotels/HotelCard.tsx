@@ -9,6 +9,8 @@ import StarRating from "./StarRating";
 type Props = {
   hotel: Hotel;
   nights: number;
+  /** True for a one-way trip, where `nights` is a guess rather than the length of the stay. */
+  oneWay: boolean;
   selected: boolean;
   onSelect: () => void;
 };

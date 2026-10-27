@@ -177,6 +177,7 @@ order:
 | --- | --- | --- |
 | `status` | several times | A progress line |
 | `message` | sometimes | A question, an explanation or an error |
+| `scope` | once, before anything is searched | `flights`, `hotels` or `both`: which side of the trip the message changes compared with the previous search |
 | `complete` | when flights were searched | The flights, the extracted search and the filters applied |
 | `hotels` | after `complete`, when there is a stay | The hotels, the stay and the hotel wishes applied |
 | `done` | always last | Whether the assistant waits for an answer, and the context to send back |

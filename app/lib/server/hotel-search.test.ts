@@ -264,7 +264,7 @@ test("a chat search sends the hotels after the flights", async () => {
   stubProviders({ groq: READS, stays: () => stays("1", "2") });
 
   const events = await chatSearch();
-  assert.deepEqual(names(events), ["complete", "hotels", "done"]);
+  assert.deepEqual(names(events), ["scope", "complete", "hotels", "done"]);
 
   const hotels = events.find(([event]) => event === "hotels")?.[1] as StreamHotels;
   assert.equal(hotels.hotels.length, 2);
@@ -277,7 +277,7 @@ test("a failed hotel search leaves the flights as they are", async () => {
   stubProviders({ groq: READS, stays: () => new Response("down", { status: 503 }) });
 
   const events = await chatSearch();
-  assert.deepEqual(names(events), ["complete", "hotels", "done"]);
+  assert.deepEqual(names(events), ["scope", "complete", "hotels", "done"]);
   assert.equal((events.find(([event]) => event === "hotels")?.[1] as StreamHotels).failed, true);
 });
 
@@ -288,16 +288,16 @@ test("a failed flight search sends no hotels", async () => {
 
   const started = Date.now();
   const events = await chatSearch();
-  assert.deepEqual(names(events), ["message", "done"]);
+  assert.deepEqual(names(events), ["scope", "message", "done"]);
   assert.ok(Date.now() - started < 4000);
 });
 
 test("hotels are sent with the first page of flights only, and not for a day trip", async () => {
   stubProviders({ groq: READS });
-  assert.deepEqual(names(await chatSearch({ page: 2 })), ["complete", "done"]);
+  assert.deepEqual(names(await chatSearch({ page: 2 })), ["scope", "complete", "done"]);
 
   stubProviders({ groq: { ...READS, return_date: "2099-01-05" } });
-  assert.deepEqual(names(await chatSearch()), ["complete", "done"]);
+  assert.deepEqual(names(await chatSearch()), ["scope", "complete", "done"]);
   assert.equal(staysBodies.length, 0);
 });
 
@@ -342,4 +342,33 @@ test("a search without a stay has no hotel progress lines", async () => {
     "Comparing prices across airlines...",
     "No flights found for those dates.",
   ]);
+});
+
+const scopeOf = (events: [string, unknown][]) => (events.find(([event]) => event === "scope")?.[1] as { scope: string } | undefined)?.scope;
+
+test("a chat search says which side of the trip it changes, before it searches", async () => {
+  // A first search is for both.
+  stubProviders({ groq: READS });
+  const first = await chatSearch();
+  assert.equal(scopeOf(first), "both");
+  // After the message is understood, and before the searching it announces.
+  const order = first.map(([event, data]) => (event === "status" ? (data as { text: string }).text.trim() : event));
+  assert.deepEqual(order.slice(0, 3), ["Understanding your request...", "scope", "Searching return flights from CPH to LIS..."]);
+
+  // What comes back in `complete` is the context of the follow-up.
+  const { destination, extracted } = first.find(([event]) => event === "complete")?.[1] as { destination: string; extracted: TripQuery };
+  const followUp = (groq: Record<string, unknown>) => {
+    stubProviders({ groq: { ...READS, ...groq } });
+    return chatSearch({ prompt: "change it", context: { destination, tripQuery: extracted } });
+  };
+
+  assert.equal(scopeOf(await followUp({ direct_only: true })), "flights");
+  assert.equal(scopeOf(await followUp({ hotel_amenities: ["pool"] })), "hotels");
+  assert.equal(scopeOf(await followUp({ return_date: "2099-01-10" })), "both");
+});
+
+test("a question is not a search, and says no scope", async () => {
+  stubProviders({ groq: { ...READS, departure_date: null, return_date: null } });
+
+  assert.deepEqual(names(await chatSearch()), ["message", "done"]);
 });

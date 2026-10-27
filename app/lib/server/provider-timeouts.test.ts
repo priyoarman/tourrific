@@ -151,7 +151,7 @@ test("an abandoned search stops where it is and never reaches Duffel", async () 
   clearInterval(leave);
   assert.equal(calls.filter((url) => url.includes("/air/")).length, 1);
   // No results, no error message, no `done`: nobody is listening.
-  assert.ok(events.every(([event]) => event === "status" || event === "message"));
+  assert.ok(events.every(([event]) => event === "status" || event === "message" || event === "scope"));
   assert.ok(!events.some(([, data]) => /too long|Error searching/.test(data.text ?? "")));
 });
 

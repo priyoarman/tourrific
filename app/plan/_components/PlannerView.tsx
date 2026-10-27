@@ -147,7 +147,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [visibleFlights, setVisibleFlights] = useState(FLIGHTS_PAGE_SIZE);
   const [flightSort, setFlightSort] = useState<FlightSort>("best");
   const [hotelSort, setHotelSort] = useState<HotelSort>("recommended");
-  /** The flight most recently saved from these results; the hotel messages refer to it. */
+  /** The flight most recently saved (or, for a guest, picked) from these results; the hotel messages refer to it. */
   const [selectedFlight, setSelectedFlight] = useState<FlightOffer | null>(null);
   const [savingFlightId, setSavingFlightId] = useState<string | null>(null);
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
@@ -325,8 +325,21 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       : `Your trip is taking shape: **${flight.airline.name}** (${flightPrice}) plus **${hotel.name}** (${formatPrice(stayCost, hotel.currency)} for ${formatNights(nights)}).`;
   }
 
-  // Select saves the flight to the account (or removes it again). Guests are asked to sign in.
+  // Select saves the flight to the account (or removes it again). Guests just pick it, as with hotels.
   async function selectFlight(offer: FlightOffer) {
+    if (!user) {
+      if (selectedFlight?.id === offer.id) {
+        setSelectedFlight(null);
+        return;
+      }
+      setSelectedFlight(offer);
+      const picked = `Good pick! **${offer.airline.name}** ${offer.flightNumber} is ${formatPrice(offer.totalPrice, offer.currency)}. Sign in if you want to save it to your trips.`;
+      addMessage(
+        "assistant",
+        selectedHotel && stay ? `${picked}\n${tripMessage(offer, selectedHotel, stay.nights)}` : `${picked} Now choose where to stay.`,
+      );
+      return;
+    }
     if (savingFlightId) return;
     setSavingFlightId(offer.id);
     const outcome = await toggleSaved(offer);
@@ -436,7 +449,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             onShowMore={() => setVisibleFlights((count) => count + FLIGHTS_PAGE_SIZE)}
             sort={flightSort}
             onSortChange={changeFlightSort}
-            isSaved={isSaved}
+            isSelected={user ? isSaved : (offer) => offer.id === selectedFlight?.id}
+            selectedText={user ? "Saved" : "Selected"}
             savingId={savingFlightId}
             onSelect={selectFlight}
           />
@@ -452,6 +466,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             }
             hotels={hotels}
             nights={stay?.nights ?? 1}
+            oneWay={stay?.nightsAssumed ?? false}
             status={hotelStatus}
             total={hotelSearch?.totalHotels}
             filteredOut={hotelSearch?.filters ? hotelSearch.filters.unfilteredCount - hotelSearch.totalHotels : 0}

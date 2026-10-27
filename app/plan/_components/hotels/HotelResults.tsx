@@ -45,6 +45,8 @@ type Props = {
   hotels: Hotel[];
   /** How many nights the prices are added up for. */
   nights: number;
+  /** True for a one-way trip, where `nights` is a guess rather than the length of the stay. */
+  oneWay?: boolean;
   /** Defaults to "ready": the hotels given are all there is to show. */
   status?: HotelSearchStatus;
   /** How many hotels the search found, when that is more than the ones listed. */
@@ -65,6 +67,7 @@ export default function HotelResults({
   subtitle,
   hotels,
   nights,
+  oneWay = false,
   status = "ready",
   total,
   filteredOut = 0,
@@ -149,6 +152,7 @@ export default function HotelResults({
           key={hotel.id}
           hotel={hotel}
           nights={nights}
+          oneWay={oneWay}
           selected={hotel.id === selectedId}
           onSelect={() => onSelect(hotel)}
         />

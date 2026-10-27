@@ -1,9 +1,7 @@
 // Works out which side of a trip a follow-up changes, so that "only direct
 // flights" need not search the hotels again, nor "with a pool" the flights.
+import type { SearchScope } from "../types/stream-events";
 import type { TripQuery } from "../types/trip-query";
-
-/** What a search has to look for again: the flights, the hotels, or both. */
-export type SearchScope = "flights" | "hotels" | "both";
 
 type Field = keyof TripQuery;
 

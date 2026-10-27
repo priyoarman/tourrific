@@ -58,8 +58,10 @@ type Props = {
   onShowMore: () => void;
   sort: FlightSort;
   onSortChange: (sort: FlightSort) => void;
-  /** Whether an offer is in the visitor's saved trips. */
-  isSaved: (offer: FlightOffer) => boolean;
+  /** Whether an offer is selected: in a signed-in visitor's saved trips, or picked by a guest. */
+  isSelected: (offer: FlightOffer) => boolean;
+  /** The Select button's text once an offer is selected. */
+  selectedText: string;
   /** The offer being saved or removed right now, if any. */
   savingId: string | null;
   onSelect: (offer: FlightOffer) => void;
@@ -75,7 +77,8 @@ export default function FlightResults({
   onShowMore,
   sort,
   onSortChange,
-  isSaved,
+  isSelected,
+  selectedText,
   savingId,
   onSelect,
 }: Props) {
@@ -160,7 +163,8 @@ export default function FlightResults({
           tags={[offer.id === cheapestId && "Cheapest", offer.id === fastestId && "Fastest"].filter(
             (t): t is string => Boolean(t),
           )}
-          selected={isSaved(offer)}
+          selected={isSelected(offer)}
+          selectedText={selectedText}
           busy={offer.id === savingId}
           onSelect={() => onSelect(offer)}
         />

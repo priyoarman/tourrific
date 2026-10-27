@@ -18,6 +18,7 @@ import {
 import { extractTripQuery } from "./groq/extractor.ts";
 import { searchHotels, stayNights } from "./hotel-search.ts";
 import { detectFallbackOrigin } from "./origin-fallback.ts";
+import { searchScope } from "./search-scope.ts";
 
 const PAGE_SIZE = 7;
 
@@ -104,8 +105,9 @@ function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean, wi
  * `body` is the request's JSON. `headers` are only used to guess the
  * departure airport from the visitor's IP when the message doesn't name one.
  *
- * Hotels are searched while the flights are, and sent in a `hotels` event after
- * `complete`. A hotel search that fails never costs the visitor their flights.
+ * A `scope` event says which side of the trip the message changes, once that
+ * is known. Hotels are searched while the flights are, and sent in a `hotels`
+ * event after `complete`. A hotel search that fails never costs the visitor their flights.
  *
  * Aborting `signal` (the visitor left, or started a newer search) stops the
  * search where it is: calls to Groq and Duffel in progress are dropped, later
@@ -265,6 +267,8 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     }
 
     extracted.destination_airport = destination;
+    // Said before the progress lines, so the page knows which column is about to change.
+    send("scope", { scope: searchScope(previousTripQuery, extracted) });
     // The other pages of the same search already have their hotels.
     const withHotels = page === 1 && stayNights(extracted) !== null;
     for (const text of buildSearchStatusMessages(extracted, returnTrip, withHotels)) {

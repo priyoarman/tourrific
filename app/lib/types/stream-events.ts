@@ -3,9 +3,9 @@ import type { DuffelOffer } from "./duffel";
 import type { TripQuery } from "./trip-query";
 
 // Events streamed by POST /api/flights/search-stream (server-sent events).
-// A search sends several `status` lines, optionally a `message`, then `complete`
-// if flights were searched, `hotels` if there is a stay to go with them, and
-// always ends with `done`.
+// A search sends several `status` lines, optionally a `message`, then `scope`
+// once it knows what to search, `complete` if flights were searched, `hotels`
+// if there is a stay to go with them, and always ends with `done`.
 
 /** What the client remembers between messages so follow-ups ("a little later") work. */
 export type SearchContext = {
@@ -55,6 +55,17 @@ export type Pagination = {
 
 /** A progress line shown while the search runs, e.g. "Comparing prices across airlines...". */
 export type StreamStatus = { text: string };
+
+/** What a search has to look for again: the flights, the hotels, or both. */
+export type SearchScope = "flights" | "hotels" | "both";
+
+/**
+ * Which side of the trip this search changes compared with the one in the
+ * request's context: "both" for a first search and for a new place, date or
+ * number of travellers. Sent once the message is understood, before anything is
+ * searched; not sent when the assistant asks a question instead.
+ */
+export type StreamScope = { scope: SearchScope };
 
 /** Something the assistant says: a question, an explanation, or an error. */
 export type StreamMessage = { text: string; isError?: boolean };
@@ -133,6 +144,7 @@ export type StreamError = { message: string };
 export type StreamEventMap = {
   status: StreamStatus;
   message: StreamMessage;
+  scope: StreamScope;
   complete: StreamComplete;
   hotels: StreamHotels;
   done: StreamDone;
