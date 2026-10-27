@@ -18,7 +18,9 @@ type Props = {
 export default function HotelCard({ hotel, nights, oneWay, selected, onSelect }: Props) {
   const distance = hotel.distanceKm === null ? "" : `${hotel.distanceKm} km from centre`;
   const location = [hotel.area, distance].filter(Boolean).join(" · ");
-  const price = (amount: number) => formatPrice(amount, hotel.currency);
+  const nightly = formatPrice(hotel.nightlyPrice, hotel.currency);
+  const stayTotal = formatPrice(hotel.nightlyPrice * nights, hotel.currency);
+  const priceLabel = oneWay ? `${nightly} per night` : `${stayTotal} for ${formatNights(nights)}`;
   /** The photo that failed to load, if one did; the gradient behind it shows instead. */
   const [brokenPhoto, setBrokenPhoto] = useState<string | null>(null);
   const photo = hotel.photoUrl && hotel.photoUrl !== brokenPhoto ? hotel.photoUrl : null;
@@ -70,9 +72,10 @@ export default function HotelCard({ hotel, nights, oneWay, selected, onSelect }:
               </p>
             )}
           </div>
+          {/* A return trip leads with what the whole stay costs; a one-way trip's nights are a guess. */}
           <p className="shrink-0 text-right">
-            <span className="block text-2xl font-bold text-ink">{price(hotel.nightlyPrice)}</span>
-            <span className="text-xs text-ink-muted">per night</span>
+            <span className="block text-2xl font-bold text-ink">{oneWay ? nightly : stayTotal}</span>
+            <span className="text-xs text-ink-muted">{oneWay ? "per night" : `for ${formatNights(nights)}`}</span>
           </p>
         </div>
 
@@ -87,16 +90,11 @@ export default function HotelCard({ hotel, nights, oneWay, selected, onSelect }:
               </li>
             ))}
           </ul>
-          {/* A one-way trip's nights are a guess, so their total would be too. */}
-          {!oneWay && (
-            <p className="shrink-0 text-xs text-ink-muted">
-              {price(hotel.nightlyPrice * nights)} for {formatNights(nights)}
-            </p>
-          )}
+          {!oneWay && <p className="shrink-0 text-xs text-ink-muted">{nightly} per night</p>}
         </div>
 
         <div className="mt-4">
-          <SelectButton selected={selected} onClick={onSelect} label={`${hotel.name}, ${price(hotel.nightlyPrice)} per night`} />
+          <SelectButton selected={selected} onClick={onSelect} label={`${hotel.name}, ${priceLabel}`} />
         </div>
       </div>
     </li>
