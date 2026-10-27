@@ -60,6 +60,8 @@ const tripQuerySchema = z.object({
   destination_airport: shortText.nullish(),
   departure_date: z.iso.date().nullish(),
   return_date: z.iso.date().nullish(),
+  stay_length: z.number().int().min(1).max(99).nullish(),
+  stay_unit: z.enum(["days", "nights", "weeks"]).nullish(),
   max_price: z.number().positive().max(10_000_000).nullish(),
   max_price_currency: z.string().max(3).nullish(),
   cabin_class: z.enum(["economy", "premium_economy", "business", "first"]).nullish(),

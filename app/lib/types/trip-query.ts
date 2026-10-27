@@ -9,6 +9,9 @@ export type DepartureTime = "morning" | "afternoon" | "evening" | "night";
 
 export type CabinClass = "economy" | "premium_economy" | "business" | "first";
 
+/** What a stay length is counted in: "7 days", "5 nights", "2 weeks". */
+export type StayUnit = "days" | "nights" | "weeks";
+
 /** What a hotel can be asked to have. The words are Duffel's amenity types. */
 export type HotelAmenity = "wifi" | "pool" | "spa" | "gym" | "parking" | "restaurant" | "room_service" | "pet_friendly";
 
@@ -22,6 +25,9 @@ export type TripQuery = {
   /** Dates as YYYY-MM-DD. */
   departure_date: string | null;
   return_date: string | null;
+  /** How long the user said they stay, as they said it: "a seven-day plan" is 7 "days". Both null or both set. */
+  stay_length: number | null;
+  stay_unit: StayUnit | null;
 
   /** The most the whole trip may cost, as the user said it, e.g. 1000. */
   max_price: number | null;

@@ -36,6 +36,8 @@ test("normalizes what the model returns", () => {
       destination_area: null,
       departure_date: "2026-07-15",
       return_date: null,
+      stay_length: null,
+      stay_unit: null,
       max_price: 1500,
       max_price_currency: "DKK",
       cabin_class: null,

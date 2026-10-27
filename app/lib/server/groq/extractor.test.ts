@@ -25,6 +25,8 @@ test("cleans a one-way search", () => {
     destination_area: null,
     departure_date: "2026-07-15",
     return_date: null,
+    stay_length: null,
+    stay_unit: null,
     max_price: 1500,
     max_price_currency: "DKK",
     cabin_class: null,
@@ -70,6 +72,22 @@ test("cleans what was asked of the hotel", () => {
   // A currency without a price limits nothing.
   assert.equal(none.hotel_max_price_currency, null);
   assert.deepEqual(none.hotel_amenities, []);
+});
+
+test("cleans how long the stay is", () => {
+  const stay = (stay_length: unknown, stay_unit: unknown) => {
+    const { stay_length: length, stay_unit: unit } = normalizeTripQuery({ stay_length, stay_unit });
+    return [length, unit];
+  };
+
+  assert.deepEqual(stay(7, "days"), [7, "days"]);
+  assert.deepEqual(stay("5", " Nights "), [5, "nights"]);
+  assert.deepEqual(stay(1, "week"), [1, "weeks"]);
+  // One without the other says nothing.
+  assert.deepEqual(stay(7, null), [null, null]);
+  assert.deepEqual(stay(null, "days"), [null, null]);
+  assert.deepEqual(stay(0, "days"), [null, null]);
+  assert.deepEqual(stay(3, "fortnights"), [null, null]);
 });
 
 test("cleans a return search with loosely written filters", () => {

@@ -1,7 +1,7 @@
 // Asks Groq to turn a chat message into a structured flight search (a
 // TripQuery), then tidies the answer. Ported from api/src/groq/extractor.js.
 import { createGroq } from "@ai-sdk/groq";
-import type { CabinClass, DepartureTime, HotelAmenity, TripQuery, TripType } from "../../types/trip-query";
+import type { CabinClass, DepartureTime, HotelAmenity, StayUnit, TripQuery, TripType } from "../../types/trip-query";
 import { resolveDestination } from "../destination-resolver.ts";
 import TRIP_QUERY_SCHEMA from "./schema.ts";
 import SYSTEM_PROMPT from "./system-prompt.ts";
@@ -81,6 +81,20 @@ function normalizeDepartureTime(value: unknown): DepartureTime | null {
   return ["morning", "afternoon", "evening", "night"].includes(normalized)
     ? (normalized as DepartureTime)
     : null;
+}
+
+function normalizeStayUnit(value: unknown): StayUnit | null {
+  if (typeof value !== "string") return null;
+  // "day", "Nights", "week" are the same units.
+  const normalized = value.trim().toLowerCase().replace(/s$/, "");
+  return ["day", "night", "week"].includes(normalized) ? (`${normalized}s` as StayUnit) : null;
+}
+
+/** A stay length and its unit, or neither: one without the other says nothing. */
+function normalizeStay(length: unknown, unit: unknown) {
+  const stay_length = normalizeCount(length, 1, 99);
+  const stay_unit = normalizeStayUnit(unit);
+  return stay_length && stay_unit ? { stay_length, stay_unit } : { stay_length: null, stay_unit: null };
 }
 
 function normalizeCabinClass(value: unknown): CabinClass | null {
@@ -251,6 +265,7 @@ export function normalizeTripQuery(raw: unknown): TripQuery {
 
     trip_type: normalizeTripType(source.trip_type, source.return_date),
     return_date: stringOrNull(source.return_date),
+    ...normalizeStay(source.stay_length, source.stay_unit),
     max_price: normalizeMaxPrice(source.max_price),
     max_price_currency: normalizeMaxPrice(source.max_price) ? normalizeCurrency(source.max_price_currency) : null,
     cabin_class: normalizeCabinClass(source.cabin_class),
