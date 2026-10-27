@@ -39,6 +39,14 @@ export function staySummary(city: string, checkIn: string, checkOut: string, nig
   return [city, `${formatDate(checkIn)} – ${formatDate(checkOut)}`, formatNights(nights), ...filters].join(" · ");
 }
 
+/**
+ * "Lisbon · From Thu 12 Nov · Per night", for a one-way trip, whose stay has no
+ * known end. `checkIn` is YYYY-MM-DD; `filters` are added at the end as in `staySummary`.
+ */
+export function oneWayStaySummary(city: string, checkIn: string, filters: string[] = []) {
+  return [city, `From ${formatDate(checkIn)}`, "Per night", ...filters].join(" · ");
+}
+
 type Props = {
   /** One line describing the stay, e.g. from `staySummary`. */
   subtitle: string;

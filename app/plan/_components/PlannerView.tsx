@@ -13,7 +13,12 @@ import type { SearchContext, SearchQuestion, StreamComplete, StreamHotels } from
 import ChatPanel from "./chat/ChatPanel";
 import { useChatHistory } from "./chat/useChatHistory";
 import FlightResults, { FLIGHTS_PAGE_SIZE, type FlightSearchStatus, type FlightSort } from "./flights/FlightResults";
-import HotelResults, { staySummary, type HotelSearchStatus, type HotelSort } from "./hotels/HotelResults";
+import HotelResults, {
+  oneWayStaySummary,
+  staySummary,
+  type HotelSearchStatus,
+  type HotelSort,
+} from "./hotels/HotelResults";
 import MobileTabs from "./MobileTabs";
 
 // The backend gives up on Groq after 10s and on Duffel after 20s, and says why.
@@ -118,13 +123,17 @@ function hotelsMessage({ hotels, totalHotels, stay, sample, filters }: StreamHot
 
   const cheapest = hotels.reduce((best, hotel) => (hotel.nightlyPrice < best.nightlyPrice ? hotel : best));
   const count = `**${totalHotels.toLocaleString("en-US")} place${totalHotels === 1 ? "" : "s"} to stay**`;
-  const dates = `${formatDate(stay.checkIn)} – ${formatDate(stay.checkOut)}`;
-  // A one-way trip doesn't say how long the stay is.
-  const guessed = stay.nightsAssumed ? `\nIt's a one-way trip, so I looked at ${formatNights(stay.nights)}.` : "";
-
+  const nightly = formatPrice(cheapest.nightlyPrice, cheapest.currency);
   const matching = wishes.length > 0 ? `\nHotel filters: **${wishes.join(" · ")}**.` : "";
 
-  return `I also found ${count} in ${city} for ${dates}, from **${formatPrice(cheapest.nightlyPrice, cheapest.currency)}** a night.${matching}${guessed}`;
+  // A one-way trip doesn't say how long the stay is, so only the price of a night is worth quoting.
+  if (stay.nightsAssumed) {
+    return `I also found ${count} in ${city} from ${formatDate(stay.checkIn)}, from **${nightly}** a night.${matching}`;
+  }
+
+  const dates = `${formatDate(stay.checkIn)} – ${formatDate(stay.checkOut)}`;
+  const stayTotal = formatPrice(cheapest.nightlyPrice * stay.nights, cheapest.currency);
+  return `I also found ${count} in ${city} for ${dates}, from **${stayTotal}** for ${formatNights(stay.nights)} (${nightly} a night).${matching}`;
 }
 
 export default function PlannerView({ initialPrompt, initialDestination }: Props) {
@@ -316,9 +325,13 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     runSearch(text);
   }
 
-  function tripMessage(flight: FlightOffer, hotel: Hotel, nights: number) {
+  function tripMessage(flight: FlightOffer, hotel: Hotel, { nights, nightsAssumed }: StreamHotels["stay"]) {
     const stayCost = hotel.nightlyPrice * nights;
     const flightPrice = formatPrice(flight.totalPrice, flight.currency);
+    // A one-way trip's nights are a guess, so nothing is added up.
+    if (nightsAssumed) {
+      return `Your trip is taking shape: **${flight.airline.name}** (${flightPrice}) plus **${hotel.name}** at ${formatPrice(hotel.nightlyPrice, hotel.currency)} a night.`;
+    }
     // The two are only added up when they are priced in the same currency.
     return flight.currency === hotel.currency
       ? `Your trip is taking shape: **${flight.airline.name}** plus **${hotel.name}** comes to **${formatPrice(flight.totalPrice + stayCost, flight.currency)}** in total.`
@@ -336,7 +349,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       const picked = `Good pick! **${offer.airline.name}** ${offer.flightNumber} is ${formatPrice(offer.totalPrice, offer.currency)}. Sign in if you want to save it to your trips.`;
       addMessage(
         "assistant",
-        selectedHotel && stay ? `${picked}\n${tripMessage(offer, selectedHotel, stay.nights)}` : `${picked} Now choose where to stay.`,
+        selectedHotel && stay ? `${picked}\n${tripMessage(offer, selectedHotel, stay)}` : `${picked} Now choose where to stay.`,
       );
       return;
     }
@@ -354,7 +367,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       const saved = `Saved! **${offer.airline.name}** ${offer.flightNumber} at ${formatPrice(offer.totalPrice, offer.currency)} is in your saved trips.`;
       addMessage(
         "assistant",
-        selectedHotel && stay ? `${saved}\n${tripMessage(offer, selectedHotel, stay.nights)}` : `${saved} Now choose where to stay.`,
+        selectedHotel && stay ? `${saved}\n${tripMessage(offer, selectedHotel, stay)}` : `${saved} Now choose where to stay.`,
       );
     }
   }
@@ -366,11 +379,14 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       return;
     }
     setSelectedHotel(hotel);
+    const cost = stay.nightsAssumed
+      ? `${formatPrice(hotel.nightlyPrice, hotel.currency)} a night`
+      : `${formatPrice(hotel.nightlyPrice * stay.nights, hotel.currency)} for ${formatNights(stay.nights)}`;
     addMessage(
       "assistant",
       selectedFlight
-        ? tripMessage(selectedFlight, hotel, stay.nights)
-        : `Lovely choice! **${hotel.name}** is ${formatPrice(hotel.nightlyPrice * stay.nights, hotel.currency)} for ${formatNights(stay.nights)}. Want to pick a flight to go with it?`,
+        ? tripMessage(selectedFlight, hotel, stay)
+        : `Lovely choice! **${hotel.name}** is ${cost}. Want to pick a flight to go with it?`,
     );
   }
 
@@ -459,7 +475,9 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
           <HotelResults
             subtitle={
               stay && result
-                ? staySummary(stay.city ?? result.destination.city, stay.checkIn, stay.checkOut, stay.nights, hotelSearch?.filters?.labels)
+                ? stay.nightsAssumed
+                  ? oneWayStaySummary(stay.city ?? result.destination.city, stay.checkIn, hotelSearch?.filters?.labels)
+                  : staySummary(stay.city ?? result.destination.city, stay.checkIn, stay.checkOut, stay.nights, hotelSearch?.filters?.labels)
                 : isSearching
                   ? "Looking for places to stay"
                   : "Follows your flight search"
