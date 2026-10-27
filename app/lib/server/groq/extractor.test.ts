@@ -159,9 +159,16 @@ test("finds how long the stay is in the message", () => {
   assert.deepEqual(stay("a 10 day trip to Bali"), [10, "days"]);
   assert.deepEqual(stay("Paris for 3 Nights"), [3, "nights"]);
 
+  // A weekend away is out on the Saturday and back on the Sunday.
+  assert.deepEqual(stay("A weekend in Paris"), [2, "days"]);
+  assert.deepEqual(stay("weekend getaway to Prague"), [2, "days"]);
+  assert.deepEqual(stay("Barcelona for the weekend"), [2, "days"]);
+
   // No stay at all.
   assert.deepEqual(stay("Flights to Lisbon next Friday"), [null, null]);
+  // When to leave, not how long to stay.
   assert.deepEqual(stay("Flights to Paris next weekend"), [null, null]);
+  assert.deepEqual(stay("Fly to Rome this weekend"), [null, null]);
   // When to leave is not how long to stay.
   assert.deepEqual(stay("Flights to Rome in 2 weeks"), [null, null]);
   assert.deepEqual(stay("Somewhere sunny 3 days from now"), [null, null]);

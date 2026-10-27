@@ -290,7 +290,7 @@ const COUNT_WORDS = ["a", "one", "two", "three", "four", "five", "six", "seven",
 type StayLength = { stay_length: number | null; stay_unit: StayUnit | null };
 
 /**
- * Finds how long the stay is ("a seven-day plan", "5 nights", "a week") with a
+ * Finds how long the stay is ("a seven-day plan", "5 nights", "a week", "a weekend in Paris") with a
  * plain pattern, for when the model leaves it out. When to leave ("in 2 weeks",
  * "3 days from now") is not a stay. Words above fourteen are left to the model.
  */
@@ -300,10 +300,17 @@ export function parseStayLength(text: unknown): StayLength {
 
   const count = `\\d{1,2}|${COUNT_WORDS.join("|")}|an`;
   const pattern = new RegExp(`(?:\\b(in|within|after|next)\\s+)?\\b(${count})[\\s-]+(day|night|week)s?\\b(\\s+(?:from now|later|ahead|ago))?`, "g");
-  for (const [, before, amount, unit, after] of text.toLowerCase().matchAll(pattern)) {
+  const normalized = text.toLowerCase();
+  for (const [, before, amount, unit, after] of normalized.matchAll(pattern)) {
     if (before || after) continue;
     const length = /^\d/.test(amount) ? Number(amount) : Math.max(COUNT_WORDS.indexOf(amount), 1);
     return normalizeStay(length, unit);
+  }
+
+  // "A weekend in Paris" is a stay: out on the Saturday the dates already pick, back on the Sunday.
+  // "Flights to Paris next weekend" only says when to leave.
+  if (/\bweekend\s+(?:in|at|away|trip|getaway|break)\b|\b(?:for|spend|spending)\s+(?:a|the)\s+weekend\b/.test(normalized)) {
+    return { stay_length: 2, stay_unit: "days" };
   }
   return none;
 }
