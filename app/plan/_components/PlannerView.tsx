@@ -21,6 +21,7 @@ import HotelResults, {
   type HotelSort,
 } from "./hotels/HotelResults";
 import MobileTabs from "./MobileTabs";
+import TripReadyDialog from "./TripReadyDialog";
 
 // The backend gives up on Groq after 10s and on Duffel after 20s, and says why.
 // This is the fallback for when not even that arrives.
@@ -181,6 +182,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [selectedFlight, setSelectedFlight] = useState<FlightOffer | null>(null);
   const [savingFlightId, setSavingFlightId] = useState<string | null>(null);
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
+  /** Whether the trip summary is open. Only a pick that completes the flight and hotel pair opens it. */
+  const [tripReady, setTripReady] = useState(false);
   const [tab, setTab] = useState<PlannerTab>("chat");
   const router = useRouter();
   const { user, isSaved, toggleSaved, openAuth } = useAccount();
@@ -214,6 +217,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     setHotelSearch(null);
     setSelectedFlight(null);
     setSelectedHotel(null);
+    setTripReady(false);
     setFlightSort("best");
     setVisibleFlights(FLIGHTS_PAGE_SIZE);
     setHotelSort("recommended");
@@ -380,7 +384,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
         return;
       }
       setSelectedFlight(offer);
-      const picked = `Good pick! **${offer.airline.name}** ${offer.flightNumber} is ${formatPrice(offer.totalPrice, offer.currency)}. Sign in if you want to save it to your trips.`;
+      if (selectedHotel && stay) setTripReady(true);
+      const picked =`Good pick! **${offer.airline.name}** ${offer.flightNumber} is ${formatPrice(offer.totalPrice, offer.currency)}. Sign in if you want to save it to your trips.`;
       addMessage(
         "assistant",
         selectedHotel && stay ? `${picked}\n${tripMessage(offer, selectedHotel, stay)}` : `${picked} Now choose where to stay.`,
@@ -398,7 +403,8 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       if (selectedFlight?.id === offer.id) setSelectedFlight(null);
     } else if (outcome.status === "saved") {
       setSelectedFlight(offer);
-      const saved = `Saved! **${offer.airline.name}** ${offer.flightNumber} at ${formatPrice(offer.totalPrice, offer.currency)} is in your saved trips.`;
+      if (selectedHotel && stay) setTripReady(true);
+      const saved =`Saved! **${offer.airline.name}** ${offer.flightNumber} at ${formatPrice(offer.totalPrice, offer.currency)} is in your saved trips.`;
       addMessage(
         "assistant",
         selectedHotel && stay ? `${saved}\n${tripMessage(offer, selectedHotel, stay)}` : `${saved} Now choose where to stay.`,
@@ -413,6 +419,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       return;
     }
     setSelectedHotel(hotel);
+    if (selectedFlight) setTripReady(true);
     const cost = stay.nightsAssumed
       ? `${formatPrice(hotel.nightlyPrice, hotel.currency)} a night`
       : `${formatPrice(hotel.nightlyPrice * stay.nights, hotel.currency)} for ${formatNights(stay.nights)}`;
@@ -532,6 +539,12 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
           />
         </div>
       </div>
+
+      <TripReadyDialog
+        trip={tripReady && selectedFlight && selectedHotel && stay ? { flight: selectedFlight, hotel: selectedHotel, stay } : null}
+        onShowItinerary={() => setTripReady(false)}
+        onClose={() => setTripReady(false)}
+      />
     </div>
   );
 }
