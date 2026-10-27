@@ -15,7 +15,7 @@ import {
   parseDateOnly,
   returnDateFromAnswer,
 } from "./follow-up.ts";
-import { extractTripQuery } from "./groq/extractor.ts";
+import { extractTripQuery, parseStayLength, saysOneWay } from "./groq/extractor.ts";
 import { searchHotels, stayNights } from "./hotel-search.ts";
 import { detectFallbackOrigin } from "./origin-fallback.ts";
 import { searchScope } from "./search-scope.ts";
@@ -255,10 +255,28 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
       return;
     }
 
+    if (saysOneWay(userPrompt)) {
+      // "One way" drops the way back, whatever the last search had, and whatever else was said.
+      Object.assign(extracted, { trip_type: "one_way", return_date: null, stay_length: null, stay_unit: null });
+    } else {
+      // The visitor's own words ("make it 10 days") win over a length the model kept from the last search.
+      const statedStay = parseStayLength(userPrompt);
+      if (statedStay.stay_length) Object.assign(extracted, statedStay);
+    }
+
     // "A seven-day plan" says when they fly back, now that it's known when they leave.
-    if (!extracted.return_date && extracted.stay_length && extracted.stay_unit) {
-      extracted.return_date = returnDateFor(extracted.departure_date, extracted.stay_length, extracted.stay_unit);
-      extracted.trip_type = "return";
+    if (extracted.stay_length && extracted.stay_unit) {
+      const stayEnds = returnDateFor(extracted.departure_date, extracted.stay_length, extracted.stay_unit);
+      // A return date said in this message wins over the length, and the length goes;
+      // one kept from the last search ("make it 10 days", "leave on the 7th instead") does not.
+      const returnSaid = Boolean(extracted.return_date) && extracted.return_date !== previousTripQuery?.return_date;
+      if (returnSaid && extracted.return_date !== stayEnds) {
+        extracted.stay_length = null;
+        extracted.stay_unit = null;
+      } else {
+        extracted.return_date = stayEnds;
+        extracted.trip_type = "return";
+      }
     }
 
     const returnTrip = isReturnTrip(extracted);

@@ -3,7 +3,7 @@
 // api/src/groq/testNormalize.js (`npm run test:extract:normalize`).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { asksForWayBack, normalizeTripQuery, parseNaturalTravelDates, parseStayLength } from "./extractor.ts";
+import { asksForWayBack, normalizeTripQuery, parseNaturalTravelDates, parseStayLength, saysOneWay } from "./extractor.ts";
 
 test("cleans a one-way search", () => {
   const oneWay = normalizeTripQuery({
@@ -191,4 +191,13 @@ test("finds a way back asked for in so many words", () => {
   // A previous search's JSON in the prompt asks for nothing.
   assert.equal(asksForWayBack('Previous flight search JSON: {"trip_type":"return"}'), false);
   assert.equal(asksForWayBack(null), false);
+});
+
+test("finds a way back declined", () => {
+  assert.equal(saysOneWay("make it one way"), true);
+  assert.equal(saysOneWay("One-way to Oslo"), true);
+  assert.equal(saysOneWay("no return needed"), true);
+  assert.equal(saysOneWay("Flights to Lisbon next Friday"), false);
+  // A previous search's JSON in the prompt declines nothing.
+  assert.equal(saysOneWay('Previous flight search JSON: {"trip_type":"one_way"}'), false);
 });

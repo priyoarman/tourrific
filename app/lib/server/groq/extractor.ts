@@ -315,12 +315,17 @@ export function parseStayLength(text: unknown): StayLength {
   return none;
 }
 
+/** True when the message asks for no way back: "one way", "one-way", "no return". */
+export function saysOneWay(text: unknown) {
+  return typeof text === "string" && /\bone[\s-]?way\b|\bno return\b/i.test(text);
+}
+
 /**
  * True when the message asks for a way back in so many words: "round trip", "a
  * return flight", "there and back". Not when it says one way ("one way, no return flight").
  */
 export function asksForWayBack(text: unknown) {
-  if (typeof text !== "string" || /\bone[\s-]?way\b|\bno return\b/i.test(text)) return false;
+  if (typeof text !== "string" || saysOneWay(text)) return false;
   return /\bround[\s-]?trip\b|\breturn\s+(?:trip|flight|ticket)s?\b|\bthere and back\b/i.test(text);
 }
 

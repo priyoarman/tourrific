@@ -401,6 +401,46 @@ test("the stay length is kept while the assistant asks when to travel", async ()
   assert.deepEqual([stay.checkOut, stay.nights, stay.nightsAssumed], ["2099-01-11", 6, false]);
 });
 
+test("a follow-up can change how long the stay is, or drop the way back", async () => {
+  // "A seven-day plan": out on the 5th, back on the 11th.
+  const SEVEN_DAYS = { ...READS, return_date: null, stay_length: 7, stay_unit: "days" };
+  stubProviders({ groq: SEVEN_DAYS });
+  const first = (await chatSearch()).find(([event]) => event === "complete")?.[1] as { destination: string; extracted: TripQuery };
+  assert.equal(first.extracted.return_date, "2099-01-11");
+
+  // The model keeps what it was shown of the last search, the return date among it.
+  const followUp = async (prompt: string, groq: Record<string, unknown>) => {
+    stubProviders({ groq: { ...SEVEN_DAYS, return_date: "2099-01-11", ...groq } });
+    const events = await chatSearch({ prompt, context: { destination: first.destination, tripQuery: first.extracted } });
+    const { extracted } = events.find(([event]) => event === "complete")?.[1] as { extracted: TripQuery };
+    const hotels = events.find(([event]) => event === "hotels")?.[1] as StreamHotels;
+    return { extracted, stay: hotels.stay };
+  };
+
+  // A new length counts from the same day out.
+  const longer = await followUp("make it 10 days", { stay_length: 10 });
+  assert.deepEqual([longer.extracted.return_date, longer.stay.nights], ["2099-01-14", 9]);
+  // Also when the model kept the old length instead.
+  const kept = await followUp("make it 10 days", {});
+  assert.equal(kept.extracted.return_date, "2099-01-14");
+
+  // A new day out keeps the length.
+  const later = await followUp("leave on the 7th instead", { departure_date: "2099-01-07" });
+  assert.equal(later.extracted.return_date, "2099-01-13");
+
+  // A day back that is said wins, and the length goes with it.
+  const back = await followUp("come back on the 20th", { return_date: "2099-01-20" });
+  assert.deepEqual([back.extracted.return_date, back.extracted.stay_length], ["2099-01-20", null]);
+
+  // One way, however much of the last search the model kept.
+  const oneWay = await followUp("make it one way", { trip_type: "one_way" });
+  assert.deepEqual([oneWay.extracted.trip_type, oneWay.extracted.return_date, oneWay.extracted.stay_length], ["one_way", null, null]);
+  assert.equal(oneWay.stay.nightsAssumed, true);
+  // Also when the message says how long the stay is.
+  const both = await followUp("one way, 5 nights", {});
+  assert.deepEqual([both.extracted.return_date, both.extracted.stay_length], [null, null]);
+});
+
 test("a question is not a search, and says no scope", async () => {
   stubProviders({ groq: { ...READS, departure_date: null, return_date: null } });
 
