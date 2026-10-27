@@ -441,6 +441,21 @@ test("a follow-up can change how long the stay is, or drop the way back", async 
   assert.deepEqual([both.extracted.return_date, both.extracted.stay_length], [null, null]);
 });
 
+test("a one-way trip gets its way back from the answer to when", async () => {
+  stubProviders({ groq: { ...READS, return_date: null } });
+  const first = (await chatSearch()).find(([event]) => event === "complete")?.[1] as { destination: string; extracted: TripQuery };
+  assert.equal(first.extracted.trip_type, "one_way");
+
+  // What the page sends once "Add a return flight" was picked and the assistant asked when.
+  const context = { destination: first.destination, tripQuery: { ...first.extracted, trip_type: "return" }, awaiting: "return_date" };
+  const events = await chatSearch({ prompt: "A week later", context });
+  const { extracted } = events.find(([event]) => event === "complete")?.[1] as { extracted: TripQuery };
+  assert.deepEqual([extracted.trip_type, extracted.return_date], ["return", "2099-01-12"]);
+
+  const { stay } = events.find(([event]) => event === "hotels")?.[1] as StreamHotels;
+  assert.deepEqual([stay.nights, stay.nightsAssumed], [7, false]);
+});
+
 test("a question is not a search, and says no scope", async () => {
   stubProviders({ groq: { ...READS, departure_date: null, return_date: null } });
 

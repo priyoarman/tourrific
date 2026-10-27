@@ -48,6 +48,8 @@ const FOLLOW_UP_SUGGESTIONS = ["A little later", "Direct flights only", "With a 
 const DATE_SUGGESTIONS = ["Tomorrow", "Next Friday", "Next weekend"];
 // Answers to "When would you like to come back?", counted from the departure date.
 const RETURN_SUGGESTIONS = ["3 days later", "A week later", "Two weeks later"];
+// Offered after a one-way search. Asked in the page rather than searched; see `send`.
+const ADD_RETURN = "Add a return flight";
 
 type PlannerTab = "chat" | "flights" | "hotels";
 
@@ -338,6 +340,18 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       router.push(plannerHref(text));
       return;
     }
+    // A one-way trip gets its way back as a return trip without a return date does:
+    // the assistant asks when, and the answer completes this search.
+    if (text === ADD_RETURN && result?.query.departure_date && !result.query.return_date) {
+      const tripQuery = { ...result.query, trip_type: "return" as const };
+      delete tripQuery.explanation;
+      context.current = { destination: context.current.destination, tripQuery, awaiting: "return_date" };
+      addMessage("user", text);
+      addMessage("assistant", `Sure. When would you like to come back from **${result.destination.city}**?`);
+      setAsking("return_date");
+      setTab("chat");
+      return;
+    }
     addMessage("user", text);
     setTab("chat");
     runSearch(text);
@@ -440,7 +454,9 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       : asking === "return_date"
         ? RETURN_SUGGESTIONS
         : result
-          ? FOLLOW_UP_SUGGESTIONS
+          ? result.query.return_date
+            ? FOLLOW_UP_SUGGESTIONS
+            : [ADD_RETURN, ...FOLLOW_UP_SUGGESTIONS]
           : initialDestination
             ? DATE_SUGGESTIONS
             : STARTER_SUGGESTIONS;
