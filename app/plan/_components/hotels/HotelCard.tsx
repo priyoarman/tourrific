@@ -15,7 +15,7 @@ type Props = {
   onSelect: () => void;
 };
 
-export default function HotelCard({ hotel, nights, selected, onSelect }: Props) {
+export default function HotelCard({ hotel, nights, oneWay, selected, onSelect }: Props) {
   const distance = hotel.distanceKm === null ? "" : `${hotel.distanceKm} km from centre`;
   const location = [hotel.area, distance].filter(Boolean).join(" · ");
   const price = (amount: number) => formatPrice(amount, hotel.currency);
@@ -87,9 +87,12 @@ export default function HotelCard({ hotel, nights, selected, onSelect }: Props) 
               </li>
             ))}
           </ul>
-          <p className="shrink-0 text-xs text-ink-muted">
-            {price(hotel.nightlyPrice * nights)} for {formatNights(nights)}
-          </p>
+          {/* A one-way trip's nights are a guess, so their total would be too. */}
+          {!oneWay && (
+            <p className="shrink-0 text-xs text-ink-muted">
+              {price(hotel.nightlyPrice * nights)} for {formatNights(nights)}
+            </p>
+          )}
         </div>
 
         <div className="mt-4">

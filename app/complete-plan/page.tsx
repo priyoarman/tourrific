@@ -24,7 +24,7 @@ export default function CompletePlanPage() {
 
   return (
     // The dashboard is dense, so past phone widths it renders as it would with the browser zoomed out to 90%.
-    <div className="mx-auto flex w-full max-w-400 flex-1 flex-col gap-5 px-5 pt-6 pb-5 sm:px-7 sm:[zoom:0.9]">
+    <div className="mx-auto flex w-full max-w-400 flex-1 flex-col gap-5 px-5 pt-6 pb-5 sm:px-7 sm:zoom-[0.9]">
       <PlanHeader summary={trip.summary} initials={trip.travellerInitials} />
 
       <main className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
