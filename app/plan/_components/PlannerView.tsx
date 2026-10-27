@@ -8,6 +8,7 @@ import { SearchRejected, searchFlights, toSearchResult, type FlightSearchResult 
 import { formatDate, formatNights, formatPrice } from "@/app/lib/format";
 import { MAX_PROMPT_LENGTH } from "@/app/lib/limits";
 import { isRoadTripPrompt, plannerHref } from "@/app/lib/routes";
+import { tripTotal } from "@/app/lib/trip-total";
 import type { ChatMessage, FlightOffer, Hotel } from "@/app/lib/types";
 import type { SearchContext, SearchQuestion, StreamComplete, StreamHotels } from "@/app/lib/types/stream-events";
 import ChatPanel from "./chat/ChatPanel";
@@ -365,8 +366,9 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
       return `Your trip is taking shape: **${flight.airline.name}** (${flightPrice}) plus **${hotel.name}** at ${formatPrice(hotel.nightlyPrice, hotel.currency)} a night.`;
     }
     // The two are only added up when they are priced in the same currency.
-    return flight.currency === hotel.currency
-      ? `Your trip is taking shape: **${flight.airline.name}** plus **${hotel.name}** comes to **${formatPrice(flight.totalPrice + stayCost, flight.currency)}** in total.`
+    const total = tripTotal(flight, hotel, { nights, nightsAssumed });
+    return total !== null
+      ? `Your trip is taking shape: **${flight.airline.name}** plus **${hotel.name}** comes to **${formatPrice(total, flight.currency)}** in total.`
       : `Your trip is taking shape: **${flight.airline.name}** (${flightPrice}) plus **${hotel.name}** (${formatPrice(stayCost, hotel.currency)} for ${formatNights(nights)}).`;
   }
 
