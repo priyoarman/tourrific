@@ -1,7 +1,7 @@
 // Run with `npm test`. Groq, Duffel and the geocoder are replaced by a stand-in `fetch`, so nothing here uses the network.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
-import type { StreamHotels } from "../types/stream-events";
+import type { StreamDone, StreamHotels } from "../types/stream-events";
 import type { TripQuery } from "../types/trip-query";
 import { clearSearchCache } from "./duffel.ts";
 import { clearStaysCache } from "./duffel-stays.ts";
@@ -383,6 +383,22 @@ test("a stay length makes it a return trip, and the hotels follow it", async () 
   stubProviders({ groq: { ...READS, stay_length: 7, stay_unit: "days" } });
   const said = (await chatSearch()).find(([event]) => event === "complete")?.[1] as { extracted: TripQuery };
   assert.equal(said.extracted.return_date, "2099-01-08");
+});
+
+test("the stay length is kept while the assistant asks when to travel", async () => {
+  // "A seven-day plan to Lisbon": no date yet, so the assistant asks.
+  stubProviders({ groq: { ...READS, departure_date: null, return_date: null, stay_length: 7, stay_unit: "days" } });
+  const asked = (await chatSearch()).at(-1)?.[1] as StreamDone;
+  assert.equal(asked.asking, "departure_date");
+
+  // The answer is only a date; the model leaves the stay out, as it may.
+  stubProviders({ groq: { ...READS, return_date: null } });
+  const events = await chatSearch({ prompt: "5 January 2099", context: asked.context });
+  const { extracted } = events.find(([event]) => event === "complete")?.[1] as { extracted: TripQuery };
+  assert.equal(extracted.return_date, "2099-01-11");
+
+  const { stay } = events.find(([event]) => event === "hotels")?.[1] as StreamHotels;
+  assert.deepEqual([stay.checkOut, stay.nights, stay.nightsAssumed], ["2099-01-11", 6, false]);
 });
 
 test("a question is not a search, and says no scope", async () => {

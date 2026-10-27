@@ -12,8 +12,12 @@ export type SearchContext = {
   destination?: string | null;
   /** The previous search. While `awaiting` is set, the search that is still missing that answer. */
   tripQuery?: TripQuery | null;
-  /** Set when the assistant asked for the return date of `tripQuery`, so the next message is read as that date. */
-  awaiting?: "return_date" | null;
+  /**
+   * Set when the assistant asked for the return date of `tripQuery`, so the next
+   * message is read as that date, or for its departure date, so the next message
+   * keeps what `tripQuery` already says (how long the stay is).
+   */
+  awaiting?: "return_date" | "departure_date" | null;
 };
 
 /** The request body the endpoint expects. */

@@ -171,18 +171,24 @@ test("a question says what it is asking for, and keeps the destination", async (
     return events.at(-1);
   };
 
-  // A place but no date, as in "a beach holiday in Greece".
-  groqReads({ destination_airport: "ATH" });
-  assert.deepEqual(await lastEvent("a beach holiday"), [
-    "done",
-    { needsInput: true, asking: "departure_date", context: { destination: "ATH" } },
-  ]);
+  // A place but no date, as in "a seven-day beach holiday in Greece": the rest of the search goes back with the question.
+  groqReads({ destination_airport: "ATH", stay_length: 7, stay_unit: "days" });
+  const [, noDate] = (await lastEvent("a seven-day beach holiday")) as [string, StreamDone];
+  assert.equal(noDate.needsInput, true);
+  assert.equal(noDate.asking, "departure_date");
+  assert.equal(noDate.context?.awaiting, "departure_date");
+  assert.equal(noDate.context?.destination, "ATH");
+  assert.equal(noDate.context?.tripQuery?.destination_airport, "ATH");
+  assert.equal(noDate.context?.tripQuery?.stay_length, 7);
+  assert.equal(noDate.context?.tripQuery?.stay_unit, "days");
 
-  groqReads({ destination_airport: "ATH", departure_date: "2001-01-05" });
-  assert.deepEqual(await lastEvent("a beach holiday in 2001"), [
-    "done",
-    { needsInput: true, asking: "departure_date", context: { destination: "ATH" } },
-  ]);
+  // A date in the past is forgotten, the rest is not.
+  groqReads({ destination_airport: "ATH", departure_date: "2001-01-05", stay_length: 7, stay_unit: "days" });
+  const [, past] = (await lastEvent("a seven-day beach holiday in 2001")) as [string, StreamDone];
+  assert.equal(past.asking, "departure_date");
+  assert.equal(past.context?.awaiting, "departure_date");
+  assert.equal(past.context?.tripQuery?.departure_date, null);
+  assert.equal(past.context?.tripQuery?.stay_length, 7);
 
   // A return trip without a return date: the rest of the search goes back with the question.
   groqReads({ destination_airport: "ATH", departure_date: "2099-01-05", trip_type: "return", cabin_class: "business" });

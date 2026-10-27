@@ -124,6 +124,8 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
   const awaitingReturn =
     context.awaiting === "return_date" && contextTripQuery?.departure_date ? contextTripQuery : null;
   const previousTripQuery = awaitingReturn ? null : contextTripQuery;
+  // A search that only lacks its departure date: this message is most likely that date.
+  const awaitingDeparture = context.awaiting === "departure_date" ? contextTripQuery : null;
   // `limit: "all"` returns every offer in one response, in a compact form, so the
   // client can sort and page locally instead of re-running the search per page.
   const sendAll = request.limit === "all";
@@ -150,6 +152,16 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     // Said once already; it shouldn't be repeated with the answer.
     delete tripQuery.explanation;
     ask("return_date", text, { destination, tripQuery, awaiting: "return_date" });
+  };
+
+  /**
+   * Asks when to travel, and sends the rest of the search along, so that what
+   * the visitor already said ("a seven-day plan") still counts with the answer.
+   */
+  const askDepartureDate = (text: string, search: TripQuery, destination: string) => {
+    const tripQuery: TripQuery = { ...search, destination_airport: destination, departure_date: null, return_date: null };
+    delete tripQuery.explanation;
+    ask("departure_date", text, { destination, tripQuery, awaiting: "departure_date" });
   };
 
   /** Groq couldn't be asked; say why and end the search. */
@@ -199,6 +211,11 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
       if (!result.ok) return extractionFailed(result.errors[0]);
 
       extracted = mergeFollowUpTripQuery({ ...result.parsed }, previousTripQuery, userPrompt);
+      // The answer to "when would you like to travel?" keeps how long the stay was said to be.
+      if (awaitingDeparture?.stay_length && !extracted.stay_length) {
+        extracted.stay_length = awaitingDeparture.stay_length;
+        extracted.stay_unit = awaitingDeparture.stay_unit;
+      }
     }
 
     if (!extracted.origin_airport) {
@@ -234,7 +251,7 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     }
 
     if (!extracted.departure_date) {
-      ask("departure_date", "That's great. Could you please tell me when you'd like to travel?", { destination });
+      askDepartureDate("That's great. Could you please tell me when you'd like to travel?", extracted, destination);
       return;
     }
 
@@ -257,7 +274,7 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     const departureDate = parseDateOnly(extracted.departure_date);
     if (departureDate < today) {
       // The destination goes back too, so an answer of just a date still knows where to.
-      ask("departure_date", "I cannot search for flights in the past. Please provide a future date.", { destination });
+      askDepartureDate("I cannot search for flights in the past. Please provide a future date.", extracted, destination);
       return;
     }
 

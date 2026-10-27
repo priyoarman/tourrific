@@ -96,7 +96,7 @@ export const searchStreamSchema = z.object({
     .object({
       destination: shortText.nullish(),
       tripQuery: tripQuerySchema.nullish(),
-      awaiting: z.literal("return_date").nullish(),
+      awaiting: z.enum(["return_date", "departure_date"]).nullish(),
     })
     .nullish(),
 });
