@@ -594,6 +594,81 @@
       ]
     },
     {
+      "name": "Trips",
+      "item": [
+        {
+          "name": "Create a trip",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trips",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trips"
+              ]
+            },
+            "description": "Stores a flight and a hotel picked together and stores the trip's id in `trip_id`. Works without logging in; a logged-in user owns the trip from the start. The stay must fit the flight: check-in on the day it leaves, check-out on the day the return leaves. 429 after too many trips in a day.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flight\": {\n    \"id\": \"off_0000AWr2VsUNIF1Vl91xg0\",\n    \"airline\": {\n      \"name\": \"Scandinavian Airlines\",\n      \"code\": \"SK\",\n      \"logoUrl\": \"https://assets.duffel.com/img/airlines/SK.svg\"\n    },\n    \"flightNumber\": \"SK1001\",\n    \"outbound\": {\n      \"origin\": \"CPH\",\n      \"destination\": \"LIS\",\n      \"departureTime\": \"2026-11-12T08:30:00\",\n      \"arrivalTime\": \"2026-11-12T11:15:00\",\n      \"durationMinutes\": 285,\n      \"stops\": []\n    },\n    \"inbound\": {\n      \"origin\": \"LIS\",\n      \"destination\": \"CPH\",\n      \"departureTime\": \"2026-11-16T12:40:00\",\n      \"arrivalTime\": \"2026-11-16T19:05:00\",\n      \"durationMinutes\": 325,\n      \"stops\": [\n        {\n          \"airport\": \"AMS\",\n          \"layoverMinutes\": 75\n        }\n      ]\n    },\n    \"totalPrice\": 412.5,\n    \"currency\": \"EUR\",\n    \"cabin\": \"Economy\",\n    \"fareBrand\": \"Economy Light\",\n    \"baggage\": \"1 carry-on bag\"\n  },\n  \"hotel\": {\n    \"id\": \"acc_0000AWr2VsUNIF1Vl91xg0\",\n    \"name\": \"Casa do Rio\",\n    \"area\": \"Rua da Prata 10, Lisbon\",\n    \"distanceKm\": 1.2,\n    \"stars\": 4,\n    \"rating\": 8.6,\n    \"reviewCount\": 412,\n    \"nightlyPrice\": 120,\n    \"currency\": \"EUR\",\n    \"amenities\": [\n      \"Free Wi-Fi\",\n      \"Pool\"\n    ],\n    \"photoUrl\": \"https://assets.duffel.com/img/stays/image.jpg\",\n    \"gradient\": \"from-[#f6c79b] to-[#d9776b]\",\n    \"freeCancellation\": true\n  },\n  \"stay\": {\n    \"city\": \"Lisbon\",\n    \"around\": \"city\",\n    \"checkIn\": \"2026-11-12\",\n    \"checkOut\": \"2026-11-16\",\n    \"nights\": 4,\n    \"nightsAssumed\": false,\n    \"guests\": 1,\n    \"rooms\": 1\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"trip_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "View a trip",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trips/{{trip_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trips",
+                "{{trip_id}}"
+              ]
+            },
+            "description": "One trip, for anyone with its id. `owner` is \"you\", \"someone-else\", or null when nobody has saved it yet. 404 for an unknown id.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Test endpoints (login required)",
       "item": [
         {
@@ -721,6 +796,10 @@
     },
     {
       "key": "conversation_id",
+      "value": ""
+    },
+    {
+      "key": "trip_id",
       "value": ""
     }
   ]

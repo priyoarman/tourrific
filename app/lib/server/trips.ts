@@ -116,6 +116,15 @@ export function toTripSummary(row: SummaryRow): TripSummary {
   };
 }
 
+/**
+ * A trip as one visitor may see it: everything but the owner's id. `owner`
+ * says whether the trip is theirs, someone else's, or nobody's yet.
+ */
+export function tripForViewer({ userId, ...trip }: StoredTrip, viewerId: bigint | null) {
+  const owner = userId === null ? null : viewerId !== null && userId === viewerId.toString() ? "you" : "someone-else";
+  return { ...trip, owner } as const;
+}
+
 /** Stores a picked trip and returns its id. A signed-in user owns it from the start, but it isn't saved yet. */
 export async function createTrip(picked: PickedTripInput, userId: bigint | null) {
   const { id } = await prisma.trip.create({ data: { ...toTripRow(picked), userId }, select: { id: true } });

@@ -106,6 +106,7 @@ These are optional. Each one has a default.
 | `SEARCH_LIMIT_GLOBAL_PER_DAY` | `500` | Searches per day for everyone together |
 | `AUTH_LIMIT_SIGNUPS_PER_DAY` | `5` | Sign-ups per IP address per day |
 | `AUTH_LIMIT_LOGINS_PER_15_MIN` | `10` | Logins per IP address per 15 minutes |
+| `TRIP_LIMIT_PER_DAY` | `50` | Trips stored per visitor per day |
 | `GROQ_TIMEOUT_MS` | `10000` | How long to wait for Groq |
 | `DUFFEL_TIMEOUT_MS` | `20000` | How long to wait for Duffel |
 | `GEOCODER_TIMEOUT_MS` | `4000` | How long to wait for the city-centre lookup |
@@ -160,11 +161,13 @@ Protected routes need the `session` cookie that logging in sets.
 | `DELETE /api/saved-flights/save/:id` | yes | Remove a saved flight |
 | `GET /api/conversations/current` | yes | The user's conversation |
 | `GET`, `POST /api/conversations/:id/messages` | yes | Read or add chat messages |
+| `POST /api/trips` | optional | Store a picked flight and hotel as a trip, for `/itinerary/[id]`. Rate limited |
+| `GET /api/trips/:id` | optional | One trip, for anyone with its id. `owner` says whose it is |
 | `POST /api/groq/extract` | yes | Test: show the search Groq extracts |
 | `POST /api/flights/search` | yes | Test: search Duffel directly |
 | `POST /api/flights/ai-search` | yes | Test: extract and search without streaming |
 
-**Try it.** `postman/` and `bruno/` hold the same 15 requests, pointed at
+**Try it.** `postman/` and `bruno/` hold the same 17 requests, pointed at
 `http://localhost:3000`. Run **Sign up** once, then **Log in**. Both tools keep
 the cookie and send it for you.
 

@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Prisma, type Trip } from "@prisma/client";
 import { flight, hotel, stay, trip } from "./trip-fixtures.ts";
-import { parseTripId, toStoredTrip, toTripRow, toTripSummary } from "./trips.ts";
+import { tripLimitRules } from "./trip-limits.ts";
+import { parseTripId, toStoredTrip, toTripRow, toTripSummary, tripForViewer } from "./trips.ts";
 
 const ID = "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b";
 
@@ -98,4 +99,24 @@ test("sums up a saved trip for the list", () => {
     savedAt: new Date("2026-10-28T10:05:00Z"),
   });
   assert.equal(toTripSummary(storedRow({ totalPrice: null })).totalPrice, null);
+});
+
+test("tells a visitor whose trip it is, without the owner's id", () => {
+  const owned = toStoredTrip(storedRow());
+  assert.equal(tripForViewer(owned, BigInt(42)).owner, "you");
+  assert.equal(tripForViewer(owned, BigInt(7)).owner, "someone-else");
+  assert.equal(tripForViewer(owned, null).owner, "someone-else");
+
+  const guests = toStoredTrip(storedRow({ userId: null, savedAt: null }));
+  assert.equal(tripForViewer(guests, null).owner, null);
+  assert.equal(tripForViewer(guests, BigInt(42)).owner, null);
+
+  assert.equal("userId" in tripForViewer(owned, BigInt(42)), false);
+});
+
+test("counts trips per account, or per address for a guest", () => {
+  const headers = new Headers({ "x-forwarded-for": "203.0.113.7" });
+  assert.equal(tripLimitRules({ userId: BigInt(42) }, headers)[0].key, "user:42");
+  assert.equal(tripLimitRules(null, headers)[0].key, "ip:203.0.113.7");
+  assert.equal(tripLimitRules(null, headers)[0].limit, 50);
 });
