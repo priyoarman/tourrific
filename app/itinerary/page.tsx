@@ -29,8 +29,8 @@ export default function ItineraryPage() {
 
       <main className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         <div className="flex flex-col gap-5">
-          <TripOverviewCard trip={trip} />
-          <BudgetCard lines={trip.budget} days={trip.days} />
+          <TripOverviewCard trip={trip.overview} />
+          <BudgetCard budget={trip.budget} />
           <div className="flex gap-3">
             <button type="button" className={`${actionClass} bg-ink text-white hover:bg-ink/90`}>
               <BookmarkIcon size={16} />
@@ -44,7 +44,7 @@ export default function ItineraryPage() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
-          <ReturnFlightCard price={trip.flight.price} legs={trip.flight.legs} />
+          <ReturnFlightCard flight={trip.flight} />
           <HotelStayCard hotel={trip.hotel} />
           <PlacesToVisit places={trip.places} />
         </div>

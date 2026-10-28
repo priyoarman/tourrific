@@ -1,14 +1,14 @@
 import { PlaneIcon } from "@/app/components/ui/Icons";
-import type { FlightLeg } from "../sample-trip";
+import type { FlightView } from "../itinerary-view";
 import SectionCard from "./SectionCard";
 
-type Props = { price: string; legs: FlightLeg[] };
+type Props = { flight: FlightView };
 
-export default function ReturnFlightCard({ price, legs }: Props) {
+export default function ReturnFlightCard({ flight: { title, price, legs } }: Props) {
   return (
     <SectionCard
       icon={<PlaneIcon size={17} fill="none" stroke="currentColor" strokeWidth="1.8" className="rotate-45" />}
-      title="Return flight"
+      title={title}
       aside={
         <span className="rounded-full bg-lavender-soft/60 px-3.5 py-1.5 text-xs font-semibold text-ink">
           {price}

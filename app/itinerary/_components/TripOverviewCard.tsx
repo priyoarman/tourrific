@@ -1,20 +1,24 @@
-import { sampleTrip } from "../sample-trip";
-import SceneArt from "./SceneArt";
+import type { OverviewView } from "../itinerary-view";
 import { cardClass } from "./SectionCard";
+import TripImage from "./TripImage";
 
-type Props = { trip: typeof sampleTrip };
+type Props = { trip: OverviewView };
 
 export default function TripOverviewCard({ trip }: Props) {
   return (
     <section className={`${cardClass} p-4`}>
       <div className="relative h-48 overflow-hidden rounded-2xl">
-        <SceneArt scene="island" />
-        <span className="absolute top-3 left-3 rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink">
-          {trip.vibe}
-        </span>
-        <span className="absolute right-3 bottom-3 rounded-full bg-ink/85 px-3 py-1 text-xs font-semibold text-white">
-          1 / {trip.photoCount}
-        </span>
+        <TripImage image={trip.image} />
+        {trip.vibe && (
+          <span className="absolute top-3 left-3 rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink">
+            {trip.vibe}
+          </span>
+        )}
+        {trip.photoCount !== null && (
+          <span className="absolute right-3 bottom-3 rounded-full bg-ink/85 px-3 py-1 text-xs font-semibold text-white">
+            1 / {trip.photoCount}
+          </span>
+        )}
       </div>
 
       <div className="px-1.5 pt-4 pb-1">
@@ -32,7 +36,7 @@ export default function TripOverviewCard({ trip }: Props) {
               {chip}
             </li>
           ))}
-          <li className="rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-800">{trip.status}</li>
+          {trip.status && <li className="rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-800">{trip.status}</li>}
         </ul>
 
         <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-lavender-soft/70 pt-3.5">

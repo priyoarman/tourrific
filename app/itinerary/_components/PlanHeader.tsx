@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowLeftIcon } from "@/app/components/ui/Icons";
 import Logo from "@/app/components/ui/Logo";
 
-type Props = { summary: string[]; initials: string };
+/** `initials` are shown in a circle when known. */
+type Props = { summary: string[]; initials: string | null };
 
 export default function PlanHeader({ summary, initials }: Props) {
   return (
@@ -26,9 +27,11 @@ export default function PlanHeader({ summary, initials }: Props) {
           <ArrowLeftIcon size={15} />
           New trip
         </Link>
-        <span className="flex size-10 items-center justify-center rounded-full bg-ink text-xs font-bold text-white">
-          {initials}
-        </span>
+        {initials && (
+          <span className="flex size-10 items-center justify-center rounded-full bg-ink text-xs font-bold text-white">
+            {initials}
+          </span>
+        )}
       </div>
     </header>
   );

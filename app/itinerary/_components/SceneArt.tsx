@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { Scene } from "../sample-trip";
+import type { Scene } from "../itinerary-view";
 
 type Props = { scene: Scene; className?: string };
 

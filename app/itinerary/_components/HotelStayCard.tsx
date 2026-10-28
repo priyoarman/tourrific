@@ -1,17 +1,22 @@
 import { ArrowRightIcon, BedIcon } from "@/app/components/ui/Icons";
 import SampleBadge from "@/app/plan/_components/results/SampleBadge";
-import { sampleTrip } from "../sample-trip";
-import SceneArt from "./SceneArt";
+import type { HotelStayView, StayDateView } from "../itinerary-view";
 import SectionCard from "./SectionCard";
+import TripImage from "./TripImage";
 
-type Props = { hotel: typeof sampleTrip.hotel };
+type Props = { hotel: HotelStayView };
 
 export default function HotelStayCard({ hotel }: Props) {
   return (
-    <SectionCard icon={<BedIcon size={17} />} title="Hotel" badge={<SampleBadge />} aside={hotel.price}>
+    <SectionCard
+      icon={<BedIcon size={17} />}
+      title="Hotel"
+      badge={hotel.sample ? <SampleBadge /> : undefined}
+      aside={hotel.price}
+    >
       <div className="mt-4 flex items-center gap-3">
-        <div className="size-11 shrink-0 overflow-hidden rounded-xl">
-          <SceneArt scene="island" />
+        <div className="relative size-11 shrink-0 overflow-hidden rounded-xl">
+          <TripImage image={hotel.image} />
         </div>
         <div className="min-w-0">
           <h3 className="truncate text-base font-bold text-ink">{hotel.name}</h3>
@@ -28,12 +33,12 @@ export default function HotelStayCard({ hotel }: Props) {
   );
 }
 
-function StayDate({ label, date, time }: { label: string; date: string; time: string }) {
+function StayDate({ label, date, time }: StayDateView & { label: string }) {
   return (
     <div className="rounded-2xl bg-lavender-soft/45 px-4 py-2.5">
       <p className="text-[0.65rem] font-semibold tracking-widest text-ink-subtle uppercase">{label}</p>
       <p className="mt-1 text-base font-bold text-ink">{date}</p>
-      <p className="mt-0.5 text-xs text-ink-subtle">{time}</p>
+      {time && <p className="mt-0.5 text-xs text-ink-subtle">{time}</p>}
     </div>
   );
 }

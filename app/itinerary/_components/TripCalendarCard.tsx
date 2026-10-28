@@ -1,30 +1,40 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "@/app/components/ui/Icons";
-import { sampleTrip } from "../sample-trip";
+import type { CalendarView, PlanView } from "../itinerary-view";
 import SectionCard, { arrowClass } from "./SectionCard";
 
-type Props = { calendar: typeof sampleTrip.calendar; plan: typeof sampleTrip.plan };
+/** The "Trip plan" list under the month is left out when `plan` is null. */
+type Props = { calendar: CalendarView; plan: PlanView | null };
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-type Cell = { day: number; inMonth: boolean };
+/** `date` is YYYY-MM-DD. */
+type Cell = { day: number; date: string; inMonth: boolean };
 
 /** The month as whole Monday-to-Sunday weeks, padded with the neighbouring months' days. */
 function monthCells(year: number, month: number): Cell[] {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const daysInPrevious = new Date(Date.UTC(year, month - 1, 0)).getUTCDate();
   // getUTCDay counts from Sunday; shift it so Monday is 0.
   const leading = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
   const trailing = (7 - ((leading + daysInMonth) % 7)) % 7;
 
-  return [
-    ...Array.from({ length: leading }, (_, i) => ({ day: daysInPrevious - leading + i + 1, inMonth: false })),
-    ...Array.from({ length: daysInMonth }, (_, i) => ({ day: i + 1, inMonth: true })),
-    ...Array.from({ length: trailing }, (_, i) => ({ day: i + 1, inMonth: false })),
-  ];
+  // Date.UTC rolls a day past either end of the month over into the neighbouring one.
+  const cell = (dayOfMonth: number): Cell => {
+    const date = new Date(Date.UTC(year, month - 1, dayOfMonth));
+    return {
+      day: date.getUTCDate(),
+      date: date.toISOString().slice(0, 10),
+      inMonth: dayOfMonth >= 1 && dayOfMonth <= daysInMonth,
+    };
+  };
+
+  return Array.from({ length: leading + daysInMonth + trailing }, (_, i) => cell(i - leading + 1));
 }
 
 export default function TripCalendarCard({ calendar, plan }: Props) {
-  const { year, month, today, tripStart, tripEnd, activityDays } = calendar;
+  const { start, end, today, activityDates } = calendar;
+  // The month the trip starts in.
+  const year = Number(start.slice(0, 4));
+  const month = Number(start.slice(5, 7));
   const title = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
@@ -54,9 +64,9 @@ export default function TripCalendarCard({ calendar, plan }: Props) {
       </div>
 
       <ol className="mt-1 grid grid-cols-7 gap-y-0.5 text-center text-sm font-medium">
-        {monthCells(year, month).map(({ day, inMonth }, index) => {
-          const isEnd = inMonth && (day === tripStart || day === tripEnd);
-          const inTrip = inMonth && day > tripStart && day < tripEnd;
+        {monthCells(year, month).map(({ day, date, inMonth }, index) => {
+          const isEnd = inMonth && (date === start || date === end);
+          const inTrip = inMonth && date > start && date < end;
           const column = index % 7;
           return (
             <li
@@ -69,10 +79,10 @@ export default function TripCalendarCard({ calendar, plan }: Props) {
                     : inMonth
                       ? "text-ink"
                       : "text-placeholder"
-              } ${inMonth && day === today ? "rounded-xl ring-2 ring-iris ring-inset" : ""}`}
+              } ${inMonth && date === today ? "rounded-xl ring-2 ring-iris ring-inset" : ""}`}
             >
               {day}
-              {inTrip && activityDays.includes(day) && (
+              {inTrip && activityDates.includes(date) && (
                 <span aria-hidden className="absolute bottom-1 size-1 rounded-full bg-amber-400" />
               )}
             </li>
@@ -80,21 +90,23 @@ export default function TripCalendarCard({ calendar, plan }: Props) {
         })}
       </ol>
 
-      <div className="mt-3 border-t border-lavender-soft/70 pt-3">
-        <div className="flex items-baseline justify-between">
-          <h3 className="text-sm font-bold text-ink">Trip plan</h3>
-          <p className="text-xs text-ink-subtle">{plan.summary}</p>
+      {plan && (
+        <div className="mt-3 border-t border-lavender-soft/70 pt-3">
+          <div className="flex items-baseline justify-between">
+            <h3 className="text-sm font-bold text-ink">Trip plan</h3>
+            <p className="text-xs text-ink-subtle">{plan.summary}</p>
+          </div>
+          <ul className="mt-2.5 space-y-2 text-sm">
+            {plan.days.map((item) => (
+              <li key={item.day} className="flex items-center gap-3">
+                <span aria-hidden className={`h-4 w-1 rounded-full ${item.color}`} />
+                <span className="w-14 font-semibold text-ink">{item.day}</span>
+                <span className="truncate text-ink-muted">{item.text}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="mt-2.5 space-y-2 text-sm">
-          {plan.days.map((item) => (
-            <li key={item.day} className="flex items-center gap-3">
-              <span aria-hidden className={`h-4 w-1 rounded-full ${item.color}`} />
-              <span className="w-14 font-semibold text-ink">{item.day}</span>
-              <span className="truncate text-ink-muted">{item.text}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      )}
     </SectionCard>
   );
 }

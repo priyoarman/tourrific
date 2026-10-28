@@ -1,11 +1,11 @@
-import type { BudgetLine } from "../sample-trip";
+import { formatPrice } from "@/app/lib/format";
+import type { BudgetView } from "../itinerary-view";
 import { cardClass } from "./SectionCard";
 
-type Props = { lines: BudgetLine[]; days: number };
+type Props = { budget: BudgetView };
 
-const euros = (amount: number) => `€${amount.toLocaleString("en-US")}`;
-
-export default function BudgetCard({ lines, days }: Props) {
+export default function BudgetCard({ budget: { lines, days, currency } }: Props) {
+  const price = (amount: number) => formatPrice(amount, currency);
   const total = lines.reduce((sum, line) => sum + line.amount, 0);
   const share = (amount: number) => Math.round((amount / total) * 100);
 
@@ -22,8 +22,8 @@ export default function BudgetCard({ lines, days }: Props) {
       </div>
 
       <p className="mt-4 flex items-baseline gap-3">
-        <span className="text-5xl font-bold tracking-tight text-ink">{euros(total)}</span>
-        <span className="text-xs text-ink-subtle">≈ {euros(Math.round(total / days))} / day</span>
+        <span className="text-5xl font-bold tracking-tight text-ink">{price(total)}</span>
+        <span className="text-xs text-ink-subtle">≈ {price(Math.round(total / days))} / day</span>
       </p>
 
       <div aria-hidden className="mt-4 flex h-2.5 gap-0.5 overflow-hidden rounded-full">
@@ -37,7 +37,7 @@ export default function BudgetCard({ lines, days }: Props) {
           <li key={line.label} className="flex items-center gap-3">
             <span aria-hidden className={`size-2 rounded-full ${line.color}`} />
             <span className="text-ink">{line.label}</span>
-            <span className="ml-auto font-bold text-ink">{euros(line.amount)}</span>
+            <span className="ml-auto font-bold text-ink">{price(line.amount)}</span>
             <span className="w-8 text-right text-xs text-ink-subtle">{share(line.amount)}%</span>
           </li>
         ))}
