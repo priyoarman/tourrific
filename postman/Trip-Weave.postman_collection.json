@@ -665,6 +665,75 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Save a trip",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trips/{{trip_id}}/save",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trips",
+                "{{trip_id}}",
+                "save"
+              ]
+            },
+            "description": "Saves the trip in `trip_id` for you. A guest's trip becomes yours; saving it again is fine. 409 when it belongs to someone else.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List saved trips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trips",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trips"
+              ]
+            },
+            "description": "Your saved trips, the most recently saved first. Each has its route, city, dates and total (null when the flight and hotel can't be added up).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete a trip",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trips/{{trip_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trips",
+                "{{trip_id}}"
+              ]
+            },
+            "description": "Deletes one of your trips. 404 for a trip that isn't yours.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
         }
       ]
     },

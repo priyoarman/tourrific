@@ -1,9 +1,9 @@
-import { optionalUser } from "@/app/lib/server/auth";
+import { optionalUser, requireUser } from "@/app/lib/server/auth";
 import { handle, readJsonWithin, tooManyRequests } from "@/app/lib/server/http";
 import { rateLimiter } from "@/app/lib/server/rate-limit";
 import { pickedTripSchema } from "@/app/lib/server/schemas";
 import { tripLimitRules } from "@/app/lib/server/trip-limits";
-import { createTrip } from "@/app/lib/server/trips";
+import { createTrip, listTrips } from "@/app/lib/server/trips";
 
 // A picked trip is a few kilobytes; this leaves room without inviting more.
 const MAX_BODY_BYTES = 32 * 1024;
@@ -35,4 +35,12 @@ export const POST = handle(async (request: Request) => {
 
   const id = await createTrip(validation.data, user?.userId ?? null);
   return Response.json({ success: true, id }, { status: 201 });
+});
+
+/** GET /api/trips — the signed-in user's saved trips, the most recently saved first. */
+export const GET = handle(async (request: Request) => {
+  const user = requireUser(request);
+  if (user instanceof Response) return user;
+
+  return Response.json({ success: true, trips: await listTrips(user.userId) });
 });

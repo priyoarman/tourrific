@@ -1,0 +1,18 @@
+info:
+  name: Save a trip
+  type: http
+  seq: 18
+
+http:
+  method: POST
+  url: http://localhost:3000/api/trips/{{trip_id}}/save
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Saves the trip in `trip_id` for you. A guest's trip becomes yours; saving it again is fine. 409 when it belongs to someone else.

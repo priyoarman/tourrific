@@ -1,0 +1,18 @@
+info:
+  name: List saved trips
+  type: http
+  seq: 19
+
+http:
+  method: GET
+  url: http://localhost:3000/api/trips
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Your saved trips, the most recently saved first. Each has its route, city, dates and total (null when the flight and hotel can't be added up).
