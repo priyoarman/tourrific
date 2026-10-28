@@ -15,6 +15,25 @@ export function formatDate(iso: string) {
   });
 }
 
+const MONTH = { month: "short", timeZone: "UTC" } as const;
+const parts = (iso: string) => {
+  const date = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  return {
+    day: date.getUTCDate(),
+    month: date.toLocaleDateString("en-GB", MONTH),
+    year: date.getUTCFullYear(),
+  };
+};
+
+/** "16 – 22 Oct 2026", "30 Oct – 3 Nov 2026" or "30 Dec 2026 – 2 Jan 2027". */
+export function formatDateRange(start: string, end: string) {
+  const a = parts(start);
+  const b = parts(end);
+  if (a.year !== b.year) return `${a.day} ${a.month} ${a.year} – ${b.day} ${b.month} ${b.year}`;
+  if (a.month !== b.month) return `${a.day} ${a.month} – ${b.day} ${b.month} ${b.year}`;
+  return `${a.day} – ${b.day} ${b.month} ${b.year}`;
+}
+
 export function formatDuration(minutes: number) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

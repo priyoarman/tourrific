@@ -1,6 +1,14 @@
 // What the itinerary cards show, and how a picked trip becomes that. The cards
 // take ready-to-print text, so the sample trip and a real one render the same way.
-import { dayOffset, formatDate, formatDuration, formatNights, formatPrice, formatTime } from "../lib/format.ts";
+import {
+  dayOffset,
+  formatDate,
+  formatDateRange,
+  formatDuration,
+  formatNights,
+  formatPrice,
+  formatTime,
+} from "../lib/format.ts";
 import { tripTotal } from "../lib/trip-total.ts";
 import type { FlightSlice, PickedTrip } from "../lib/types";
 
@@ -96,25 +104,6 @@ export type ItineraryView = {
   hotel: HotelStayView;
   calendar: CalendarView;
 };
-
-const MONTH = { month: "short", timeZone: "UTC" } as const;
-const parts = (iso: string) => {
-  const date = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
-  return {
-    day: date.getUTCDate(),
-    month: date.toLocaleDateString("en-GB", MONTH),
-    year: date.getUTCFullYear(),
-  };
-};
-
-/** "16 – 22 Oct 2026", "30 Oct – 3 Nov 2026" or "30 Dec 2026 – 2 Jan 2027". */
-export function formatDateRange(start: string, end: string) {
-  const a = parts(start);
-  const b = parts(end);
-  if (a.year !== b.year) return `${a.day} ${a.month} ${a.year} – ${b.day} ${b.month} ${b.year}`;
-  if (a.month !== b.month) return `${a.day} ${a.month} – ${b.day} ${b.month} ${b.year}`;
-  return `${a.day} – ${b.day} ${b.month} ${b.year}`;
-}
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 

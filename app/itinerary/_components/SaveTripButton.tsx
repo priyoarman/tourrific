@@ -59,7 +59,7 @@ export default function SaveTripButton({ tripId, saved: savedBefore }: Props) {
         onClick={save}
         disabled={status === "saving"}
         aria-describedby={error ? "save-trip-error" : undefined}
-        className={`${buttonClass} bg-ink text-white hover:bg-ink/90 disabled:bg-ink/70`}
+        className={`${buttonClass} bg-iris text-white hover:bg-iris/90 disabled:bg-iris/70`}
       >
         <BookmarkIcon size={16} />
         {status === "saving" ? "Saving…" : "Save trip"}

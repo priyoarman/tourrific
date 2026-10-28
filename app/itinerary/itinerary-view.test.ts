@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { flight, hotel, stay, trip } from "../lib/server/trip-fixtures.ts";
-import { formatDateRange, toItineraryView, type CityOf } from "./itinerary-view.ts";
+import { formatDateRange } from "../lib/format.ts";
+import { toItineraryView, type CityOf } from "./itinerary-view.ts";
 
 const CITIES: Record<string, string> = { CPH: "Copenhagen", LIS: "Lisbon", AMS: "Amsterdam" };
 const cityOf: CityOf = (code) => CITIES[code] ?? null;

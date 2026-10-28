@@ -6,6 +6,7 @@ import { airportCity } from "@/app/lib/server/airports";
 import { SESSION_COOKIE, userFromToken } from "@/app/lib/server/auth";
 import { getTrip, parseTripId, tripForViewer } from "@/app/lib/server/trips";
 import BudgetCard from "../_components/BudgetCard";
+import EmailTripButton from "../_components/EmailTripButton";
 import HotelStayCard from "../_components/HotelStayCard";
 import PlanHeader from "../_components/PlanHeader";
 import ReturnFlightCard from "../_components/ReturnFlightCard";
@@ -54,10 +55,19 @@ export default async function TripItineraryPage(props: PageProps<"/itinerary/[id
 
       <main className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         <div className="flex flex-col gap-5">
+          <div className="flex items-start gap-3">
+            {canSave && (
+              <div className="min-w-0 flex-1">
+                <SaveTripButton tripId={itinerary.trip.id} saved={owner === "you" && savedAt !== null} />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <EmailTripButton />
+            </div>
+          </div>
           <TripOverviewCard trip={view.overview} />
           {/* Left out when the flight and hotel can't be added up. */}
           {view.budget && <BudgetCard budget={view.budget} />}
-          {canSave && <SaveTripButton tripId={itinerary.trip.id} saved={owner === "you" && savedAt !== null} />}
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">

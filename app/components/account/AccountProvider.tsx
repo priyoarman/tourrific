@@ -5,6 +5,7 @@ import { ApiError } from "@/app/lib/api";
 import { confirmSession } from "@/app/lib/auth-api";
 import { logOut as endSession, useSession, type AuthUser, type Session } from "@/app/lib/auth-store";
 import { findSaved, listSavedFlights, removeSavedFlight, saveFlight } from "@/app/lib/saved-flights";
+import { deleteTrip, listTrips, type SavedTrip } from "@/app/lib/trips";
 import type { FlightOffer, SavedFlight } from "@/app/lib/types";
 import AuthDialog, { type AuthMode } from "./AuthDialog";
 import SavedTripsDrawer from "./SavedTripsDrawer";
@@ -47,6 +48,7 @@ export function useAccount() {
 }
 
 type SavedState = { userId: string; flights: SavedFlight[]; status: "ready" | "error" };
+type TripsState = { userId: string; trips: SavedTrip[]; status: "ready" | "error" };
 
 /**
  * Everything about the visitor's account that more than one part of the page
@@ -61,6 +63,8 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [saved, setSaved] = useState<SavedState | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [savedTrips, setSavedTrips] = useState<TripsState | null>(null);
+  const [removingTripId, setRemovingTripId] = useState<string | null>(null);
   /** A flight a signed-out visitor tried to save; saved right after they sign in. */
   const pendingSave = useRef<{ offer: FlightOffer; done: (outcome: SaveOutcome) => void } | null>(null);
   /** Someone waiting in `requireSignIn` for the visitor to sign in. */
@@ -69,6 +73,7 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
   // Saved flights belong to one login. Anything loaded for another is ignored.
   const current = saved && saved.userId === userId ? saved : null;
   const savedFlights = current?.flights ?? [];
+  const currentTrips = savedTrips && savedTrips.userId === userId ? savedTrips : null;
 
   function update(forUser: string, change: (flights: SavedFlight[]) => SavedFlight[]) {
     setSaved((state) =>
@@ -95,6 +100,22 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [userId]);
+
+  // Trips are saved from itinerary pages, which don't go through here, so the list is fetched each time the drawer opens.
+  useEffect(() => {
+    if (!drawerOpen || !userId) return;
+    let cancelled = false;
+    listTrips()
+      .then((trips) => {
+        if (!cancelled) setSavedTrips({ userId, trips, status: "ready" });
+      })
+      .catch(() => {
+        if (!cancelled) setSavedTrips({ userId, trips: [], status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [drawerOpen, userId]);
 
   function openAuth(mode: AuthMode = "signin", note?: string, alert?: boolean) {
     setDrawerOpen(false);
@@ -154,6 +175,24 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     }
     update(forUser, (flights) => flights.filter((f) => f.id !== flight.id));
     return { status: "removed" };
+  }
+
+  async function removeTrip(forUser: string, trip: SavedTrip) {
+    setRemovingTripId(trip.id);
+    try {
+      await deleteTrip(trip.id);
+    } catch (error) {
+      // Already gone (deleted in another tab) is as good as deleted.
+      if (!(error instanceof ApiError && error.status === 404)) {
+        problem(error);
+        return;
+      }
+    } finally {
+      setRemovingTripId(null);
+    }
+    setSavedTrips((state) =>
+      state?.userId === forUser ? { ...state, trips: state.trips.filter((t) => t.id !== trip.id) } : state,
+    );
   }
 
   async function toggleSaved(offer: FlightOffer): Promise<SaveOutcome> {
@@ -227,6 +266,10 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
         status={current ? current.status : "loading"}
         removingId={removingId}
         onRemove={(flight) => userId && remove(userId, flight)}
+        trips={currentTrips?.trips ?? []}
+        tripsStatus={currentTrips ? currentTrips.status : "loading"}
+        removingTripId={removingTripId}
+        onRemoveTrip={(trip) => userId && removeTrip(userId, trip)}
         onLogOut={logOut}
       />
     </AccountContext>
