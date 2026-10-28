@@ -1,3 +1,5 @@
+import type { StreamHotels } from "./types/stream-events";
+
 export type Destination = {
   city: string;
   country: string;
@@ -82,6 +84,13 @@ export type Hotel = {
   /** Tailwind gradient classes, shown when there is no photo. */
   gradient: string;
   freeCancellation: boolean;
+};
+
+/** A flight and a hotel picked from the same search, with the stay they were priced for. */
+export type PickedTrip = {
+  flight: FlightOffer;
+  hotel: Hotel;
+  stay: StreamHotels["stay"];
 };
 
 /** A flight the signed-in user saved, as stored by /api/saved-flights. */

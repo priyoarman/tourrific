@@ -5,18 +5,10 @@ import { ArrowRightIcon, CloseIcon, LuggageIcon, MapPinIcon } from "@/app/compon
 import Modal from "@/app/components/ui/Modal";
 import { formatDate, formatNights, formatPrice } from "@/app/lib/format";
 import { tripTotal } from "@/app/lib/trip-total";
-import type { FlightOffer, Hotel } from "@/app/lib/types";
-import type { StreamHotels } from "@/app/lib/types/stream-events";
+import type { FlightOffer, Hotel, PickedTrip } from "@/app/lib/types";
 import AirlineBadge from "./flights/AirlineBadge";
 import FlightLeg from "./flights/FlightLeg";
 import StarRating from "./hotels/StarRating";
-
-/** A flight and a hotel picked from the same search, with the stay they were priced for. */
-export type PickedTrip = {
-  flight: FlightOffer;
-  hotel: Hotel;
-  stay: StreamHotels["stay"];
-};
 
 type Props = {
   /** What was picked, or null when the dialog is closed. */
