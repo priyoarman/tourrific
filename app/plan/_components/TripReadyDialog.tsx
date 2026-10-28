@@ -13,7 +13,8 @@ import StarRating from "./hotels/StarRating";
 type Props = {
   /** What was picked, or null when the dialog is closed. */
   trip: PickedTrip | null;
-  onShowItinerary: () => void;
+  /** Stores the trip and opens its itinerary. A rejection is shown in the dialog. */
+  onShowItinerary: (trip: PickedTrip) => Promise<void>;
   /** "I have still not decided", Escape, the close button or a click outside. */
   onClose: () => void;
 };
@@ -116,6 +117,20 @@ function Summary({ trip, onShowItinerary, onClose }: Props & { trip: PickedTrip 
   const { flight, hotel, stay } = trip;
   const total = tripTotal(flight, hotel, stay);
   const city = stay.city ?? flight.outbound.destination;
+  // Stays true on success: the dialog is left open until the itinerary page replaces it.
+  const [opening, setOpening] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function showItinerary() {
+    setOpening(true);
+    setError(null);
+    try {
+      await onShowItinerary(trip);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Couldn't build your itinerary. Please try again.");
+      setOpening(false);
+    }
+  }
 
   return (
     <div className="relative rounded-3xl border border-lavender-soft/70 bg-[#fbf9ff] p-6 shadow-[0_30px_80px_-30px_rgba(42,27,61,0.6)] sm:p-8">
@@ -147,14 +162,28 @@ function Summary({ trip, onShowItinerary, onClose }: Props & { trip: PickedTrip 
         </p>
       )}
 
+      {error && (
+        <p id="trip-ready-error" role="alert" className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </p>
+      )}
+
       <button
         type="button"
-        onClick={onShowItinerary}
+        onClick={showItinerary}
+        disabled={opening}
+        aria-describedby={error ? "trip-ready-error" : undefined}
         autoFocus
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-ink py-3.5 text-base font-semibold text-white transition-colors hover:bg-ink/90"
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-ink py-3.5 text-base font-semibold text-white transition-colors hover:bg-ink/90 disabled:bg-ink/70"
       >
-        Show my itinerary
-        <ArrowRightIcon size={18} />
+        {opening ? (
+          "Building your itinerary…"
+        ) : (
+          <>
+            Show my itinerary
+            <ArrowRightIcon size={18} />
+          </>
+        )}
       </button>
       <button
         type="button"

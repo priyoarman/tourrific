@@ -9,7 +9,8 @@ import { formatDate, formatNights, formatPrice } from "@/app/lib/format";
 import { MAX_PROMPT_LENGTH } from "@/app/lib/limits";
 import { isRoadTripPrompt, plannerHref } from "@/app/lib/routes";
 import { tripTotal } from "@/app/lib/trip-total";
-import type { ChatMessage, FlightOffer, Hotel } from "@/app/lib/types";
+import { createTrip } from "@/app/lib/trips";
+import type { ChatMessage, FlightOffer, Hotel, PickedTrip } from "@/app/lib/types";
 import type { SearchContext, SearchQuestion, StreamComplete, StreamHotels } from "@/app/lib/types/stream-events";
 import ChatPanel from "./chat/ChatPanel";
 import { useChatHistory } from "./chat/useChatHistory";
@@ -431,6 +432,12 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     );
   }
 
+  /** Stores the picked trip, then opens its itinerary. Throws when it can't be stored; the dialog says why. */
+  async function showItinerary(trip: PickedTrip) {
+    const id = await createTrip(trip, { sample: hotelSearch?.sample ?? false });
+    router.push(`/itinerary/${id}`);
+  }
+
   const flightStatus: FlightSearchStatus = isSearching
     ? "searching"
     : searchError
@@ -542,8 +549,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
 
       <TripReadyDialog
         trip={tripReady && selectedFlight && selectedHotel && stay ? { flight: selectedFlight, hotel: selectedHotel, stay } : null}
-        // The itinerary page still shows its sample trip; the picks are passed to it in a later step.
-        onShowItinerary={() => router.push("/itinerary")}
+        onShowItinerary={showItinerary}
         onClose={() => setTripReady(false)}
       />
     </div>
