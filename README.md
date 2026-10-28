@@ -40,12 +40,12 @@ follow-up handling and the database schema are ports of the team's work.
 - **Hotels in the same message.** Same city, nights and travellers as the flights. Add wishes: stars, price a night, free cancellation, rooms, a pool or parking.
 - **Vague is fine.** A country, a region ("south of Spain") or a mood ("somewhere with beaches").
 - **Watch it work.** Live progress while it searches. Sort by best, cheapest or fastest without searching again.
-- **No account needed.** Sign up to save flights and keep your chat history.
+- **Your trip on one page.** Pick a flight and a hotel, and the itinerary shows the route, dates, budget and calendar at a link of its own.
+- **No account needed.** Sign up to save trips and flights and keep your chat history.
 - **Knows where you are.** It guesses your departure airport from your location.
 - **Keeps going when Duffel is down.** Sample flights and hotels step in, clearly labelled (`DUFFEL_USE_MOCK=true`).
 
-The road trip page and the itinerary page (`/itinerary`) show sample
-data for now.
+The road trip page shows sample data for now.
 
 ## How one search travels
 
@@ -134,7 +134,7 @@ resets the counts.
 app/
   page.tsx, components/     Landing page
   plan/                     The planner: chat, flights and hotels columns
-  itinerary/                The whole trip on one page (sample data)
+  itinerary/[id]/           A picked trip on one page
   roadtrip/                 Road trip planner (sample data)
   api/                      The API (route handlers)
   lib/                      Shared by the UI: types, formatting, API clients
@@ -213,6 +213,24 @@ Good to know:
 
 Code: `liteapi-stays.ts`, `duffel-stays.ts`, `stay-location.ts`, `hotel-search.ts` and
 `hotel-filters.ts` in `app/lib/server/`.
+
+## How trips work
+
+Pick a flight and a hotel in the planner and press **Show my itinerary**.
+
+- **A trip is stored as picked.** The flight, the hotel and the stay are kept exactly as the planner showed them, so the itinerary never changes. Prices are not looked up again.
+- **The link is the key.** Each trip gets a random id: `/itinerary/<id>`. Anyone with the link can open it, and search engines are told not to list it.
+- **Guests can make trips too.** Pressing **Save trip** asks a guest to sign in, then saves the trip to their account. A signed-in user's trip is theirs from the start, but only listed once saved.
+- **Saved trips are kept.** They are in the **Trips** tab of the saved-trips drawer until you remove them.
+- **Unsaved trips are deleted after 30 days.** The check runs at most once an hour, after someone stores a new trip.
+- **Totals only when they add up.** A one-way trip's nights are a guess, and prices in two currencies aren't converted, so neither gets a budget.
+- **Sample hotels say so.** A trip made from sample hotels carries a **Sample** badge.
+- **50 trips a visitor a day** (`TRIP_LIMIT_PER_DAY`).
+
+`/itinerary` without an id sends you to the planner.
+
+Code: `trips.ts` and `schemas.ts` in `app/lib/server/`, `app/api/trips/`,
+`app/itinerary/itinerary-view.ts` and `app/itinerary/[id]/`.
 
 ## Staying safe
 

@@ -170,3 +170,39 @@ export async function deleteTrip(id: string, userId: bigint) {
   const { count } = await prisma.trip.deleteMany({ where: { id, userId } });
   return count === 1;
 }
+
+/** How long a trip nobody saved is kept: long enough to come back to its link. */
+export const UNSAVED_TRIP_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** The old trips are looked for at most this often. */
+const CLEANUP_EVERY_MS = 60 * 60 * 1000;
+
+let lastCleanup = 0;
+
+/** Trips created before this, and never saved, are old enough to delete. */
+export function staleBefore(now: Date) {
+  return new Date(now.getTime() - UNSAVED_TRIP_DAYS * DAY_MS);
+}
+
+/** Deletes the trips nobody saved within UNSAVED_TRIP_DAYS, and returns how many there were. */
+export async function deleteStaleTrips(now = new Date()) {
+  const { count } = await prisma.trip.deleteMany({ where: { savedAt: null, createdAt: { lt: staleBefore(now) } } });
+  return count;
+}
+
+/**
+ * Runs `deleteStaleTrips` unless it ran in the last hour. Meant to be called
+ * after a response is sent, so it never fails or slows down a request.
+ */
+export async function deleteStaleTripsNowAndThen(now = new Date()) {
+  if (now.getTime() - lastCleanup < CLEANUP_EVERY_MS) return;
+  lastCleanup = now.getTime();
+  try {
+    const count = await deleteStaleTrips(now);
+    if (count > 0) {
+      console.info(`Deleted ${count} unsaved trip${count === 1 ? "" : "s"} older than ${UNSAVED_TRIP_DAYS} days.`);
+    }
+  } catch (error) {
+    console.error("Could not delete old unsaved trips:", error);
+  }
+}

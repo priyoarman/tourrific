@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { Prisma, type Trip } from "@prisma/client";
 import { flight, hotel, stay, trip } from "./trip-fixtures.ts";
 import { tripLimitRules } from "./trip-limits.ts";
-import { parseTripId, toStoredTrip, toTripRow, toTripSummary, tripForViewer } from "./trips.ts";
+import { parseTripId, staleBefore, toStoredTrip, toTripRow, toTripSummary, tripForViewer } from "./trips.ts";
 
 const ID = "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b";
 
@@ -119,4 +119,8 @@ test("counts trips per account, or per address for a guest", () => {
   assert.equal(tripLimitRules({ userId: BigInt(42) }, headers)[0].key, "user:42");
   assert.equal(tripLimitRules(null, headers)[0].key, "ip:203.0.113.7");
   assert.equal(tripLimitRules(null, headers)[0].limit, 50);
+});
+
+test("an unsaved trip is kept for 30 days", () => {
+  assert.equal(staleBefore(new Date("2026-10-28T12:00:00Z")).toISOString(), "2026-09-28T12:00:00.000Z");
 });

@@ -9,16 +9,6 @@ export default function TripOverviewCard({ trip }: Props) {
     <section className={`${cardClass} p-4`}>
       <div className="relative h-48 overflow-hidden rounded-2xl">
         <TripImage image={trip.image} />
-        {trip.vibe && (
-          <span className="absolute top-3 left-3 rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink">
-            {trip.vibe}
-          </span>
-        )}
-        {trip.photoCount !== null && (
-          <span className="absolute right-3 bottom-3 rounded-full bg-ink/85 px-3 py-1 text-xs font-semibold text-white">
-            1 / {trip.photoCount}
-          </span>
-        )}
       </div>
 
       <div className="px-1.5 pt-4 pb-1">
@@ -36,7 +26,6 @@ export default function TripOverviewCard({ trip }: Props) {
               {chip}
             </li>
           ))}
-          {trip.status && <li className="rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-800">{trip.status}</li>}
         </ul>
 
         <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-lavender-soft/70 pt-3.5">

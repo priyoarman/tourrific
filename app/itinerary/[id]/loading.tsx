@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Logo from "@/app/components/ui/Logo";
-import { cardClass } from "./_components/SectionCard";
+import { cardClass } from "../_components/SectionCard";
 
 const bar = "rounded-full bg-lavender-soft/70";
 const block = "rounded-2xl bg-lavender-soft/50";
@@ -35,8 +35,8 @@ function FlightLegSkeleton() {
 }
 
 /**
- * What /itinerary shows while it loads: the outline of every card, in the same
- * columns as the page, so nothing jumps when the real plan arrives.
+ * What /itinerary/[id] shows while it loads: the outline of every card, in the
+ * same columns as the page, so nothing jumps when the trip arrives.
  */
 export default function ItineraryLoading() {
   return (
@@ -52,12 +52,17 @@ export default function ItineraryLoading() {
           <div className={`${bar} order-last col-span-2 h-9 w-full lg:order-none lg:col-span-1 lg:w-96`} />
           <div className="flex items-center justify-end gap-5">
             <div className={`${bar} h-4 w-20`} />
-            <div className="size-10 rounded-full bg-lavender-soft/70" />
           </div>
         </header>
 
         <div className="grid animate-pulse gap-5 motion-reduce:animate-none lg:grid-cols-2 xl:grid-cols-3">
           <div className="flex flex-col gap-5">
+            {/* Save trip and Send by email. */}
+            <div className="flex gap-3">
+              <div className={`${bar} h-13 flex-1`} />
+              <div className={`${bar} h-13 flex-1`} />
+            </div>
+
             {/* Trip overview: the photo, the title, then three facts. */}
             <div className={`${cardClass} p-5`}>
               <div className={`${block} h-48`} />
@@ -74,11 +79,11 @@ export default function ItineraryLoading() {
               </div>
             </div>
 
-            {/* Budget: the split bar, then one line per cost. */}
+            {/* Budget: the split bar, then flights and hotel. */}
             <CardSkeleton>
               <div className={`${bar} mt-4 h-2.5 w-full`} />
               <div className="mt-4 space-y-3">
-                {[0, 1, 2, 3].map((i) => (
+                {[0, 1].map((i) => (
                   <div key={i} className="flex items-center justify-between">
                     <div className={`${bar} h-3 w-24`} />
                     <div className={`${bar} h-3 w-14`} />
@@ -86,11 +91,6 @@ export default function ItineraryLoading() {
                 ))}
               </div>
             </CardSkeleton>
-
-            <div className="flex gap-3">
-              <div className={`${bar} h-13 flex-1`} />
-              <div className={`${bar} h-13 flex-1`} />
-            </div>
           </div>
 
           <div className="flex min-w-0 flex-col gap-5">
@@ -114,18 +114,6 @@ export default function ItineraryLoading() {
                 <div className={`${block} h-14`} />
               </div>
             </CardSkeleton>
-
-            <CardSkeleton>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {[0, 1].map((i) => (
-                  <div key={i}>
-                    <div className={`${block} h-32`} />
-                    <div className={`${bar} mt-2.5 h-4 w-28`} />
-                    <div className={`${bar} mt-1.5 h-3 w-20`} />
-                  </div>
-                ))}
-              </div>
-            </CardSkeleton>
           </div>
 
           <div className="flex min-w-0 flex-col gap-5 lg:col-span-2 xl:col-span-1">
@@ -134,23 +122,6 @@ export default function ItineraryLoading() {
               <div className="mt-4 grid grid-cols-7 gap-2">
                 {Array.from({ length: 35 }, (_, i) => (
                   <div key={i} className="mx-auto size-6 rounded-full bg-lavender-soft/50" />
-                ))}
-              </div>
-            </CardSkeleton>
-
-            <CardSkeleton>
-              <div className={`${block} mt-3 h-40`} />
-            </CardSkeleton>
-
-            {/* Weather: five days. */}
-            <CardSkeleton>
-              <div className="mt-3 grid grid-cols-5 gap-1">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex flex-col items-center gap-2">
-                    <div className={`${bar} h-3 w-8`} />
-                    <div className="size-7 rounded-full bg-lavender-soft/50" />
-                    <div className={`${bar} h-3 w-10`} />
-                  </div>
                 ))}
               </div>
             </CardSkeleton>

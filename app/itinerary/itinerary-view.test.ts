@@ -37,10 +37,6 @@ test("sums up a round trip", () => {
     { label: "Stay", value: "Lisbon" },
   ]);
   assert.deepEqual(view.overview.image, { photoUrl: hotel().photoUrl, scene: "island" });
-  // Only the sample trip has these.
-  assert.equal(view.overview.vibe, null);
-  assert.equal(view.overview.photoCount, null);
-  assert.equal(view.overview.status, null);
 });
 
 test("lays out both flights", () => {

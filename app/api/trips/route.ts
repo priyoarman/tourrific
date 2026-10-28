@@ -1,9 +1,10 @@
+import { after } from "next/server";
 import { optionalUser, requireUser } from "@/app/lib/server/auth";
 import { handle, readJsonWithin, tooManyRequests } from "@/app/lib/server/http";
 import { rateLimiter } from "@/app/lib/server/rate-limit";
 import { pickedTripSchema } from "@/app/lib/server/schemas";
 import { tripLimitRules } from "@/app/lib/server/trip-limits";
-import { createTrip, listTrips } from "@/app/lib/server/trips";
+import { createTrip, deleteStaleTripsNowAndThen, listTrips } from "@/app/lib/server/trips";
 
 // A picked trip is a few kilobytes; this leaves room without inviting more.
 const MAX_BODY_BYTES = 32 * 1024;
@@ -12,6 +13,8 @@ const MAX_BODY_BYTES = 32 * 1024;
  * POST /api/trips — stores a flight and a hotel picked in the planner and
  * answers with the trip's id, for /itinerary/[id]. Guests may store trips too;
  * a signed-in user owns theirs from the start. Saving it is a separate step.
+ * Trips nobody saved are deleted after UNSAVED_TRIP_DAYS; the check runs here,
+ * once the answer is sent.
  */
 export const POST = handle(async (request: Request) => {
   const read = await readJsonWithin(request, MAX_BODY_BYTES);
@@ -34,6 +37,7 @@ export const POST = handle(async (request: Request) => {
   }
 
   const id = await createTrip(validation.data, user?.userId ?? null);
+  after(() => deleteStaleTripsNowAndThen());
   return Response.json({ success: true, id }, { status: 201 });
 });
 

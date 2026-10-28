@@ -1,5 +1,5 @@
 // What the itinerary cards show, and how a picked trip becomes that. The cards
-// take ready-to-print text, so the sample trip and a real one render the same way.
+// take ready-to-print text, so they hold no rules about trips themselves.
 import {
   dayOffset,
   formatDate,
@@ -24,12 +24,6 @@ export type OverviewView = {
   chips: string[];
   facts: { label: string; value: string }[];
   image: ImageView;
-  /** Shown on the picture when set, e.g. "Beach vibe". */
-  vibe: string | null;
-  /** How many photos there are, shown as "1 / 12" when set. */
-  photoCount: number | null;
-  /** Shown as a green chip when set, e.g. "On track". */
-  status: string | null;
 };
 
 export type BudgetLine = {
@@ -166,9 +160,6 @@ export function toItineraryView(
         { label: "Stay", value: city },
       ],
       image: { photoUrl: hotel.photoUrl, scene: "island" },
-      vibe: null,
-      photoCount: null,
-      status: null,
     },
     budget:
       total === null
