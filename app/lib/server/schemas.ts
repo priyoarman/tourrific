@@ -1,6 +1,9 @@
 // What each endpoint accepts. Ported from api/src/schemas/.
 import { z } from "zod";
+import { addDays } from "../destinations.ts";
 import { MAX_PROMPT_LENGTH } from "../limits.ts";
+import type { Airline, FlightOffer, FlightSlice, Hotel } from "../types";
+import type { StreamHotels } from "../types/stream-events";
 
 export const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -100,3 +103,95 @@ export const searchStreamSchema = z.object({
     })
     .nullish(),
 });
+
+// A picked trip comes back from the browser to be stored and shown again, so
+// the snapshots are checked field by field: bounded, with unknown fields dropped.
+
+const airportCode = z.string().regex(/^[A-Z]{3}$/);
+const currencyCode = z.string().regex(/^[A-Z]{3}$/);
+// Local time with no UTC offset, e.g. "2026-11-12T08:30:00".
+const localDateTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/);
+const price = z.number().nonnegative().max(10_000_000);
+// Shown as an image, so only an https address.
+const imageUrl = z.url({ protocol: /^https$/ }).max(500).nullable();
+const minutes = z.number().int().nonnegative().max(14 * 24 * 60);
+
+const airlineSchema = z.object({
+  name: z.string().max(100),
+  code: z.string().max(3),
+  logoUrl: imageUrl,
+}) satisfies z.ZodType<Airline>;
+
+const flightSliceSchema = z.object({
+  origin: airportCode,
+  destination: airportCode,
+  departureTime: localDateTime,
+  arrivalTime: localDateTime,
+  durationMinutes: minutes,
+  stops: z.array(z.object({ airport: airportCode, layoverMinutes: minutes })).max(10),
+}) satisfies z.ZodType<FlightSlice>;
+
+const flightOfferSchema = z.object({
+  id: z.string().max(100),
+  airline: airlineSchema,
+  flightNumber: z.string().max(10),
+  outbound: flightSliceSchema,
+  inbound: flightSliceSchema.nullable(),
+  totalPrice: price,
+  currency: currencyCode,
+  cabin: z.string().max(60),
+  fareBrand: z.string().max(100).nullable(),
+  baggage: z.string().max(200),
+}) satisfies z.ZodType<FlightOffer>;
+
+const hotelSchema = z.object({
+  id: z.string().max(100),
+  name: z.string().max(200),
+  area: z.string().max(300),
+  distanceKm: z.number().nonnegative().max(1000).nullable(),
+  stars: z.number().min(0).max(5).nullable(),
+  rating: z.number().min(0).max(10).nullable(),
+  reviewCount: z.number().int().nonnegative().nullable(),
+  nightlyPrice: price,
+  currency: currencyCode,
+  amenities: z.array(z.string().max(60)).max(30),
+  photoUrl: imageUrl,
+  // Tailwind classes, e.g. "from-sky-200 to-indigo-300".
+  gradient: z.string().regex(/^[a-z0-9 :/\[\]#.-]{0,200}$/),
+  freeCancellation: z.boolean(),
+}) satisfies z.ZodType<Hotel>;
+
+const staySchema = z.object({
+  city: z.string().max(100).nullable(),
+  around: z.enum(["city", "airport"]),
+  checkIn: z.iso.date(),
+  checkOut: z.iso.date(),
+  nights: z.number().int().min(1).max(99),
+  nightsAssumed: z.boolean(),
+  guests: z.number().int().min(1).max(9),
+  rooms: z.number().int().min(1).max(9),
+}) satisfies z.ZodType<StreamHotels["stay"]>;
+
+/**
+ * The body of POST /api/trips: a flight and a hotel picked from the same search
+ * (PickedTrip), with the stay they were priced for. The stay has to fit the
+ * flight: in on the day it lands, out the day the return flies.
+ */
+export const pickedTripSchema = z
+  .object({
+    flight: flightOfferSchema,
+    hotel: hotelSchema,
+    stay: staySchema,
+    sample: z.boolean().optional(),
+  })
+  .superRefine(({ flight, stay }, ctx) => {
+    if (addDays(stay.checkIn, stay.nights) !== stay.checkOut) {
+      ctx.addIssue({ code: "custom", path: ["stay", "checkOut"], message: "Check-out must be `nights` after check-in" });
+    }
+    if (flight.outbound.departureTime.slice(0, 10) !== stay.checkIn) {
+      ctx.addIssue({ code: "custom", path: ["stay", "checkIn"], message: "Check-in must be the day the flight leaves" });
+    }
+    if (flight.inbound && flight.inbound.departureTime.slice(0, 10) !== stay.checkOut) {
+      ctx.addIssue({ code: "custom", path: ["stay", "checkOut"], message: "Check-out must be the day the return flight leaves" });
+    }
+  });
