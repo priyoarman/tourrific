@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { airportCity } from "@/app/lib/server/airports";
-import { getTrip, parseTripId } from "@/app/lib/server/trips";
+import { SESSION_COOKIE, userFromToken } from "@/app/lib/server/auth";
+import { getTrip, parseTripId, tripForViewer } from "@/app/lib/server/trips";
 import BudgetCard from "../_components/BudgetCard";
 import HotelStayCard from "../_components/HotelStayCard";
 import PlanHeader from "../_components/PlanHeader";
 import ReturnFlightCard from "../_components/ReturnFlightCard";
+import SaveTripButton from "../_components/SaveTripButton";
 import TripCalendarCard from "../_components/TripCalendarCard";
 import TripOverviewCard from "../_components/TripOverviewCard";
 import { toItineraryView } from "../itinerary-view";
@@ -18,11 +21,11 @@ const loadItinerary = cache(async (rawId: string) => {
   if (!trip) return null;
 
   const today = new Date().toISOString().slice(0, 10);
-  return toItineraryView(trip, { today, cityOf: airportCity, sample: trip.sample });
+  return { trip, view: toItineraryView(trip, { today, cityOf: airportCity, sample: trip.sample }) };
 });
 
 export async function generateMetadata(props: PageProps<"/itinerary/[id]">): Promise<Metadata> {
-  const view = await loadItinerary((await props.params).id);
+  const { view } = (await loadItinerary((await props.params).id)) ?? {};
   // notFound() marks the page noindex by itself.
   if (!view) return { title: "Trip not found – Tourrific" };
   return {
@@ -35,8 +38,14 @@ export async function generateMetadata(props: PageProps<"/itinerary/[id]">): Pro
 
 /** A trip picked in the planner: its flight, hotel, budget and dates. */
 export default async function TripItineraryPage(props: PageProps<"/itinerary/[id]">) {
-  const view = await loadItinerary((await props.params).id);
-  if (!view) notFound();
+  const itinerary = await loadItinerary((await props.params).id);
+  if (!itinerary) notFound();
+  const { view } = itinerary;
+
+  const viewer = userFromToken((await cookies()).get(SESSION_COOKIE)?.value);
+  const { owner, savedAt } = tripForViewer(itinerary.trip, viewer?.userId ?? null);
+  // A signed-out visitor may be its owner, so they are still offered the button; signing in tells.
+  const canSave = !(viewer && owner === "someone-else");
 
   return (
     // The dashboard is dense, so past phone widths it renders as it would with the browser zoomed out to 90%.
@@ -48,6 +57,7 @@ export default async function TripItineraryPage(props: PageProps<"/itinerary/[id
           <TripOverviewCard trip={view.overview} />
           {/* Left out when the flight and hotel can't be added up. */}
           {view.budget && <BudgetCard budget={view.budget} />}
+          {canSave && <SaveTripButton tripId={itinerary.trip.id} saved={owner === "you" && savedAt !== null} />}
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">

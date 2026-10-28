@@ -31,6 +31,11 @@ type Account = {
    * is asked to sign in first; the answer then arrives once they have (or haven't).
    */
   toggleSaved: (offer: FlightOffer) => Promise<SaveOutcome>;
+  /**
+   * Asks a signed-out visitor to sign in, with `note` above the form. True once
+   * they have, false if they close the dialog; true straight away when signed in.
+   */
+  requireSignIn: (note: string) => Promise<boolean>;
 };
 
 const AccountContext = createContext<Account | null>(null);
@@ -58,6 +63,8 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
   const [removingId, setRemovingId] = useState<string | null>(null);
   /** A flight a signed-out visitor tried to save; saved right after they sign in. */
   const pendingSave = useRef<{ offer: FlightOffer; done: (outcome: SaveOutcome) => void } | null>(null);
+  /** Someone waiting in `requireSignIn` for the visitor to sign in. */
+  const pendingSignIn = useRef<((signedIn: boolean) => void) | null>(null);
 
   // Saved flights belong to one login. Anything loaded for another is ignored.
   const current = saved && saved.userId === userId ? saved : null;
@@ -97,6 +104,8 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
   function closeAuth() {
     pendingSave.current?.done({ status: "needs-sign-in" });
     pendingSave.current = null;
+    pendingSignIn.current?.(false);
+    pendingSignIn.current = null;
     setAuth(null);
   }
 
@@ -158,9 +167,21 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     return existing ? remove(userId, existing) : save(userId, offer);
   }
 
+  function requireSignIn(note: string) {
+    if (userId) return Promise.resolve(true);
+    // Only the latest request is answered; an earlier one counts as given up.
+    pendingSignIn.current?.(false);
+    setAuth({ mode: "signin", note });
+    return new Promise<boolean>((done) => {
+      pendingSignIn.current = done;
+    });
+  }
+
   async function onSignedIn(next: Session) {
     const pending = pendingSave.current;
     pendingSave.current = null;
+    pendingSignIn.current?.(true);
+    pendingSignIn.current = null;
     setAuth(null);
     if (!pending) return;
 
@@ -184,6 +205,7 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     openSavedTrips: () => setDrawerOpen(true),
     isSaved: (offer) => Boolean(findSaved(savedFlights, offer)),
     toggleSaved,
+    requireSignIn,
   };
 
   return (

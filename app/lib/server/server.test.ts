@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import jwt from "jsonwebtoken";
-import { clearedSessionCookie, optionalUser, requireUser, sessionCookie, signToken } from "./auth.ts";
+import { clearedSessionCookie, optionalUser, requireUser, sessionCookie, signToken, userFromToken } from "./auth.ts";
 import { resolveDestination, resolveDestinationAirportInput } from "./destination-resolver.ts";
 import { mergeFollowUpTripQuery } from "./follow-up.ts";
 import { normalizeTripQuery, parseNaturalTravelDates } from "./groq/extractor.ts";
@@ -204,6 +204,17 @@ test("accepts its own tokens from the session cookie and nothing else", () => {
   const inHeader = requireUser(withCookie(undefined, `Bearer ${token}`));
   assert.ok(inHeader instanceof Response);
   assert.equal(inHeader.status, 401);
+});
+
+test("a page reads the login from the cookie's value, and a bad one is a guest", () => {
+  const token = signToken({ id: BigInt(42), email: "a@example.com" });
+  assert.deepEqual(userFromToken(token), { userId: BigInt(42) });
+  for (const bad of [undefined, null, "", "nope", `${token}x`]) assert.equal(userFromToken(bad), null);
+
+  // Without a secret nobody can be logged in, but the page still renders for a guest.
+  delete process.env.JWT_SECRET;
+  assert.equal(userFromToken(token), null);
+  process.env.JWT_SECRET = "test-secret";
 });
 
 test("the session cookie is hidden from scripts and lasts as long as the token", () => {

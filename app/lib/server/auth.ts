@@ -3,7 +3,7 @@
 import jwt from "jsonwebtoken";
 
 const TOKEN_LIFETIME_SECONDS = 60 * 60;
-const SESSION_COOKIE = "session";
+export const SESSION_COOKIE = "session";
 
 function secret() {
   const value = process.env.JWT_SECRET;
@@ -57,16 +57,20 @@ const unauthorized = (message: string) => Response.json({ status: "error", messa
 export function requireUser(request: Request): { userId: bigint } | Response {
   const token = readToken(request);
   if (!token) return unauthorized("Not signed in");
+  return verifyToken(token) ?? unauthorized("Invalid Token");
+}
 
+/** The user a token was signed for, or null when it is expired, forged or malformed. */
+function verifyToken(token: string): { userId: bigint } | null {
   try {
     const decoded = jwt.verify(token, secret());
     const id = typeof decoded === "object" ? (decoded.userId ?? decoded.id) : null;
-    if (typeof id !== "string" && typeof id !== "number") return unauthorized("Invalid Token");
+    if (typeof id !== "string" && typeof id !== "number") return null;
     return { userId: BigInt(id) };
   } catch (error) {
     // A missing secret is a server problem, not the visitor's.
     if (error instanceof Error && error.message === "JWT_SECRET is not defined") throw error;
-    return unauthorized("Invalid Token");
+    return null;
   }
 }
 
@@ -76,9 +80,17 @@ export function requireUser(request: Request): { userId: bigint } | Response {
  * so a stale login never stops a visitor from using the endpoint.
  */
 export function optionalUser(request: Request): { userId: bigint } | null {
+  return userFromToken(readToken(request));
+}
+
+/**
+ * Who is logged in, from the session cookie's value, for a page that reads it
+ * with `cookies()`. Null for a guest, as with `optionalUser`.
+ */
+export function userFromToken(token: string | null | undefined): { userId: bigint } | null {
+  if (!token) return null;
   try {
-    const user = requireUser(request);
-    return user instanceof Response ? null : user;
+    return verifyToken(token);
   } catch {
     // No JWT_SECRET: nobody can hold a valid token, so everyone is a guest.
     return null;
