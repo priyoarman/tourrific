@@ -1,4 +1,3 @@
-// Run with `npm test`.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -11,7 +10,6 @@ const mockPath = new URL("./server/data/mock-flights.json", import.meta.url);
 const offers = JSON.parse(readFileSync(mockPath, "utf8")).data.offers.map(toFlightOffer);
 const offer = offers[0];
 
-// What the backend sends back for a saved offer.
 const rowFor = (payload: ReturnType<typeof toSavePayload>, id = "7") => ({
   id,
   flightNumber: payload.flight_number,
@@ -31,7 +29,6 @@ test("builds the payload the save endpoint expects", () => {
   assert.equal(payload.destination.length, 3);
   assert.ok(payload.price > 0);
   assert.equal(payload.currency_code, "EUR");
-  // The airport's wall-clock time, marked as UTC so the server stores it unshifted.
   assert.equal(payload.departure_time, `${offer.outbound.departureTime}Z`);
 });
 
@@ -61,7 +58,6 @@ test("reads a message out of each backend error shape", () => {
 
 test("remembers who signed in, and never a token", () => {
   const user = { id: "42", name: "Ada", email: "a@example.com", currency: { code: "DKK" } };
-  // What a login from before the session cookie left behind.
   const items = new Map([["tourrific.session", JSON.stringify({ token: "old.jwt.token", user })]]);
   (globalThis as { window?: unknown }).window = {
     localStorage: {

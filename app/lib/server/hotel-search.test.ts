@@ -1,4 +1,3 @@
-// Run with `npm test`. Groq, Duffel and the geocoder are replaced by a stand-in `fetch`, so nothing here uses the network.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import type { StreamDone, StreamHotels } from "../types/stream-events";
@@ -35,7 +34,6 @@ const result = (id: string, total = "300.00") => ({
 });
 const stays = (...ids: string[]) => Response.json({ data: { results: ids.map((id) => result(id)) } });
 
-/** Replaces `fetch`. Unless told otherwise: Lisbon is found, Duffel has one hotel and no flights, and Groq reads `groq`. */
 function stubProviders({ stays: staysAnswer = () => stays("1"), flights, geocoder, groq = {} }: Providers = {}) {
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -56,7 +54,6 @@ function stubProviders({ stays: staysAnswer = () => stays("1"), flights, geocode
       });
     }
     if (answer !== "hang") return Promise.resolve(answer);
-    // Like the real thing, a request that is waiting ends when its signal is aborted.
     return new Promise((_resolve, reject) => {
       init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
     });
@@ -99,7 +96,6 @@ test("hotels are searched for the place, nights and travellers of the trip", asy
         check_in_date: "2099-01-05",
         check_out_date: "2099-01-08",
         guests: [{ type: "adult" }, { type: "adult" }, { type: "adult" }],
-        // Two to a room.
         rooms: 2,
       },
     },
@@ -150,14 +146,12 @@ test("what was asked of the hotel is sent to Duffel where it can be, and filtere
   assert.equal(staysBodies[0].data.rooms, 2);
   assert.equal(staysBodies[0].data.free_cancellation_only, true);
 
-  // Three nights each: 80, 140, 300, 100 and 100 a night.
   assert.deepEqual(found?.hotels.map((hotel) => hotel.id), ["acc_fits"]);
   assert.equal(found?.totalHotels, 1);
   assert.deepEqual(found?.filters, {
     labels: ["4+ stars", "Pool", "Parking", "Free cancellation", "Under €150 a night", "2 rooms"],
     unfilteredCount: 5,
   });
-  // The card shows it has what was asked for, and that it can be cancelled.
   assert.deepEqual(found?.hotels[0].amenities, ["Pool", "Parking", "Wi-Fi"]);
   assert.equal(found?.hotels[0].freeCancellation, true);
   assert.equal(found?.stay.rooms, 2);
@@ -176,7 +170,6 @@ test("a one-way trip is given a few nights, and says they are a guess", async ()
 test("nothing is searched when there is no stay to search", async () => {
   stubProviders();
 
-  // Back the same day, away for longer than Duffel searches, no date, and nowhere known.
   assert.equal(await searchHotels(trip({ return_date: "2099-01-05" }), "LIS"), null);
   assert.equal(await searchHotels(trip({ return_date: "2099-06-05" }), "LIS"), null);
   assert.equal(await searchHotels(trip({ departure_date: null }), "LIS"), null);
@@ -209,7 +202,6 @@ test("a hotel search that fails says so and has no hotels", async () => {
     return { hotels: found?.hotels, totalHotels: found?.totalHotels, failed: found?.failed };
   };
 
-  // What Duffel answers until Stays is switched on for the account.
   stubProviders({ stays: () => Response.json({ errors: [{ message: "This feature is not enabled for your account." }] }, { status: 403 }) });
   assert.deepEqual(await outcome(), failed);
 
@@ -234,16 +226,13 @@ test("with DUFFEL_USE_MOCK, a failed hotel search answers with sample hotels tha
   assert.equal(found?.totalHotels, 6);
   assert.equal(found?.stay.nights, 3);
   assert.ok(found?.hotels.every((hotel) => hotel.id.startsWith("LIS-hotel-") && hotel.currency === "USD" && hotel.photoUrl === null));
-  // The same place gets the same hotels every time.
   assert.deepEqual((await searchHotels(trip(), "LIS"))?.hotels, found?.hotels);
 
-  // Real hotels are never marked, and the sample ones are never kept in their place.
   stubProviders({ stays: () => stays("1") });
   const real = await searchHotels(trip(), "LIS");
   assert.equal(real?.sample, undefined);
   assert.deepEqual(real?.hotels.map((hotel) => hotel.id), ["acc_1"]);
 
-  // A visitor who left gets nothing made up for them.
   stubProviders({ stays: () => "hang" });
   clearStaysCache();
   const visitor = new AbortController();
@@ -251,7 +240,6 @@ test("with DUFFEL_USE_MOCK, a failed hotel search answers with sample hotels tha
   assert.equal((await searchHotels(trip(), "LIS", visitor.signal))?.failed, true);
 });
 
-/** Runs a chat search for a return trip to Lisbon and collects what it sends. */
 async function chatSearch(body: Record<string, unknown> = {}) {
   const events: [string, unknown][] = [];
   await runFlightSearch({ prompt: "Copenhagen to Lisbon", ...body }, new Headers(), (event, data) => events.push([event, data]));
@@ -282,7 +270,6 @@ test("a failed hotel search leaves the flights as they are", async () => {
 });
 
 test("a failed flight search sends no hotels", async () => {
-  // The hotels are still on their way when the flights fail, and are dropped.
   stubProviders({ groq: READS, flights: () => new Response("down", { status: 503 }), stays: () => "hang" });
   process.env.DUFFEL_TIMEOUT_MS = "5000";
 
@@ -347,15 +334,12 @@ test("a search without a stay has no hotel progress lines", async () => {
 const scopeOf = (events: [string, unknown][]) => (events.find(([event]) => event === "scope")?.[1] as { scope: string } | undefined)?.scope;
 
 test("a chat search says which side of the trip it changes, before it searches", async () => {
-  // A first search is for both.
   stubProviders({ groq: READS });
   const first = await chatSearch();
   assert.equal(scopeOf(first), "both");
-  // After the message is understood, and before the searching it announces.
   const order = first.map(([event, data]) => (event === "status" ? (data as { text: string }).text.trim() : event));
   assert.deepEqual(order.slice(0, 3), ["Understanding your request...", "scope", "Searching return flights from CPH to LIS..."]);
 
-  // What comes back in `complete` is the context of the follow-up.
   const { destination, extracted } = first.find(([event]) => event === "complete")?.[1] as { destination: string; extracted: TripQuery };
   const followUp = (groq: Record<string, unknown>) => {
     stubProviders({ groq: { ...READS, ...groq } });
@@ -368,7 +352,6 @@ test("a chat search says which side of the trip it changes, before it searches",
 });
 
 test("a stay length makes it a return trip, and the hotels follow it", async () => {
-  // "A seven-day plan", with no return date: out on the 5th, back on the 11th.
   stubProviders({ groq: { ...READS, return_date: null, trip_type: "one_way", stay_length: 7, stay_unit: "days" } });
 
   const events = await chatSearch();
@@ -379,19 +362,16 @@ test("a stay length makes it a return trip, and the hotels follow it", async () 
   const { stay } = events.find(([event]) => event === "hotels")?.[1] as StreamHotels;
   assert.deepEqual([stay.checkIn, stay.checkOut, stay.nights, stay.nightsAssumed], ["2099-01-05", "2099-01-11", 6, false]);
 
-  // A return date that was said wins over the length.
   stubProviders({ groq: { ...READS, stay_length: 7, stay_unit: "days" } });
   const said = (await chatSearch()).find(([event]) => event === "complete")?.[1] as { extracted: TripQuery };
   assert.equal(said.extracted.return_date, "2099-01-08");
 });
 
 test("the stay length is kept while the assistant asks when to travel", async () => {
-  // "A seven-day plan to Lisbon": no date yet, so the assistant asks.
   stubProviders({ groq: { ...READS, departure_date: null, return_date: null, stay_length: 7, stay_unit: "days" } });
   const asked = (await chatSearch()).at(-1)?.[1] as StreamDone;
   assert.equal(asked.asking, "departure_date");
 
-  // The answer is only a date; the model leaves the stay out, as it may.
   stubProviders({ groq: { ...READS, return_date: null } });
   const events = await chatSearch({ prompt: "5 January 2099", context: asked.context });
   const { extracted } = events.find(([event]) => event === "complete")?.[1] as { extracted: TripQuery };
@@ -402,13 +382,11 @@ test("the stay length is kept while the assistant asks when to travel", async ()
 });
 
 test("a follow-up can change how long the stay is, or drop the way back", async () => {
-  // "A seven-day plan": out on the 5th, back on the 11th.
   const SEVEN_DAYS = { ...READS, return_date: null, stay_length: 7, stay_unit: "days" };
   stubProviders({ groq: SEVEN_DAYS });
   const first = (await chatSearch()).find(([event]) => event === "complete")?.[1] as { destination: string; extracted: TripQuery };
   assert.equal(first.extracted.return_date, "2099-01-11");
 
-  // The model keeps what it was shown of the last search, the return date among it.
   const followUp = async (prompt: string, groq: Record<string, unknown>) => {
     stubProviders({ groq: { ...SEVEN_DAYS, return_date: "2099-01-11", ...groq } });
     const events = await chatSearch({ prompt, context: { destination: first.destination, tripQuery: first.extracted } });
@@ -417,26 +395,20 @@ test("a follow-up can change how long the stay is, or drop the way back", async 
     return { extracted, stay: hotels.stay };
   };
 
-  // A new length counts from the same day out.
   const longer = await followUp("make it 10 days", { stay_length: 10 });
   assert.deepEqual([longer.extracted.return_date, longer.stay.nights], ["2099-01-14", 9]);
-  // Also when the model kept the old length instead.
   const kept = await followUp("make it 10 days", {});
   assert.equal(kept.extracted.return_date, "2099-01-14");
 
-  // A new day out keeps the length.
   const later = await followUp("leave on the 7th instead", { departure_date: "2099-01-07" });
   assert.equal(later.extracted.return_date, "2099-01-13");
 
-  // A day back that is said wins, and the length goes with it.
   const back = await followUp("come back on the 20th", { return_date: "2099-01-20" });
   assert.deepEqual([back.extracted.return_date, back.extracted.stay_length], ["2099-01-20", null]);
 
-  // One way, however much of the last search the model kept.
   const oneWay = await followUp("make it one way", { trip_type: "one_way" });
   assert.deepEqual([oneWay.extracted.trip_type, oneWay.extracted.return_date, oneWay.extracted.stay_length], ["one_way", null, null]);
   assert.equal(oneWay.stay.nightsAssumed, true);
-  // Also when the message says how long the stay is.
   const both = await followUp("one way, 5 nights", {});
   assert.deepEqual([both.extracted.return_date, both.extracted.stay_length], [null, null]);
 });
@@ -446,7 +418,6 @@ test("a one-way trip gets its way back from the answer to when", async () => {
   const first = (await chatSearch()).find(([event]) => event === "complete")?.[1] as { destination: string; extracted: TripQuery };
   assert.equal(first.extracted.trip_type, "one_way");
 
-  // What the page sends once "Add a return flight" was picked and the assistant asked when.
   const context = { destination: first.destination, tripQuery: { ...first.extracted, trip_type: "return" }, awaiting: "return_date" };
   const events = await chatSearch({ prompt: "A week later", context });
   const { extracted } = events.find(([event]) => event === "complete")?.[1] as { extracted: TripQuery };

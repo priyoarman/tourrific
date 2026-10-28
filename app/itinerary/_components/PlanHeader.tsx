@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowLeftIcon } from "@/app/components/ui/Icons";
 import Logo from "@/app/components/ui/Logo";
 
-/** `initials` are shown in a circle when known. */
 type Props = { summary: string[]; initials: string | null };
 
 export default function PlanHeader({ summary, initials }: Props) {

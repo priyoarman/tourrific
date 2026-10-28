@@ -1,4 +1,3 @@
-// Run with `npm test`.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { DuffelStaysResult } from "../types/duffel-stays";
@@ -8,7 +7,6 @@ import { duffelStaysOptions, filterStays, roomCount } from "./hotel-filters.ts";
 
 const stay = (id: string, stars: number | null, total: string, amenities: string[] = [], currency = "EUR"): DuffelStaysResult => ({
   id: `srr_${id}`,
-  // Two nights.
   check_in_date: "2099-01-05",
   check_out_date: "2099-01-07",
   cheapest_rate_total_amount: total,
@@ -23,7 +21,6 @@ const stay = (id: string, stars: number | null, total: string, amenities: string
   },
 });
 
-// A night costs 60, 110, 150 and 400.
 const stays = [
   stay("hostel", 2, "120.00", ["wifi"]),
   stay("plain", 3, "220.00", ["wifi", "parking"]),
@@ -46,7 +43,6 @@ test("rooms follow the travellers unless the visitor says otherwise", () => {
   assert.equal(roomCount(query({ passengers: 5 })), 3);
   assert.equal(roomCount(query({ passengers: 4, hotel_rooms: 4 })), 4);
   assert.equal(roomCount(query({ passengers: 4, hotel_rooms: 1 })), 1);
-  // Nobody to sleep in the third room.
   assert.equal(roomCount(query({ passengers: 2, hotel_rooms: 3 })), 2);
 });
 
@@ -78,13 +74,10 @@ test("the price limit is for one night, in the currency it was given in", () => 
   assert.deepEqual(ids({ hotel_max_price: 150 }), ["hostel", "plain", "nice"]);
   assert.deepEqual(kept({ hotel_max_price: 150 }).labels, ["Under €150 a night"]);
 
-  // 1000 kr is about €134.
   const kroner = kept({ hotel_max_price: 1000, hotel_max_price_currency: "DKK" });
   assert.deepEqual(kroner.results.map((result) => result.accommodation.id), ["hostel", "plain"]);
-  // The amount is written with a non-breaking space after the currency.
   assert.match(kroner.labels[0], /^Under DKK\s1,000 a night \(about €134\)$/);
 
-  // A currency that can't be compared limits nothing, and says so.
   const baht = kept({ hotel_max_price: 3000, hotel_max_price_currency: "THB" });
   assert.equal(baht.results.length, 4);
   assert.match(baht.labels[0], /not applied: prices are in EUR/);
@@ -96,6 +89,5 @@ test("free cancellation and extra rooms are labelled, though Duffel applies them
   assert.equal(asked.results.length, 3);
   assert.equal(asked.unfilteredCount, 4);
 
-  // One room is nothing to mention.
   assert.deepEqual(kept({ passengers: 2, hotel_rooms: 1 }).labels, []);
 });

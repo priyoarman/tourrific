@@ -1,8 +1,5 @@
 import type { RoadTripStop } from "@/app/lib/types";
 
-// A stylised map: stops are projected from their real coordinates onto the
-// canvas, so it can be swapped for a tile map (Leaflet, Mapbox) later.
-
 const W = 400;
 const H = 250;
 const PAD = 40;
@@ -10,7 +7,6 @@ const PAD = 40;
 type Point = { x: number; y: number };
 
 function project(stops: RoadTripStop[]): Point[] {
-  // Shrink longitude by latitude so the shape isn't stretched sideways.
   const meanLat = stops.reduce((sum, s) => sum + s.lat, 0) / stops.length;
   const kx = Math.cos((meanLat * Math.PI) / 180);
   const xs = stops.map((s) => s.lng * kx);
@@ -25,7 +21,6 @@ function project(stops: RoadTripStop[]): Point[] {
   return xs.map((x, i) => ({ x: offsetX + (x - minX) * scale, y: offsetY + (ys[i] - minY) * scale }));
 }
 
-/** Catmull-Rom spline through the stops, so the road curves instead of zig-zagging. */
 function roadPath(points: Point[]) {
   let d = `M${points[0].x},${points[0].y}`;
   for (let i = 0; i < points.length - 1; i++) {
@@ -60,7 +55,6 @@ export default function RouteMap({ stops, activeId, onSelect }: Props) {
         </defs>
         <rect width={W} height={H} fill="url(#map-grid)" />
 
-        {/* Decorative terrain: water, parks and contour lines. */}
         <path d="M-10 190 C60 170 90 230 170 215 S300 250 410 205 V260 H-10Z" fill="#dbe9f8" />
         <ellipse cx="320" cy="60" rx="70" ry="42" fill="#dff0e0" />
         <ellipse cx="70" cy="70" rx="55" ry="34" fill="#e3f1df" />
@@ -70,7 +64,6 @@ export default function RouteMap({ stops, activeId, onSelect }: Props) {
           <ellipse cx="225" cy="110" rx="17" ry="8" />
         </g>
 
-        {/* The road: a soft casing, the lavender surface and a dashed centre line. */}
         <path d={path} fill="none" stroke="#ffffff" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
         <path d={path} fill="none" stroke="#a78bf3" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
         <path d={path} fill="none" stroke="#ffffff" strokeWidth="1.2" strokeDasharray="4 5" strokeLinecap="round" />

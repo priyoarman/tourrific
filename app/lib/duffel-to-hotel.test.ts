@@ -1,10 +1,8 @@
-// Run with `npm test`. Uses Node's built-in test runner, so there is nothing to install.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { HOTEL_GRADIENTS, toHotel } from "./duffel-to-hotel.ts";
 import type { DuffelStaysResult } from "./types/duffel-stays.ts";
 
-// Shaped like the example in Duffel's API reference, not a recorded answer.
 const result = (changes: Partial<DuffelStaysResult["accommodation"]> = {}): DuffelStaysResult => ({
   id: "srr_0000ASVBuJVLdmqtZDJ4ld",
   check_in_date: "2099-01-05",
@@ -33,7 +31,6 @@ const result = (changes: Partial<DuffelStaysResult["accommodation"]> = {}): Duff
   },
 });
 
-// Trafalgar Square, about 500 metres from the hotel.
 const centre = { latitude: 51.508, longitude: -0.1281 };
 
 test("converts a Duffel stays result into a hotel card", () => {
@@ -47,10 +44,8 @@ test("converts a Duffel stays result into a hotel card", () => {
     stars: 4,
     rating: 8.8,
     reviewCount: 336,
-    // £799 for three nights.
     nightlyPrice: 266.33,
     currency: "GBP",
-    // The ones people look for come first; the rest keep Duffel's wording.
     amenities: ["Wi-Fi", "Gym", "Parking"],
     photoUrl: "https://assets.duffel.com/img/stays/image.jpg",
     gradient: hotel.gradient,
@@ -62,7 +57,6 @@ test("converts a Duffel stays result into a hotel card", () => {
 
 test("what the visitor asked for is listed before the other amenities", () => {
   assert.deepEqual(toHotel(result(), centre, ["parking"]).amenities, ["Parking", "Wi-Fi", "Gym"]);
-  // Asking for something the hotel hasn't got changes nothing.
   assert.deepEqual(toHotel(result(), centre, ["pool"]).amenities, ["Wi-Fi", "Gym", "Parking"]);
 });
 
@@ -81,7 +75,6 @@ test("a hotel with little known about it still converts", () => {
   assert.deepEqual(hotel.amenities, []);
   assert.equal(hotel.freeCancellation, false);
 
-  // No street: the city is better than nothing. No centre: no distance.
   const inCity = toHotel(result({ location: { address: { city_name: "London" }, geographic_coordinates: centre } }));
   assert.equal(inCity.area, "London");
   assert.equal(inCity.distanceKm, null);
@@ -91,7 +84,6 @@ test("the price is per night, whatever the length of the stay", () => {
   const oneNight = { ...result(), check_out_date: "2099-01-06" };
   assert.equal(toHotel(oneNight).nightlyPrice, 799);
 
-  // Dates that make no stay are treated as one night rather than dividing by zero.
   assert.equal(toHotel({ ...result(), check_out_date: "2099-01-05" }).nightlyPrice, 799);
 });
 

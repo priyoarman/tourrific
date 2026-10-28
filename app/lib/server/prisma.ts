@@ -1,8 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 
-// One client for the whole server. In development Next.js reloads modules on
-// every change, so the client is kept on `globalThis` to avoid opening a new
-// set of database connections each time.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 const prisma =

@@ -1,4 +1,3 @@
-// Run with `npm test`. Checks how a picked trip becomes the itinerary's text.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { flight, hotel, stay, trip } from "../lib/server/trip-fixtures.ts";
@@ -76,7 +75,6 @@ test("says when a flight lands on a later day", () => {
 test("names the airport when its city isn't known", () => {
   const view = toItineraryView(trip(), { ...options, cityOf: () => null });
   assert.equal(view.flight.legs[0].route, "CPH → LIS");
-  // The stay names its own city.
   assert.equal(view.overview.title, "Lisbon trip");
 
   const nowhere = toItineraryView({ ...trip(), stay: { ...stay(), city: null } }, { ...options, cityOf: () => null });
@@ -106,7 +104,6 @@ test("adds up the budget", () => {
       { label: "Hotel", amount: 480, color: "bg-lavender" },
     ],
   });
-  // Prices in two currencies aren't converted, so there is no budget to show.
   assert.equal(toItineraryView({ ...trip(), hotel: { ...hotel(), currency: "USD" } }, options).budget, null);
 });
 

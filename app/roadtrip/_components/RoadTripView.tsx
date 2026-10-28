@@ -19,7 +19,6 @@ type RoadTripTab = "chat" | "route" | "hotels";
 
 type Props = {
   initialPrompt: string;
-  /** Today's date (YYYY-MM-DD), passed from the server so both renders agree. */
   today: string;
 };
 
@@ -42,7 +41,6 @@ export default function RoadTripView({ initialPrompt, today }: Props) {
   );
   const [isTyping, setIsTyping] = useState(Boolean(initialPrompt));
   const [hotelSort, setHotelSort] = useState<HotelSort>("recommended");
-  /** The hotel picked for each overnight stop, keyed by stop id. */
   const [stays, setStays] = useState<Record<string, Hotel>>({});
   const [tab, setTab] = useState<RoadTripTab>("chat");
   const replyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -60,7 +58,6 @@ export default function RoadTripView({ initialPrompt, today }: Props) {
       setActiveStopId(action.route.stops[0].id);
       setStays({});
       setHotelSort("recommended");
-      // Keep the URL shareable without re-running the server page.
       window.history.replaceState(null, "", `/roadtrip?q=${encodeURIComponent(text)}`);
     } else if (action?.type === "focus-stop") {
       setActiveStopId(action.stopId);
@@ -72,12 +69,10 @@ export default function RoadTripView({ initialPrompt, today }: Props) {
     setIsTyping(false);
   }
 
-  // Answer the prompt the visitor arrived with from the landing page.
   useEffect(() => {
     if (!initialPrompt) return;
     replyTimer.current = setTimeout(() => respond(initialPrompt, true), REPLY_DELAY_MS);
     return () => clearTimeout(replyTimer.current);
-    // Runs once per mount; `key` on this component resets it for a new prompt.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

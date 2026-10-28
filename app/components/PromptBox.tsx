@@ -18,7 +18,6 @@ export default function PromptBox() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        // An empty box plans the example trip shown as the placeholder.
         const q = prompt.trim() || EXAMPLE_PROMPT;
         router.push(plannerHref(q));
       }}

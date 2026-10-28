@@ -17,12 +17,10 @@ type Props = {
   user: AuthUser | null;
   flights: SavedFlight[];
   status: "loading" | "ready" | "error";
-  /** The flight being removed right now, if any. */
   removingId: string | null;
   onRemove: (flight: SavedFlight) => void;
   trips: SavedTrip[];
   tripsStatus: "loading" | "ready" | "error";
-  /** The trip being removed right now, if any. */
   removingTripId: string | null;
   onRemoveTrip: (trip: SavedTrip) => void;
   onLogOut: () => void;
@@ -49,7 +47,6 @@ function SavedTripItem({
   trip: SavedTrip;
   removing: boolean;
   onRemove: () => void;
-  /** Called as the itinerary link is followed. */
   onOpen: () => void;
 }) {
   const place = trip.city ?? trip.destination;
@@ -69,7 +66,6 @@ function SavedTripItem({
             {trip.origin} → {trip.destination} · {formatDateRange(trip.checkIn, trip.checkOut)}
           </p>
         </div>
-        {/* No total when the flight and hotel can't be added up; the itinerary shows each price. */}
         {trip.totalPrice !== null && (
           <p className="text-lg font-bold text-ink">{formatPrice(trip.totalPrice, trip.currency)}</p>
         )}
@@ -97,7 +93,6 @@ function SavedTripItem({
   );
 }
 
-/** What a section shows when it has nothing to list: still loading, failed, or empty. */
 function EmptyNote({ children }: { children: ReactNode }) {
   return (
     <p role="status" className="px-4 pt-14 text-center text-[0.9375rem] text-ink-muted">
@@ -151,10 +146,6 @@ function SavedFlightItem({
   );
 }
 
-/**
- * The "Saved trips" panel: slides in from the right, with the user's saved
- * trips, flights and hotels in sections switched from the top.
- */
 export default function SavedTripsDrawer({
   open,
   onClose,
@@ -169,7 +160,6 @@ export default function SavedTripsDrawer({
   onRemoveTrip,
   onLogOut,
 }: Props) {
-  // Kept while the drawer is closed, so it opens where it was left.
   const [section, setSection] = useState<Section>("trips");
   const counts: Record<Section, number | null> = {
     trips: tripsStatus === "ready" ? trips.length : null,
@@ -177,7 +167,6 @@ export default function SavedTripsDrawer({
     hotels: null,
   };
 
-  /** Arrow keys, Home and End move between the tabs, as a tab list should. */
   function moveFocus(event: KeyboardEvent<HTMLDivElement>) {
     const index = SECTIONS.findIndex((s) => s.value === section);
     const next =

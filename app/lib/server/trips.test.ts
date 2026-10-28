@@ -1,4 +1,3 @@
-// Run with `npm test`. Covers turning a picked trip into a row and back; no database needed.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Prisma, type Trip } from "@prisma/client";
@@ -26,7 +25,6 @@ test("turns a round trip into a row", () => {
   assert.equal(row.city, "Lisbon");
   assert.equal(row.checkIn.toISOString(), "2026-11-12T00:00:00.000Z");
   assert.equal(row.checkOut.toISOString(), "2026-11-16T00:00:00.000Z");
-  // 412.50 for the flights and 4 nights at 120.
   assert.equal(row.totalPrice, 892.5);
   assert.equal(row.currency, "EUR");
   assert.equal(row.sample, false);
@@ -49,7 +47,6 @@ test("keeps the sample flag", () => {
   assert.equal(toTripRow({ ...trip(), sample: true }).sample, true);
 });
 
-/** What Prisma hands back for the trip in trip-fixtures.ts once it is saved. */
 const storedRow = (changes: Partial<Trip> = {}): Trip => ({
   id: ID,
   userId: BigInt(42),

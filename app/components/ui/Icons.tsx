@@ -4,7 +4,6 @@ type IconProps = SVGProps<SVGSVGElement> & { size?: number };
 
 function Icon({ size = 20, children, ...props }: IconProps) {
   return (
-    // Sized in rem so icons scale with the root font size like the text around them.
     <svg
       width={`${size / 16}rem`}
       height={`${size / 16}rem`}

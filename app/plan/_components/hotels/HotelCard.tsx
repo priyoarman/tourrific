@@ -9,7 +9,6 @@ import StarRating from "./StarRating";
 type Props = {
   hotel: Hotel;
   nights: number;
-  /** True for a one-way trip, where `nights` is a guess rather than the length of the stay. */
   oneWay: boolean;
   selected: boolean;
   onSelect: () => void;
@@ -21,7 +20,6 @@ export default function HotelCard({ hotel, nights, oneWay, selected, onSelect }:
   const nightly = formatPrice(hotel.nightlyPrice, hotel.currency);
   const stayTotal = formatPrice(hotel.nightlyPrice * nights, hotel.currency);
   const priceLabel = oneWay ? `${nightly} per night` : `${stayTotal} for ${formatNights(nights)}`;
-  /** The photo that failed to load, if one did; the gradient behind it shows instead. */
   const [brokenPhoto, setBrokenPhoto] = useState<string | null>(null);
   const photo = hotel.photoUrl && hotel.photoUrl !== brokenPhoto ? hotel.photoUrl : null;
 
@@ -31,10 +29,8 @@ export default function HotelCard({ hotel, nights, oneWay, selected, onSelect }:
         selected ? "border-lavender ring-2 ring-lavender/40" : "border-lavender-soft/70"
       }`}
     >
-      {/* The gradient is what a hotel without a photo gets, and what shows while one loads. */}
       <div className={`relative h-40 bg-linear-to-br ${hotel.gradient}`}>
         {photo && (
-          // Hotel photos come from whichever host Duffel's suppliers use, which next/image would need listed.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={photo}
@@ -72,7 +68,6 @@ export default function HotelCard({ hotel, nights, oneWay, selected, onSelect }:
               </p>
             )}
           </div>
-          {/* A return trip leads with what the whole stay costs; a one-way trip's nights are a guess. */}
           <p className="shrink-0 text-right">
             <span className="block text-2xl font-bold text-ink">{oneWay ? nightly : stayTotal}</span>
             <span className="text-xs text-ink-muted">{oneWay ? "per night" : `for ${formatNights(nights)}`}</span>

@@ -16,7 +16,6 @@ function LegSkeleton() {
   );
 }
 
-/** Placeholder with the outline of a flight card, shown while a search is running. */
 export default function FlightCardSkeleton() {
   return (
     <li

@@ -1,4 +1,3 @@
-// Run with `npm test`. Duffel is replaced by a stand-in `fetch`, so nothing here uses the network.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { DuffelTimeout } from "./duffel.ts";
@@ -7,13 +6,11 @@ import { clearStaysCache, searchStays, searchStaysCached, staysCacheKey, type Du
 const realFetch = globalThis.fetch;
 let calls: { url: string; init?: RequestInit }[] = [];
 
-/** Replaces `fetch`. `answer` returns Duffel's response, or "hang" to never answer. */
 function stubDuffel(answer: () => Response | "hang") {
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     calls.push({ url: String(input), init });
     const response = answer();
     if (response !== "hang") return Promise.resolve(response);
-    // Like the real thing, a request that is waiting ends when its signal is aborted.
     return new Promise((_resolve, reject) => {
       init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
     });
@@ -82,7 +79,6 @@ test("Duffel is given up on when it takes too long, and dropped when the visitor
 test("two searches are the same when they are for the same place, dates and guests", () => {
   const key = staysCacheKey(search());
 
-  // A few metres away is still the same city centre.
   assert.equal(staysCacheKey(near(38.72234, -9.13926)), key);
   assert.equal(staysCacheKey(search({ free_cancellation_only: false })), key);
 
@@ -106,7 +102,6 @@ test("the same stays search asks Duffel once", async () => {
   assert.equal(calls.length, 1);
   assert.deepEqual(again, first);
 
-  // Each caller gets its own copy.
   first.data?.results?.pop();
   assert.equal((await searchStaysCached(search())).data?.results?.length, 2);
 

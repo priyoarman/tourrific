@@ -1,4 +1,3 @@
-// What each endpoint accepts. Ported from api/src/schemas/.
 import { z } from "zod";
 import { addDays } from "../destinations.ts";
 import { MAX_PROMPT_LENGTH } from "../limits.ts";
@@ -21,13 +20,11 @@ export const saveFlightSchema = z.object({
   origin: z.string().length(3),
   destination: z.string().length(3),
   price: z.coerce.number().positive(),
-  // An ISO date-time, with or without a time zone.
   departure_time: z
     .string()
     .refine((value) => !Number.isNaN(new Date(value).getTime()), "Invalid datetime format")
     .transform((value) => new Date(value)),
   currency_id: z.number().int().optional().nullable(),
-  // ISO 4217 code, e.g. "EUR". Used when no currency_id is sent.
   currency_code: z.string().length(3).toUpperCase().optional().nullable(),
   airline_code: z.string().max(3).optional().nullable(),
   airline_name: z.string().optional().nullable(),
@@ -53,10 +50,6 @@ export const searchFlightsSchema = z.object({
 const shortText = z.string().max(60);
 const tagList = z.array(z.string().max(40)).max(10);
 
-/**
- * The previous search, as the browser sends it back with a follow-up. It ends
- * up in the Groq prompt, so every field is bounded and unknown fields are dropped.
- */
 const tripQuerySchema = z.object({
   trip_type: z.enum(["one_way", "return"]).nullish(),
   origin_airport: shortText.nullish(),
@@ -90,7 +83,6 @@ const tripQuerySchema = z.object({
   explanation: z.string().max(500).nullish(),
 });
 
-/** The body of POST /api/flights/search-stream (SearchStreamRequest). */
 export const searchStreamSchema = z.object({
   prompt: z.string().trim().min(1, "Missing prompt.").max(MAX_PROMPT_LENGTH),
   page: z.number().int().min(1).max(1000).optional(),
@@ -104,15 +96,10 @@ export const searchStreamSchema = z.object({
     .nullish(),
 });
 
-// A picked trip comes back from the browser to be stored and shown again, so
-// the snapshots are checked field by field: bounded, with unknown fields dropped.
-
 const airportCode = z.string().regex(/^[A-Z]{3}$/);
 const currencyCode = z.string().regex(/^[A-Z]{3}$/);
-// Local time with no UTC offset, e.g. "2026-11-12T08:30:00".
 const localDateTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/);
 const price = z.number().nonnegative().max(10_000_000);
-// Shown as an image, so only an https address.
 const imageUrl = z.url({ protocol: /^https$/ }).max(500).nullable();
 const minutes = z.number().int().nonnegative().max(14 * 24 * 60);
 
@@ -156,7 +143,6 @@ const hotelSchema = z.object({
   currency: currencyCode,
   amenities: z.array(z.string().max(60)).max(30),
   photoUrl: imageUrl,
-  // Tailwind classes, e.g. "from-sky-200 to-indigo-300".
   gradient: z.string().regex(/^[a-z0-9 :/\[\]#.-]{0,200}$/),
   freeCancellation: z.boolean(),
 }) satisfies z.ZodType<Hotel>;
@@ -172,11 +158,6 @@ const staySchema = z.object({
   rooms: z.number().int().min(1).max(9),
 }) satisfies z.ZodType<StreamHotels["stay"]>;
 
-/**
- * The body of POST /api/trips: a flight and a hotel picked from the same search
- * (PickedTrip), with the stay they were priced for. The stay has to fit the
- * flight: in on the day it lands, out the day the return flies.
- */
 export const pickedTripSchema = z
   .object({
     flight: flightOfferSchema,

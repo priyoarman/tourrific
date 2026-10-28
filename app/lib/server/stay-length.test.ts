@@ -1,9 +1,7 @@
-// Run with `npm test`.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { returnDateFor } from "./stay-length.ts";
 
-// Friday 6 November 2026.
 const FRIDAY = "2026-11-06";
 
 test("a stay in nights flies back that many days later", () => {
@@ -12,11 +10,8 @@ test("a stay in nights flies back that many days later", () => {
 });
 
 test("a stay in days counts the day out and the day home", () => {
-  // A seven-day plan is six nights.
   assert.equal(returnDateFor(FRIDAY, 7, "days"), "2026-11-12");
-  // A weekend away, out on the Saturday and back on the Sunday.
   assert.equal(returnDateFor("2026-11-07", 2, "days"), "2026-11-08");
-  // A day trip comes back the same day.
   assert.equal(returnDateFor(FRIDAY, 1, "days"), FRIDAY);
 });
 

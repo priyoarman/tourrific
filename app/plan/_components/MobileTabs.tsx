@@ -13,7 +13,6 @@ type Props<T extends string> = {
   onChange: (tab: T) => void;
 };
 
-/** Below the lg breakpoint only one column fits, so these tabs switch between them. */
 export default function MobileTabs<T extends string>({ tabs, active, onChange }: Props<T>) {
   return (
     <div role="tablist" aria-label="Planner sections" className="flex gap-1 border-b border-lavender-soft/70 bg-white/70 p-2 backdrop-blur lg:hidden">

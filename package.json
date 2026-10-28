@@ -27,7 +27,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/geoip-lite": "^1.4.4",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
@@ -37,7 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.7",
     "prisma": "^6.19.3",
-    "tailwindcss": "^4",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5"
   },
   "engines": {

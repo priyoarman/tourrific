@@ -1,11 +1,7 @@
-// Small helpers shared by the API route handlers.
-
-/** Turns BigInt ids into strings (and Decimals into their string form) so the value can be sent as JSON. */
 export function serialize<T>(data: T): unknown {
   return JSON.parse(JSON.stringify(data, (_key, value) => (typeof value === "bigint" ? value.toString() : value)));
 }
 
-/** The request's JSON body, or null when it is missing or not valid JSON. */
 export async function readJson(request: Request): Promise<unknown> {
   try {
     return await request.json();
@@ -14,10 +10,6 @@ export async function readJson(request: Request): Promise<unknown> {
   }
 }
 
-/**
- * The request's JSON body, read only up to `maxBytes`. A bigger body is not
- * read to the end; it answers `tooLarge` instead.
- */
 export async function readJsonWithin(
   request: Request,
   maxBytes: number,
@@ -27,7 +19,6 @@ export async function readJsonWithin(
   const reader = request.body?.getReader();
   if (!reader) return { tooLarge: false, body: null };
 
-  // Content-Length can be missing or wrong, so the bytes are counted as they arrive.
   const decoder = new TextDecoder();
   let text = "";
   let size = 0;
@@ -48,12 +39,10 @@ export async function readJsonWithin(
   }
 }
 
-/** A database id from the URL, or null when it isn't a whole number. */
 export function parseId(value: string) {
   return /^\d{1,18}$/.test(value) ? BigInt(value) : null;
 }
 
-/** A 429 answer: `body` as JSON, with the wait also sent as the Retry-After header. */
 export function tooManyRequests(body: Record<string, unknown>, retryAfterSeconds: number) {
   return Response.json(
     { success: false, ...body, retryAfterSeconds },
@@ -63,15 +52,6 @@ export function tooManyRequests(body: Record<string, unknown>, retryAfterSeconds
 
 const READ_ONLY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-/**
- * True when a browser sent this request from a page on another site. The
- * session cookie travels with every request to us, so without this check
- * another site could act as a visitor who is signed in here.
- *
- * Browsers name the page's site in `Origin` on every request that can change
- * something. A request without one comes from a tool such as curl, which holds
- * no visitor's cookie.
- */
 export function isCrossSite(request: Request) {
   if (READ_ONLY_METHODS.has(request.method)) return false;
 
@@ -82,25 +62,17 @@ export function isCrossSite(request: Request) {
   try {
     host = new URL(origin).host;
   } catch {
-    // "null", which browsers send from sandboxed pages, or something unreadable.
     return true;
   }
-  // Behind a proxy our public name can arrive in either header.
   return host !== request.headers.get("host") && host !== request.headers.get("x-forwarded-host");
 }
 
-/** The 403 answer to a request that `isCrossSite`. */
 export function crossSiteRefused() {
   return Response.json({ success: false, message: "Cross-site requests are not allowed." }, { status: 403 });
 }
 
 type Handler<Args extends unknown[]> = (...args: Args) => Promise<Response>;
 
-/**
- * Wraps a route handler so an unexpected error becomes a JSON 500 answer, as
- * the Express error handler did. Details are only included outside production.
- * A request from another site is refused before the handler runs.
- */
 export function handle<Args extends unknown[]>(handler: Handler<Args>): Handler<Args> {
   return async (...args) => {
     const [request] = args;

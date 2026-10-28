@@ -1,7 +1,6 @@
 import { useAccount } from "@/app/components/account/AccountProvider";
 import type { ChatMessage as Message } from "@/app/lib/types";
 
-/** Renders **bold** segments and line breaks from the assistant's text. */
 function RichText({ text }: { text: string }) {
   return text.split("\n").map((line, i) => (
     <p key={i}>
@@ -18,7 +17,6 @@ function RichText({ text }: { text: string }) {
   ));
 }
 
-/** Sign In and Sign Up buttons, for a visitor who has to sign in to go on. Gone once they have. */
 function AuthButtons() {
   const { user, openAuth } = useAccount();
   if (user) return null;

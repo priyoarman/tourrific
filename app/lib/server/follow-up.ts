@@ -1,6 +1,3 @@
-// Understands a message that revises the previous search ("a little later",
-// "somewhere else", "further south") and merges it into that search.
-// Ported from api/src/controllers/flightSearchStream.js.
 import type { TripQuery } from "../types/trip-query";
 import { parseNaturalTravelDates } from "./groq/extractor.ts";
 
@@ -17,7 +14,6 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-/** Reads "2026-11-12" as local midnight of that day, not UTC. */
 export function parseDateOnly(value: string) {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return new Date(value);
@@ -55,12 +51,6 @@ const STAY_LENGTH =
   /\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:more\s+)?(day|night|week)s?\b/i;
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 
-/**
- * The return date in an answer to "When would you like to come back?", worked
- * out from the departure date without asking the model: a length of stay
- * ("a week later", "3 nights") or a day counted from departure ("Sunday" is
- * the first Sunday after leaving). Null for anything else, such as "20 October".
- */
 export function returnDateFromAnswer(answer: string, departureDate: string) {
   const stay = answer.match(STAY_LENGTH);
   if (stay) {
@@ -73,7 +63,6 @@ export function returnDateFromAnswer(answer: string, departureDate: string) {
   return parseNaturalTravelDates(answer, parseDateOnly(departureDate)).departure_date;
 }
 
-/** True when the message asks for a different place than last time. */
 export function mentionsDestinationEdit(prompt: string) {
   return DESTINATION_EDIT.test(prompt);
 }
@@ -97,11 +86,6 @@ function shiftDates(query: TripQuery, days: number) {
   if (query.return_date) query.return_date = addDaysToDateString(query.return_date, days);
 }
 
-/**
- * Combines the newly extracted search with the previous one when the message
- * is a follow-up. Fields the new message didn't mention keep their old values.
- * Any other message returns `extracted` untouched.
- */
 export function mergeFollowUpTripQuery(extracted: TripQuery, previous: TripQuery | null, userPrompt: string): TripQuery {
   const isFollowUp = previous && (mentionsDestinationEdit(userPrompt) || DATE_EDIT.test(userPrompt));
   if (!isFollowUp) return extracted;
@@ -111,7 +95,6 @@ export function mergeFollowUpTripQuery(extracted: TripQuery, previous: TripQuery
     if (hasUsefulValue(value)) (merged as Record<string, unknown>)[key] = value;
   }
 
-  // "Further south" searches the southern part of wherever the last search was.
   const direction = directionFromPrompt(userPrompt);
   if (direction) {
     merged.destination_airport = null;
@@ -120,7 +103,6 @@ export function mergeFollowUpTripQuery(extracted: TripQuery, previous: TripQuery
 
   if (SOMEWHERE_ELSE.test(userPrompt)) merged.destination_airport = null;
 
-  // "A little later" moves the trip by 3 days, plain "later" by a week.
   if (/\ba little later\b/i.test(userPrompt)) {
     shiftDates(merged, 3);
   } else if (/\blater\b/i.test(userPrompt) && !EXPLICIT_DATE.test(userPrompt)) {
@@ -131,7 +113,6 @@ export function mergeFollowUpTripQuery(extracted: TripQuery, previous: TripQuery
     shiftDates(merged, -7);
   }
 
-  // "Another date" without naming one: forget the dates, so the assistant asks for them.
   if (OTHER_DATE.test(userPrompt) && !extracted.departure_date && !/\b(later|earlier|sooner)\b/i.test(userPrompt)) {
     merged.departure_date = null;
     merged.return_date = null;

@@ -1,7 +1,3 @@
-// Run with `npm run test:extract`. Unlike the other tests this one calls Groq
-// for real, so it needs GROQ_API_KEY in .env.local and spends a little quota.
-// It is not part of `npm test`. Ported from the Express backend's
-// api/src/groq/testExtract.js.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { setTimeout as wait } from "node:timers/promises";
@@ -52,7 +48,6 @@ const STAYS: [string, number | null, string | null][] = [
 
 test("Groq copies how long the stay is, as it was said", { skip: !process.env.GROQ_API_KEY && "GROQ_API_KEY is not set", timeout: 180_000 }, async () => {
   for (const [prompt, length, unit] of STAYS) {
-    // Each call is about 3,600 tokens and the free tier allows 8,000 a minute.
     await wait(30_000);
     const result = await extractTripQuery(prompt);
     assert.equal(result.ok, true, result.errors.join(", "));
@@ -67,7 +62,6 @@ const TRIP_TYPES: [string, string][] = [
 
 test("Groq tells a one-way trip from a return trip", { skip: !process.env.GROQ_API_KEY && "GROQ_API_KEY is not set", timeout: 120_000 }, async () => {
   for (const [prompt, tripType] of TRIP_TYPES) {
-    // Each call is about 3,600 tokens and the free tier allows 8,000 a minute.
     await wait(30_000);
     const result = await extractTripQuery(prompt);
     assert.equal(result.ok, true, result.errors.join(", "));

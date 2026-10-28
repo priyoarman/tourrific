@@ -3,7 +3,6 @@ import type { Scene } from "../itinerary-view";
 
 type Props = { scene: Scene; className?: string };
 
-/** Flat illustrations standing in for trip photos until real imagery is wired up. */
 export default function SceneArt({ scene, className = "" }: Props) {
   const id = useId();
   const sky = `${id}-sky`;

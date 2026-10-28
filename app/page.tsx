@@ -17,10 +17,6 @@ export default function Home() {
   return (
     <div className="overflow-x-clip">
       <div className="relative isolate">
-        {/*
-          The backdrop runs past the bottom of the hero and fades out on an eased
-          curve, so it melts into the page gradient without a visible edge.
-        */}
         <div
           aria-hidden
           className="absolute inset-x-0 top-0 -bottom-72 -z-10 mask-[linear-gradient(to_bottom,#000_0%,#000_40%,rgb(0_0_0/0.93)_50%,rgb(0_0_0/0.78)_60%,rgb(0_0_0/0.56)_70%,rgb(0_0_0/0.33)_80%,rgb(0_0_0/0.14)_89%,rgb(0_0_0/0.03)_96%,transparent_100%)]"

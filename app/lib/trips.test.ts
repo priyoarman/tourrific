@@ -1,4 +1,3 @@
-// Run with `npm test`. Checks what the trip functions ask of the API, with fetch stubbed out.
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { ApiError } from "./api.ts";
@@ -6,10 +5,8 @@ import { trip } from "./server/trip-fixtures.ts";
 import type { TripSummary, tripForViewer } from "./server/trips.ts";
 import { createTrip, deleteTrip, getTrip, listTrips, saveTrip, type SavedTrip, type ViewedTrip } from "./trips.ts";
 
-// The server's answers, as they look once sent as JSON: dates become strings.
 type AsJson<T> = { [K in keyof T]: T[K] extends Date ? string : T[K] extends Date | null ? string | null : T[K] };
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-// Fails to compile when the client types drift from what the routes send.
 const viewedMatches: Same<ViewedTrip, AsJson<ReturnType<typeof tripForViewer>>> = true;
 const savedMatches: Same<SavedTrip, AsJson<TripSummary>> = true;
 void viewedMatches;
@@ -18,7 +15,6 @@ void savedMatches;
 type Call = { url: string; method: string; body: unknown };
 const realFetch = globalThis.fetch;
 
-/** Answers every request with `status` and `body`, and records what was asked. */
 function stubFetch(status: number, body: unknown) {
   const calls: Call[] = [];
   globalThis.fetch = async (input, init) => {

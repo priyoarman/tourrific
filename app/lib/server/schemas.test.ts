@@ -1,11 +1,9 @@
-// Run with `npm test`. Checks what POST /api/trips accepts as a picked trip.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { getHotels } from "../mock-results.ts";
 import { pickedTripSchema } from "./schemas.ts";
 import { flight, hotel, stay, trip } from "./trip-fixtures.ts";
 
-/** The paths of the fields the schema rejects, e.g. ["stay.checkOut"]. */
 function rejected(body: unknown) {
   const result = pickedTripSchema.safeParse(body);
   assert.equal(result.success, false, "expected the trip to be rejected");

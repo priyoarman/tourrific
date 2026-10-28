@@ -4,14 +4,11 @@ type Props = {
   title: string;
   icon: ReactNode;
   subtitle: string;
-  /** Short note on the right of the title, e.g. "7 results". */
   meta: string;
-  /** Small label right after the title, e.g. "Sample". */
   badge?: ReactNode;
   toolbar?: ReactNode;
 };
 
-/** Title row shared by the results columns on the planner pages. */
 export default function ColumnHeader({ title, icon, subtitle, meta, badge, toolbar }: Props) {
   return (
     <header className="space-y-3 px-5 pt-5 pb-4">

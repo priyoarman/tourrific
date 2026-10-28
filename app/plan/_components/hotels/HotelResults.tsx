@@ -11,10 +11,6 @@ import HotelCardSkeleton from "./HotelCardSkeleton";
 
 export type HotelSort = "recommended" | "price" | "rating";
 
-/**
- * Where the hotel search stands: nothing asked yet, running, finished, failed,
- * or "no-stay" when the trip that was searched has no night to spend anywhere.
- */
 export type HotelSearchStatus = "idle" | "searching" | "ready" | "error" | "no-stay";
 
 const sortOptions: { value: HotelSort; label: string }[] = [
@@ -26,48 +22,31 @@ const sortOptions: { value: HotelSort; label: string }[] = [
 function sortHotels(hotels: Hotel[], sort: HotelSort) {
   if (sort === "recommended") return hotels;
   return [...hotels].sort((a, b) =>
-    // A hotel nobody reviewed goes last.
     sort === "price" ? a.nightlyPrice - b.nightlyPrice : (b.rating ?? 0) - (a.rating ?? 0),
   );
 }
 
-/**
- * "Lisbon · Thu 12 Nov – Sun 15 Nov · 3 nights". Dates are YYYY-MM-DD.
- * `filters` are added at the end, e.g. "· 4+ stars · Pool".
- */
 export function staySummary(city: string, checkIn: string, checkOut: string, nights: number, filters: string[] = []) {
   return [city, `${formatDate(checkIn)} – ${formatDate(checkOut)}`, formatNights(nights), ...filters].join(" · ");
 }
 
-/**
- * "Lisbon · From Thu 12 Nov · Per night", for a one-way trip, whose stay has no
- * known end. `checkIn` is YYYY-MM-DD; `filters` are added at the end as in `staySummary`.
- */
 export function oneWayStaySummary(city: string, checkIn: string, filters: string[] = []) {
   return [city, `From ${formatDate(checkIn)}`, "Per night", ...filters].join(" · ");
 }
 
 type Props = {
-  /** One line describing the stay, e.g. from `staySummary`. */
   subtitle: string;
   hotels: Hotel[];
-  /** How many nights the prices are added up for. */
   nights: number;
-  /** True for a one-way trip, where `nights` is a guess rather than the length of the stay. */
   oneWay?: boolean;
-  /** Defaults to "ready": the hotels given are all there is to show. */
   status?: HotelSearchStatus;
-  /** How many hotels the search found, when that is more than the ones listed. */
   total?: number;
-  /** How many hotels the search found but the visitor's wishes removed. */
   filteredOut?: number;
   sort: HotelSort;
   onSortChange: (sort: HotelSort) => void;
   selectedId: string | null;
   onSelect: (hotel: Hotel) => void;
-  /** Rendered above the sort options, e.g. a stop picker on the road trip page. */
   toolbarExtra?: ReactNode;
-  /** Shows a "Sample" label by the title when the hotels are example data. */
   sample?: boolean;
 };
 
@@ -88,7 +67,6 @@ export default function HotelResults({
 }: Props) {
   const hasHotels = hotels.length > 0;
 
-  // The note beside the title. A count only makes sense once a search has finished.
   const meta = hasHotels
     ? total && total > hotels.length
       ? `${hotels.length} of ${total.toLocaleString("en-US")}`
@@ -99,7 +77,6 @@ export default function HotelResults({
         ? undefined
         : "";
 
-  // With nothing to list, say why. While searching, skeleton cards take the list's place instead.
   const emptyState =
     status === "error" ? (
       <ColumnMessage tone="error" icon={<AlertIcon size={26} />} title="Couldn't load hotels">

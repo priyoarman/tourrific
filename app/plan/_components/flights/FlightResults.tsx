@@ -8,10 +8,8 @@ import FlightCardSkeleton from "./FlightCardSkeleton";
 
 export type FlightSort = "best" | "cheapest" | "fastest";
 
-/** Where the search stands: nothing asked yet, running, finished, or failed. */
 export type FlightSearchStatus = "idle" | "searching" | "ready" | "error";
 
-/** How many cards are shown at first, and how many "Show more" adds. */
 export const FLIGHTS_PAGE_SIZE = 7;
 
 const sortOptions: { value: FlightSort; label: string }[] = [
@@ -22,7 +20,6 @@ const sortOptions: { value: FlightSort; label: string }[] = [
 
 const totalMinutes = (o: FlightOffer) => o.outbound.durationMinutes + (o.inbound?.durationMinutes ?? 0);
 
-// "Best" balances price against time: each hour of travel counts like 25 of the fare's currency.
 const score = (o: FlightOffer) => o.totalPrice + (totalMinutes(o) / 60) * 25;
 
 const sortKeys: Record<FlightSort, (o: FlightOffer) => number> = {
@@ -33,7 +30,6 @@ const sortKeys: Record<FlightSort, (o: FlightOffer) => number> = {
 
 function sortOffers(offers: FlightOffer[], sort: FlightSort) {
   const key = sortKeys[sort];
-  // Array.sort is stable, so ties keep Duffel's order.
   return [...offers].sort((a, b) => key(a) - key(b));
 }
 
@@ -45,24 +41,17 @@ function lowest(offers: FlightOffer[], key: (o: FlightOffer) => number) {
 }
 
 type Props = {
-  /** One line describing the search, e.g. "Copenhagen → London · Thu 12 Nov · 1 adult". */
   subtitle: string;
-  /** Every offer of the current search; this component sorts and pages them. */
   offers: FlightOffer[];
   status: FlightSearchStatus;
-  /** What went wrong, when `status` is "error". */
   errorMessage?: string | null;
-  /** How many flights the search found but the visitor's filters removed. */
   filteredOut?: number;
   visibleCount: number;
   onShowMore: () => void;
   sort: FlightSort;
   onSortChange: (sort: FlightSort) => void;
-  /** Whether an offer is selected: in a signed-in visitor's saved trips, or picked by a guest. */
   isSelected: (offer: FlightOffer) => boolean;
-  /** The Select button's text once an offer is selected. */
   selectedText: string;
-  /** The offer being saved or removed right now, if any. */
   savingId: string | null;
   onSelect: (offer: FlightOffer) => void;
 };
@@ -89,7 +78,6 @@ export default function FlightResults({
   const fastestId = lowest(offers, sortKeys.fastest)?.id;
   const total = offers.length.toLocaleString("en-US");
 
-  // The note beside the title. A count only makes sense once a search has finished.
   const meta = hasOffers
     ? remaining > 0
       ? `${shown.length} of ${total}`
@@ -100,7 +88,6 @@ export default function FlightResults({
         ? undefined
         : "";
 
-  // With nothing to list, say why. While searching, skeleton cards take the list's place instead.
   const emptyState =
     status === "error" ? (
       <ColumnMessage tone="error" icon={<AlertIcon size={26} />} title="Couldn't load flights">

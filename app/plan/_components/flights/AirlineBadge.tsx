@@ -3,7 +3,6 @@ import type { Airline } from "@/app/lib/types";
 export default function AirlineBadge({ airline }: { airline: Airline }) {
   if (airline.logoUrl) {
     return (
-      // Airline logos are small remote SVGs from Duffel, which next/image does not optimise.
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={airline.logoUrl}

@@ -1,5 +1,3 @@
-// Login tokens. Ported from api/src/middleware/auth.js and the token part of
-// api/src/controllers/auth.js.
 import jwt from "jsonwebtoken";
 
 const TOKEN_LIFETIME_SECONDS = 60 * 60;
@@ -15,27 +13,19 @@ export function signToken(user: { id: bigint; email: string }) {
   return jwt.sign({ userId: user.id.toString(), email: user.email }, secret(), { expiresIn: TOKEN_LIFETIME_SECONDS });
 }
 
-/**
- * The `Set-Cookie` value that keeps `token` in the browser for as long as it is
- * valid. HttpOnly keeps it out of reach of scripts on the page, and SameSite
- * stops other sites from sending it along with their requests.
- */
 export function sessionCookie(token: string) {
   return cookie(token, TOKEN_LIFETIME_SECONDS);
 }
 
-/** The `Set-Cookie` value that makes the browser forget its session cookie. */
 export function clearedSessionCookie() {
   return cookie("", 0);
 }
 
 function cookie(value: string, maxAgeSeconds: number) {
-  // Local development runs on plain http, where a Secure cookie would be dropped.
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return `${SESSION_COOKIE}=${value}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; SameSite=Lax${secure}`;
 }
 
-/** The token in the request's session cookie, or null. */
 function readToken(request: Request) {
   for (const pair of request.headers.get("cookie")?.split(";") ?? []) {
     const [name, value] = pair.trim().split("=");
@@ -46,21 +36,12 @@ function readToken(request: Request) {
 
 const unauthorized = (message: string) => Response.json({ status: "error", message }, { status: 401 });
 
-/**
- * Who is making the request, read from its session cookie. Returns a 401
- * response instead when the token is missing, expired or forged, so a route
- * starts with:
- *
- *   const user = requireUser(request);
- *   if (user instanceof Response) return user;
- */
 export function requireUser(request: Request): { userId: bigint } | Response {
   const token = readToken(request);
   if (!token) return unauthorized("Not signed in");
   return verifyToken(token) ?? unauthorized("Invalid Token");
 }
 
-/** The user a token was signed for, or null when it is expired, forged or malformed. */
 function verifyToken(token: string): { userId: bigint } | null {
   try {
     const decoded = jwt.verify(token, secret());
@@ -68,31 +49,20 @@ function verifyToken(token: string): { userId: bigint } | null {
     if (typeof id !== "string" && typeof id !== "number") return null;
     return { userId: BigInt(id) };
   } catch (error) {
-    // A missing secret is a server problem, not the visitor's.
     if (error instanceof Error && error.message === "JWT_SECRET is not defined") throw error;
     return null;
   }
 }
 
-/**
- * The same, for endpoints that guests may use too: null when nobody is logged
- * in. A token that is expired or forged also counts as a guest, not an error,
- * so a stale login never stops a visitor from using the endpoint.
- */
 export function optionalUser(request: Request): { userId: bigint } | null {
   return userFromToken(readToken(request));
 }
 
-/**
- * Who is logged in, from the session cookie's value, for a page that reads it
- * with `cookies()`. Null for a guest, as with `optionalUser`.
- */
 export function userFromToken(token: string | null | undefined): { userId: bigint } | null {
   if (!token) return null;
   try {
     return verifyToken(token);
   } catch {
-    // No JWT_SECRET: nobody can hold a valid token, so everyone is a guest.
     return null;
   }
 }

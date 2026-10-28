@@ -8,7 +8,6 @@ type Props = {
   onChange: (stopId: string) => void;
 };
 
-/** Switches which stop the hotels column is showing places to stay for. */
 export default function StopPicker({ stops, activeId, bookedIds, onChange }: Props) {
   return (
     <div role="group" aria-label="Choose a stop" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">

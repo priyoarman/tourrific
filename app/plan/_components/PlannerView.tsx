@@ -24,8 +24,6 @@ import HotelResults, {
 import MobileTabs from "./MobileTabs";
 import TripReadyDialog from "./TripReadyDialog";
 
-// The backend gives up on Groq after 10s and on Duffel after 20s, and says why.
-// This is the fallback for when not even that arrives.
 const SEARCH_TIMEOUT_MS = 40_000;
 
 const WELCOME_ID = "welcome";
@@ -39,27 +37,20 @@ const INVALID_MESSAGE = `I couldn't read that message. Please keep it under ${MA
 const GUEST_LIMIT_NOTE = "You've used your free searches for today. Sign in to keep going.";
 const OFFLINE_MESSAGE = "You're offline. Check your connection and try again.";
 
-// Each of these is something the backend understands as a search or a follow-up.
 const STARTER_SUGGESTIONS = [
   "Copenhagen to London next Friday",
   "Somewhere with beaches next weekend",
   "Paris tomorrow",
 ];
 const FOLLOW_UP_SUGGESTIONS = ["A little later", "Direct flights only", "With a checked bag", "Somewhere else"];
-// Answers to "When would you like to travel?", asked after picking a destination
-// card or when a message named a place but no date.
 const DATE_SUGGESTIONS = ["Tomorrow", "Next Friday", "Next weekend"];
-// Answers to "When would you like to come back?", counted from the departure date.
 const RETURN_SUGGESTIONS = ["3 days later", "A week later", "Two weeks later"];
-// Offered after a one-way search. Asked in the page rather than searched; see `send`.
 const ADD_RETURN = "Add a return flight";
 
 type PlannerTab = "chat" | "flights" | "hotels";
 
 type Props = {
-  /** The prompt the visitor arrived with from the landing page, if any. */
   initialPrompt: string;
-  /** The city of the destination card the visitor clicked, if they came that way. */
   initialDestination: string;
 };
 
@@ -82,19 +73,12 @@ function travellers(result: FlightSearchResult) {
   return count === 1 ? "1 adult" : `${count} adults`;
 }
 
-/** "13 of them", "none of them": how many of the found flights passed the filters. */
 function removedByFilters(result: FlightSearchResult) {
   return result.unfilteredCount - result.offers.length;
 }
 
-/** "1-week" for 1 week, "7-day" for 7 days: how the trip's length was said, as an adjective. */
 const STAY_WORDS = { days: "day", nights: "night", weeks: "week" } as const;
 
-/**
- * What kind of trip was searched, so the visitor sees what was understood:
- * "A **7-day trip** to **Athens**: out Fri 6 Nov, back Thu 12 Nov." or
- * "**One way** to **Lisbon** on Fri 6 Nov."
- */
 function tripLine(result: FlightSearchResult) {
   const { departure_date: depart, return_date: back, stay_length, stay_unit } = result.query;
   const to = `**${result.destination.city}**`;
@@ -105,7 +89,6 @@ function tripLine(result: FlightSearchResult) {
   return `A **${kind}** to ${to}: out ${formatDate(depart)}, back ${formatDate(back)}.`;
 }
 
-/** What the assistant says once the results are in. */
 function resultsMessage(result: FlightSearchResult) {
   const { offers, origin, destination } = result;
   const route = `from **${origin.city}** to **${destination.city}**`;
@@ -128,13 +111,11 @@ function resultsMessage(result: FlightSearchResult) {
   return `${tripLine(result)}\nI found ${count} ${route}.${matching}\nPrices start at **${formatPrice(cheapest.totalPrice, cheapest.currency)}**${party} with ${cheapest.airline.name}.`;
 }
 
-/** What the assistant says once the hotels are in. Null when there is nothing worth saying. */
 function hotelsMessage({ hotels, totalHotels, stay, sample, filters }: StreamHotels, fallbackCity: string) {
   const wishes = filters?.labels ?? [];
   const city = `**${stay.city ?? fallbackCity}**`;
 
   if (hotels.length === 0) {
-    // Without wishes, the hotels column says what there is to say.
     const found = filters?.unfilteredCount ?? 0;
     return found > 0 && wishes.length > 0
       ? `I found ${found.toLocaleString("en-US")} places to stay in ${city}, but none match what you asked for (${wishes.join(", ")}). Want me to relax one of those?`
@@ -149,7 +130,6 @@ function hotelsMessage({ hotels, totalHotels, stay, sample, filters }: StreamHot
   const nightly = formatPrice(cheapest.nightlyPrice, cheapest.currency);
   const matching = wishes.length > 0 ? `\nHotel filters: **${wishes.join(" · ")}**.` : "";
 
-  // A one-way trip doesn't say how long the stay is, so only the price of a night is worth quoting.
   if (stay.nightsAssumed) {
     return `I also found ${count} in ${city} from ${formatDate(stay.checkIn)}, from **${nightly}** a night.${matching}`;
   }
@@ -162,7 +142,6 @@ function hotelsMessage({ hotels, totalHotels, stay, sample, filters }: StreamHot
 export default function PlannerView({ initialPrompt, initialDestination }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (initialPrompt) return [{ id: "initial-user", role: "user", text: initialPrompt }];
-    // A destination card was clicked: ask for dates straight away, as the old app did.
     if (initialDestination) {
       const text = `Great choice — **${initialDestination}**! When would you like to travel?`;
       return [{ id: "greeting", role: "assistant", text }];
@@ -172,36 +151,25 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   const [isSearching, setIsSearching] = useState(Boolean(initialPrompt));
   const [statusLines, setStatusLines] = useState<string[]>([]);
   const [result, setResult] = useState<FlightSearchResult | null>(null);
-  /** Why the latest search failed, if it did. Cleared when the next one starts. */
   const [searchError, setSearchError] = useState<string | null>(null);
-  /** What the assistant is waiting to be told, if its last reply was a question. */
   const [asking, setAsking] = useState<SearchQuestion | null>(null);
   const [visibleFlights, setVisibleFlights] = useState(FLIGHTS_PAGE_SIZE);
   const [flightSort, setFlightSort] = useState<FlightSort>("best");
   const [hotelSort, setHotelSort] = useState<HotelSort>("recommended");
-  /** The flight most recently saved (or, for a guest, picked) from these results; the hotel messages refer to it. */
   const [selectedFlight, setSelectedFlight] = useState<FlightOffer | null>(null);
   const [savingFlightId, setSavingFlightId] = useState<string | null>(null);
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
-  /** Whether the trip summary is open. Only a pick that completes the flight and hotel pair opens it. */
   const [tripReady, setTripReady] = useState(false);
   const [tab, setTab] = useState<PlannerTab>("chat");
   const router = useRouter();
   const { user, isSaved, toggleSaved, openAuth } = useAccount();
   const userId = user?.id ?? null;
-  // Signed-in users get their earlier messages back, and this visit's messages stored.
   const earlierMessages = useChatHistory(userId, messages, [WELCOME_ID]);
 
-  // What the backend learned so far, sent back with every message so follow-ups
-  // like "a little later" build on the previous search.
-  // Starting it with the clicked destination means an answer like "next Friday"
-  // is searched as a trip there, while "Paris tomorrow" can still change it.
   const context = useRef<SearchContext>(initialDestination ? { destination: initialDestination } : {});
   const activeSearch = useRef<AbortController | null>(null);
-  /** A message turned away because the guest's searches ran out; sent again once they log in. */
   const blockedPrompt = useRef<string | null>(null);
 
-  // The hotels that go with `result`. They arrive after the flights, or not at all when the trip has no night to stay.
   const [hotelSearch, setHotelSearch] = useState<StreamHotels | null>(null);
   const stay = hotelSearch?.stay ?? null;
   const hotels = hotelSearch?.hotels ?? [];
@@ -214,7 +182,6 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     const next = toSearchResult(event);
     context.current = { destination: event.destination, tripQuery: event.extracted };
     setResult(next);
-    // The previous search's hotels go; this one's are on their way.
     setHotelSearch(null);
     setSelectedFlight(null);
     setSelectedHotel(null);
@@ -240,7 +207,6 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     let destinationCity = "";
     let sawDone = false;
     let reported = false;
-    // At most one problem is reported per search, however many ways it fails.
     const report = (text: string, action?: ChatMessage["action"]) => {
       if (reported) return;
       reported = true;
@@ -280,9 +246,7 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
             setAsking(needsInput ? (question ?? null) : null);
             if (next?.destination) context.current.destination = next.destination;
             if (next?.tripQuery) context.current.tripQuery = next.tripQuery;
-            // A question replaces whatever was being waited for; a failed search leaves it, so the answer can be retried.
             if (needsInput) context.current.awaiting = next?.awaiting ?? null;
-            // `needsInput` means the assistant asked a question; just wait for the answer.
             if (!gotResults && !needsInput) report(CONNECTION_MESSAGE);
           },
           error: ({ message }) => report(message),
@@ -292,16 +256,13 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
 
       if (!sawDone && !gotResults) report(CONNECTION_MESSAGE);
     } catch (error) {
-      // Aborted means a newer search replaced this one, the page was left, or it timed out.
       if (controller.signal.aborted) return;
       if (!(error instanceof SearchRejected)) {
         report(CONNECTION_MESSAGE);
       } else if (error.status === 429 && error.message) {
-        // A limit was reached; the backend's message says which, and what to do about it.
         const guestLimit = error.reason === "guest_limit";
         if (guestLimit) {
           blockedPrompt.current = prompt;
-          // Straight to the sign-in dialog; the buttons under the message reopen it if it is closed.
           openAuth("signin", GUEST_LIMIT_NOTE, true);
         }
         report(error.message, guestLimit ? "auth" : undefined);
@@ -318,36 +279,28 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     }
   }
 
-  // Search for the prompt the visitor arrived with. The zero-delay timer lets
-  // React's development double-mount cancel the first run before it calls the API.
   useEffect(() => {
     if (!initialPrompt) return;
     const start = setTimeout(() => runSearch(initialPrompt), 0);
     return () => clearTimeout(start);
-    // Runs once per mount; `key` on this component resets it for a new prompt.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => () => activeSearch.current?.abort(), []);
 
-  // Logging in gives more searches, so the message that was turned away is sent again.
   useEffect(() => {
     const prompt = blockedPrompt.current;
     if (!userId || !prompt) return;
     const start = setTimeout(() => runSearch(prompt), 0);
     return () => clearTimeout(start);
-    // Only a new login triggers it; `runSearch` is new on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   function send(text: string) {
-    // Road trips are planned on their own page, with a route map instead of flights.
     if (isRoadTripPrompt(text)) {
       router.push(plannerHref(text));
       return;
     }
-    // A one-way trip gets its way back as a return trip without a return date does:
-    // the assistant asks when, and the answer completes this search.
     if (text === ADD_RETURN && result?.query.departure_date && !result.query.return_date) {
       const tripQuery = { ...result.query, trip_type: "return" as const };
       delete tripQuery.explanation;
@@ -366,18 +319,15 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
   function tripMessage(flight: FlightOffer, hotel: Hotel, { nights, nightsAssumed }: StreamHotels["stay"]) {
     const stayCost = hotel.nightlyPrice * nights;
     const flightPrice = formatPrice(flight.totalPrice, flight.currency);
-    // A one-way trip's nights are a guess, so nothing is added up.
     if (nightsAssumed) {
       return `Your trip is taking shape: **${flight.airline.name}** (${flightPrice}) plus **${hotel.name}** at ${formatPrice(hotel.nightlyPrice, hotel.currency)} a night.`;
     }
-    // The two are only added up when they are priced in the same currency.
     const total = tripTotal(flight, hotel, { nights, nightsAssumed });
     return total !== null
       ? `Your trip is taking shape: **${flight.airline.name}** plus **${hotel.name}** comes to **${formatPrice(total, flight.currency)}** in total.`
       : `Your trip is taking shape: **${flight.airline.name}** (${flightPrice}) plus **${hotel.name}** (${formatPrice(stayCost, hotel.currency)} for ${formatNights(nights)}).`;
   }
 
-  // Select saves the flight to the account (or removes it again). Guests just pick it, as with hotels.
   async function selectFlight(offer: FlightOffer) {
     if (!user) {
       if (selectedFlight?.id === offer.id) {
@@ -432,7 +382,6 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
     );
   }
 
-  /** Stores the picked trip, then opens its itinerary. Throws when it can't be stored; the dialog says why. */
   async function showItinerary(trip: PickedTrip) {
     const id = await createTrip(trip, { sample: hotelSearch?.sample ?? false });
     router.push(`/itinerary/${id}`);
@@ -446,7 +395,6 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
         ? "ready"
         : "idle";
 
-  // While a search runs, the hotels are either the previous search's or still to come.
   const hotelStatus: HotelSearchStatus = isSearching
     ? "searching"
     : hotelSearch?.failed
@@ -459,11 +407,9 @@ export default function PlannerView({ initialPrompt, initialDestination }: Props
 
   function changeFlightSort(sort: FlightSort) {
     setFlightSort(sort);
-    // A new order starts again from its top results.
     setVisibleFlights(FLIGHTS_PAGE_SIZE);
   }
 
-  // The chips answer the question the assistant just asked; otherwise they suggest a next search.
   const suggestions =
     asking === "departure_date"
       ? DATE_SUGGESTIONS

@@ -1,6 +1,5 @@
 const bar = "rounded-full bg-lavender-soft/70";
 
-/** Placeholder with the outline of a hotel card, shown while a search is running. */
 export default function HotelCardSkeleton() {
   return (
     <li

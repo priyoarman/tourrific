@@ -86,31 +86,21 @@ model SavedOffer {
   @@map("saved_offers")
 }
 
-// A flight and a hotel picked together in the planner, shown at /itinerary/[id].
-// A guest's trip has no user until they sign in and save it. The id is random,
-// so the link itself is what gives access to the trip.
 model Trip {
   id          String    @id @default(uuid()) @db.Uuid
   userId      BigInt?   @map("user_id")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  // Null until the owner presses "Save trip".
   savedAt     DateTime? @map("saved_at") @db.Timestamptz(6)
-  // What was picked, exactly as the planner had it: a FlightOffer, a Hotel and
-  // the stay they were priced for.
   flight      Json
   hotel       Json
   stay        Json
-  // Copied out of the snapshots so trips can be listed without reading them.
   origin      String
   destination String
   city        String?
   checkIn     DateTime  @map("check_in") @db.Date
   checkOut    DateTime  @map("check_out") @db.Date
-  // Null when flight and hotel can't be added up (different currencies, or a
-  // one-way trip whose nights are a guess).
   totalPrice  Decimal?  @map("total_price") @db.Decimal(10, 2)
   currency    String    @db.VarChar(3)
-  // True when the results were sample data shown because a search failed.
   sample      Boolean   @default(false)
   user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

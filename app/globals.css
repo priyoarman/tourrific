@@ -19,8 +19,6 @@
   --font-sans: var(--font-inter);
   --animate-marquee: marquee 40s linear infinite;
 
-  /* The track holds two identical copies, so shifting by -50% lands exactly
-     where it started and the loop has no visible jump. */
   @keyframes marquee {
     from {
       transform: translateX(0);
@@ -31,10 +29,6 @@
   }
 }
 
-/* The design reads best one step smaller than the browser default on tablets
-   and desktops. Sizes are in rem, so scaling the root scales the whole UI the
-   way zooming out to 90% does. Phones keep the default: their layout is sized
-   on its own, and form fields under 16px make iOS zoom in on focus. */
 @media (width >= 40rem) {
   html {
     font-size: 90%;

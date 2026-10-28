@@ -1,11 +1,9 @@
-// Run with `npm test`. Uses Node's built-in test runner, so there is nothing to install.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseIsoDuration, toFlightOffer } from "./duffel-to-flight-offer.ts";
 import type { DuffelOffer } from "./types/duffel.ts";
 
-// A trimmed copy of a real Duffel response: Copenhagen ⇄ London, 12–19 Nov 2026.
 const mockPath = new URL("./server/data/mock-flights.json", import.meta.url);
 const offers: DuffelOffer[] = JSON.parse(readFileSync(mockPath, "utf8")).data.offers;
 
@@ -44,7 +42,6 @@ test("converts a direct return flight", () => {
     destination: "LHR",
     departureTime: "2026-11-12T08:30:00",
     arrivalTime: "2026-11-12T09:23:00",
-    // 08:30 Copenhagen → 09:23 London is 1h 53m, not 53m: London is an hour behind.
     durationMinutes: 113,
     stops: [],
   });
@@ -65,7 +62,6 @@ test("lists the stop and layover of a connecting flight", () => {
   assert.equal(flight.outbound.arrivalTime, second.arriving_at);
   assert.equal(flight.baggage, "Cabin bag only");
 
-  // Flying time plus the layover adds up to Duffel's total for the direction.
   const flying = parseIsoDuration(first.duration)! + parseIsoDuration(second.duration)!;
   assert.equal(flight.outbound.durationMinutes, flying + flight.outbound.stops[0].layoverMinutes);
 });
@@ -87,7 +83,6 @@ test("copes with what Duffel sometimes leaves out", () => {
     slices: [
       {
         ...slice,
-        // No total for the direction, no fare name, and no baggage or cabin details.
         duration: null,
         fare_brand_name: null,
         segments: [{ ...segment, passengers: [] }],
@@ -99,7 +94,6 @@ test("copes with what Duffel sometimes leaves out", () => {
   assert.equal(bare.fareBrand, null);
   assert.equal(bare.cabin, "Economy");
   assert.equal(bare.baggage, "No baggage included");
-  // Without Duffel's total, the flight's own duration is used.
   assert.equal(bare.outbound.durationMinutes, parseIsoDuration(segment.duration));
   assert.equal(bare.inbound, null);
 });
@@ -123,7 +117,6 @@ test("converts the compact form the search endpoint sends for limit: \"all\"", a
   const { compactOffer } = await import("./server/compact-offer.ts");
   for (const offer of offers) {
     const compact = compactOffer(offer);
-    // Nothing the cards show may depend on a field the compact form drops.
     assert.deepEqual(toFlightOffer(compact), toFlightOffer(offer), offer.id);
     assert.ok(JSON.stringify(compact).length < JSON.stringify(offer).length);
   }

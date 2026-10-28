@@ -1,4 +1,3 @@
-// Run with `npm test`. Groq and Duffel are replaced by a stand-in `fetch`, so nothing here uses the network.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { clearSearchCache, searchCacheKey, searchFlightsCached, type DuffelSearchPayload } from "./duffel.ts";
@@ -15,12 +14,10 @@ test("keeps a value until it expires", () => {
   cache.set("a", "first", 10 * MINUTE);
   time = 9 * MINUTE;
   assert.equal(cache.get("a"), "first");
-  // Being read doesn't keep it alive longer.
   time = 10 * MINUTE;
   assert.equal(cache.get("a"), undefined);
   assert.deepEqual(cache.stats(), { entries: 0, size: 0 });
 
-  // Expired entries nobody asks for again are cleared when something new is stored.
   cache.set("b", "second", MINUTE);
   time += 2 * MINUTE;
   cache.set("c", "third", MINUTE);
@@ -33,20 +30,16 @@ test("is bounded by entries and by total size, dropping the least recently used"
   for (const key of ["a", "b", "c"]) cache.set(key, key.repeat(4), MINUTE);
   cache.get("a");
   cache.set("d", "dddd", MINUTE);
-  // "b" was the one not used for longest.
   assert.deepEqual(["a", "b", "c", "d"].map((key) => cache.get(key) !== undefined), [true, false, true, true]);
 
-  // Thirteen more characters don't fit beside twelve: the two oldest go to make room.
   cache.set("e", "e".repeat(13), MINUTE);
   assert.deepEqual(cache.stats(), { entries: 2, size: 17 });
   assert.equal(cache.get("e")?.length, 13);
 
-  // Something that could never fit is not stored, and pushes nothing out.
   cache.set("f", "f".repeat(21), MINUTE);
   assert.equal(cache.get("f"), undefined);
   assert.deepEqual(cache.stats(), { entries: 2, size: 17 });
 
-  // Storing under a key again replaces it.
   cache.set("e", "new", MINUTE);
   assert.equal(cache.get("e"), "new");
   assert.deepEqual(cache.stats(), { entries: 2, size: 7 });
@@ -79,10 +72,6 @@ test("two searches are the same when everything sent to Duffel is", () => {
 const realFetch = globalThis.fetch;
 let calls: string[] = [];
 
-/**
- * Replaces `fetch`: Groq reads "CPH to LIS" out of any message, and Duffel answers a flight search with `duffel()`.
- * The hotel search that goes with a chat search finds no city and no hotels.
- */
 function stubProviders(duffel: () => Response) {
   globalThis.fetch = ((input: RequestInfo | URL) => {
     const url = String(input);
@@ -132,7 +121,6 @@ test("the same search asks Duffel once", async () => {
   assert.equal(count("duffel"), 1);
   assert.deepEqual(again, first);
 
-  // Each caller gets its own copy.
   first.data?.offers?.pop();
   assert.equal((await searchFlightsCached(search())).data?.offers?.length, 2);
 
@@ -149,7 +137,6 @@ test("failures and sample flights are never kept", async () => {
   assert.ok(sample.data?.offers?.length);
   assert.equal(count("duffel"), 2);
 
-  // Duffel is back: the next search gets real offers, not the sample ones again.
   stubProviders(() => offers("off_real"));
   assert.deepEqual((await searchFlightsCached(search())).data?.offers, [{ id: "off_real" }]);
 });
@@ -174,6 +161,5 @@ test("a repeated chat search still asks Groq, but not Duffel", async () => {
 
   assert.equal(count("groq"), 3);
   assert.equal(count("duffel"), 1);
-  // The hotels of a repeated search are remembered like its flights.
   assert.equal(count("stays"), 1);
 });

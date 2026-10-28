@@ -1,4 +1,3 @@
-// Run with `npm test`. LiteAPI and the geocoder are replaced by a stand-in `fetch`, so nothing here uses the network.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import type { TripQuery } from "../types/trip-query";
@@ -46,7 +45,6 @@ const facilities = () =>
     ],
   });
 
-/** Replaces `fetch`. Unless told otherwise: LiteAPI has one hotel, with a pool and Wi-Fi, and Lisbon is found. */
 function stubLiteApi({ rates = () => found("lp1"), facilities: facilityList = facilities, hotels }: LiteApi = {}) {
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -65,7 +63,6 @@ function stubLiteApi({ rates = () => found("lp1"), facilities: facilityList = fa
       throw new Error(`Unexpected request to ${url}`);
     }
     if (answer !== "hang") return Promise.resolve(answer);
-    // Like the real thing, a request that is waiting ends when its signal is aborted.
     return new Promise((_resolve, reject) => {
       init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
     });

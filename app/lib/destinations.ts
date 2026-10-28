@@ -2,8 +2,6 @@ import type { Destination } from "./types";
 
 export const ORIGIN = { city: "Copenhagen", airport: "CPH" };
 
-// Order matters: the first destination whose keyword appears in the prompt wins,
-// so specific places come before vague moods like "warm" or "beach".
 export const destinations: Destination[] = [
   {
     city: "Barcelona",
@@ -103,5 +101,4 @@ export function addDays(isoDate: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-/** How long a stay is taken to be when the trip has no return date. */
 export const ONE_WAY_NIGHTS = 3;

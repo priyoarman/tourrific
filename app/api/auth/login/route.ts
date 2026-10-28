@@ -6,15 +6,8 @@ import prisma from "@/app/lib/server/prisma";
 import { rateLimiter } from "@/app/lib/server/rate-limit";
 import { loginSchema } from "@/app/lib/server/schemas";
 
-// The same answer for an unknown email and a wrong password, so neither can be told apart.
 const invalid = () => Response.json({ success: false, message: "Invalid email or password" }, { status: 401 });
 
-/**
- * POST /api/auth/login — checks the password and sets a 1-hour session cookie.
- * The token is in that cookie only, never in the answer's body, so scripts on
- * the page cannot read it. One address gets a limited number of attempts (429
- * after that).
- */
 export const POST = handle(async (request: Request) => {
   const validation = loginSchema.safeParse(await readJson(request));
   if (!validation.success) {

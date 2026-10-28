@@ -2,7 +2,6 @@ import { requireUser } from "@/app/lib/server/auth";
 import { handle } from "@/app/lib/server/http";
 import prisma from "@/app/lib/server/prisma";
 
-/** GET /api/conversations/current — the signed-in user's latest conversation, created on first use. */
 export const GET = handle(async (request: Request) => {
   const user = requireUser(request);
   if (user instanceof Response) return user;

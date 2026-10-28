@@ -1,7 +1,6 @@
 import type { FlightOffer, FlightSlice } from "./types";
 import type { DuffelOffer, DuffelSegment, DuffelSlice } from "./types/duffel";
 
-/** "PT1H53M" → 113, "P1DT2H" → 1560. Returns null when Duffel sends no duration. */
 export function parseIsoDuration(value: string | null | undefined): number | null {
   const match = value?.match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:[\d.]+S)?)?$/);
   if (!match) return null;
@@ -9,10 +8,6 @@ export function parseIsoDuration(value: string | null | undefined): number | nul
   return days * 1440 + hours * 60 + minutes;
 }
 
-/**
- * Minutes between two of Duffel's local date-times. Only valid when both are
- * at the same airport (a layover), because the strings carry no time zone.
- */
 function minutesBetween(from: string, to: string) {
   return Math.round((Date.parse(`${to}Z`) - Date.parse(`${from}Z`)) / 60_000);
 }
@@ -29,8 +24,6 @@ function toFlightSlice(slice: DuffelSlice): FlightSlice {
   const last = slice.segments[slice.segments.length - 1];
   const stops = layovers(slice.segments);
 
-  // Prefer Duffel's own total. Subtracting departure from arrival would be wrong
-  // whenever the two airports are in different time zones.
   const flying = slice.segments.reduce((sum, s) => sum + (parseIsoDuration(s.duration) ?? 0), 0);
   const waiting = stops.reduce((sum, stop) => sum + stop.layoverMinutes, 0);
 
@@ -62,7 +55,6 @@ function flightNumber(segment: DuffelSegment) {
   return `${segment.marketing_carrier.iata_code ?? ""}${segment.marketing_carrier_flight_number}`;
 }
 
-/** Converts one Duffel offer into the shape the flight cards render. */
 export function toFlightOffer(offer: DuffelOffer): FlightOffer {
   const [outbound, inbound] = offer.slices;
 

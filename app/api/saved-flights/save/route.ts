@@ -3,7 +3,6 @@ import { handle, readJson, serialize } from "@/app/lib/server/http";
 import prisma from "@/app/lib/server/prisma";
 import { saveFlightSchema } from "@/app/lib/server/schemas";
 
-/** POST /api/saved-flights/save — saves a flight for the signed-in user. */
 export const POST = handle(async (request: Request) => {
   const user = requireUser(request);
   if (user instanceof Response) return user;
@@ -15,7 +14,6 @@ export const POST = handle(async (request: Request) => {
 
   const flight = validation.data;
 
-  // One saved fare per flight and departure time.
   const existing = await prisma.savedOffer.findFirst({
     where: { userId: user.userId, flightNumber: flight.flight_number, departureTime: flight.departure_time },
   });
@@ -30,7 +28,6 @@ export const POST = handle(async (request: Request) => {
       return Response.json({ success: false, message: "Invalid currency_id" }, { status: 400 });
     }
   } else if (flight.currency_code) {
-    // An unknown code is saved without a currency rather than rejected.
     const currency = await prisma.currency.findUnique({ where: { code: flight.currency_code } });
     currencyId = currency?.id ?? null;
   }

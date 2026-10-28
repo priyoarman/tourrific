@@ -1,5 +1,3 @@
-// What the itinerary cards show, and how a picked trip becomes that. The cards
-// take ready-to-print text, so they hold no rules about trips themselves.
 import {
   dayOffset,
   formatDate,
@@ -14,7 +12,6 @@ import type { FlightSlice, PickedTrip } from "../lib/types";
 
 export type Scene = "island" | "temple" | "lake" | "beach";
 
-/** A photo, with drawn scenery behind it for when there is none or it fails to load. */
 export type ImageView = { photoUrl: string | null; scene: Scene };
 
 export type OverviewView = {
@@ -29,14 +26,11 @@ export type OverviewView = {
 export type BudgetLine = {
   label: string;
   amount: number;
-  /** Tailwind background class shared by the bar segment and the legend dot. */
   color: string;
 };
 
 export type BudgetView = {
-  /** ISO 4217 code every line is in. */
   currency: string;
-  /** How many days the trip lasts, for the price per day. */
   days: number;
   lines: BudgetLine[];
 };
@@ -54,7 +48,6 @@ export type FlightLegView = {
 
 export type FlightView = { title: string; price: string; legs: FlightLegView[] };
 
-/** A check-in or check-out day. `time` is shown under it when the hotel's hours are known. */
 export type StayDateView = { date: string; time: string | null };
 
 export type HotelStayView = {
@@ -64,35 +57,27 @@ export type HotelStayView = {
   checkIn: StayDateView;
   checkOut: StayDateView;
   image: ImageView;
-  /** True when the hotel is a made-up example. */
   sample: boolean;
 };
 
-/** The month the trip starts in, with the trip marked. Dates are YYYY-MM-DD. */
 export type CalendarView = {
   start: string;
   end: string;
-  /** Ringed when it falls in the month shown. */
   today: string | null;
-  /** Days inside the trip with something planned get a dot. */
   activityDates: string[];
 };
 
 export type PlanDay = {
   day: string;
   text: string;
-  /** Tailwind background class for the marker bar. */
   color: string;
 };
 
 export type PlanView = { summary: string; days: PlanDay[] };
 
-/** Everything a picked trip fills in. */
 export type ItineraryView = {
-  /** The parts of the line at the top, e.g. ["Lisbon trip", "5 days", "12 – 16 Nov 2026"]. */
   summary: string[];
   overview: OverviewView;
-  /** Null when the flight and hotel can't be added up. */
   budget: BudgetView | null;
   flight: FlightView;
   hotel: HotelStayView;
@@ -105,7 +90,6 @@ function stopsText(slice: FlightSlice) {
   return slice.stops.length === 0 ? "Direct" : plural(slice.stops.length, "stop");
 }
 
-/** The airport's city, e.g. "Lisbon" for "LIS", or null when it isn't known; the code is shown then. */
 export type CityOf = (airportCode: string) => string | null;
 
 function legView(label: string, slice: FlightSlice, cityOf: CityOf): FlightLegView {
@@ -123,10 +107,6 @@ function legView(label: string, slice: FlightSlice, cityOf: CityOf): FlightLegVi
   };
 }
 
-/**
- * The itinerary of a picked trip. `today` (YYYY-MM-DD) is ringed on the
- * calendar; `cityOf` names airports.
- */
 export function toItineraryView(
   { flight, hotel, stay }: PickedTrip,
   { today, cityOf, sample = false }: { today: string | null; cityOf: CityOf; sample?: boolean },
@@ -137,7 +117,6 @@ export function toItineraryView(
   const roundTrip = flight.inbound !== null;
   const title = `${city} trip`;
   const dates = formatDateRange(stay.checkIn, stay.checkOut);
-  // Counting the day out and the day home, as the planner does: 4 nights are 5 days.
   const days = stay.nights + 1;
   const travellers = plural(stay.guests, "traveller");
   const hotelCost = hotel.nightlyPrice * stay.nights;
@@ -182,7 +161,6 @@ export function toItineraryView(
     },
     hotel: {
       name: hotel.name,
-      // A one-way trip's nights are a guess, so only the nightly price is certain.
       price: stay.nightsAssumed
         ? `${formatPrice(hotel.nightlyPrice, hotel.currency)} a night`
         : `${formatNights(stay.nights)} · ${formatPrice(hotelCost, hotel.currency)}`,

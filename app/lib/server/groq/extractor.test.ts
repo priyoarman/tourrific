@@ -1,6 +1,3 @@
-// Run with `npm test`. Needs no API key: it checks how the model's raw answer
-// is cleaned up, and the date arithmetic. Ported from the Express backend's
-// api/src/groq/testNormalize.js (`npm run test:extract:normalize`).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { asksForWayBack, normalizeTripQuery, parseNaturalTravelDates, parseStayLength, saysOneWay } from "./extractor.ts";
@@ -58,18 +55,14 @@ test("cleans what was asked of the hotel", () => {
   assert.equal(wishes.hotel_rooms, 2);
   assert.equal(wishes.hotel_max_price, 150);
   assert.equal(wishes.hotel_max_price_currency, "EUR");
-  // There is no such thing as a seven-star hotel to filter on.
   assert.equal(wishes.hotel_min_stars, 5);
   assert.equal(wishes.hotel_free_cancellation, true);
-  // In the list's order, each once, and nothing that isn't on it.
   assert.deepEqual(wishes.hotel_amenities, ["wifi", "pool", "pet_friendly"]);
-  // The hotel's price limit is its own; the flights have none here.
   assert.equal(wishes.max_price, null);
 
   const none = normalizeTripQuery({ hotel_rooms: 0, hotel_min_stars: "many", hotel_max_price_currency: "EUR", hotel_amenities: null });
   assert.equal(none.hotel_rooms, null);
   assert.equal(none.hotel_min_stars, null);
-  // A currency without a price limits nothing.
   assert.equal(none.hotel_max_price_currency, null);
   assert.deepEqual(none.hotel_amenities, []);
 });
@@ -83,7 +76,6 @@ test("cleans how long the stay is", () => {
   assert.deepEqual(stay(7, "days"), [7, "days"]);
   assert.deepEqual(stay("5", " Nights "), [5, "nights"]);
   assert.deepEqual(stay(1, "week"), [1, "weeks"]);
-  // One without the other says nothing.
   assert.deepEqual(stay(7, null), [null, null]);
   assert.deepEqual(stay(null, "days"), [null, null]);
   assert.deepEqual(stay(0, "days"), [null, null]);
@@ -110,14 +102,11 @@ test("cleans a return search with loosely written filters", () => {
   assert.deepEqual(returnTrip.preferred_airlines, ["SAS", "Lufthansa"]);
   assert.equal(returnTrip.baggage_required, true);
   assert.equal(returnTrip.departure_time, "morning");
-  // No currency was given, so the limit is in whatever currency the offers use.
   assert.equal(returnTrip.max_price, 2500);
   assert.equal(returnTrip.max_price_currency, null);
 });
 
 test("a return date makes it a return trip, whatever trip_type says", () => {
-  // A return before the departure is kept as written here; the search itself
-  // answers "The return date must be on or after your departure date."
   const backwards = normalizeTripQuery({
     trip_type: "one_way",
     origin_airport: "CPH",
@@ -132,7 +121,6 @@ test("a return date makes it a return trip, whatever trip_type says", () => {
 });
 
 test("works out relative dates from a Monday", () => {
-  // Monday 6 July 2026.
   const referenceDate = new Date(2026, 6, 6);
   const dates = (text: string) => parseNaturalTravelDates(text, referenceDate);
 
@@ -159,21 +147,16 @@ test("finds how long the stay is in the message", () => {
   assert.deepEqual(stay("a 10 day trip to Bali"), [10, "days"]);
   assert.deepEqual(stay("Paris for 3 Nights"), [3, "nights"]);
 
-  // A weekend away is out on the Saturday and back on the Sunday.
   assert.deepEqual(stay("A weekend in Paris"), [2, "days"]);
   assert.deepEqual(stay("weekend getaway to Prague"), [2, "days"]);
   assert.deepEqual(stay("Barcelona for the weekend"), [2, "days"]);
 
-  // No stay at all.
   assert.deepEqual(stay("Flights to Lisbon next Friday"), [null, null]);
-  // When to leave, not how long to stay.
   assert.deepEqual(stay("Flights to Paris next weekend"), [null, null]);
   assert.deepEqual(stay("Fly to Rome this weekend"), [null, null]);
-  // When to leave is not how long to stay.
   assert.deepEqual(stay("Flights to Rome in 2 weeks"), [null, null]);
   assert.deepEqual(stay("Somewhere sunny 3 days from now"), [null, null]);
   assert.deepEqual(stay("Leaving in two weeks, staying 4 nights"), [4, "nights"]);
-  // A previous search's JSON in the prompt is not a stay either.
   assert.deepEqual(stay('Previous flight search JSON: {"stay_length":7,"stay_unit":"days"}'), [null, null]);
 });
 
@@ -183,12 +166,9 @@ test("finds a way back asked for in so many words", () => {
   assert.equal(asksForWayBack("Return flights to Athens on 12 November"), true);
   assert.equal(asksForWayBack("Berlin there and back"), true);
 
-  // A departure day alone is one way.
   assert.equal(asksForWayBack("Flights to Lisbon next Friday"), false);
   assert.equal(asksForWayBack("I want to return to Lisbon"), false);
-  // Saying one way wins.
   assert.equal(asksForWayBack("One way, no return flight"), false);
-  // A previous search's JSON in the prompt asks for nothing.
   assert.equal(asksForWayBack('Previous flight search JSON: {"trip_type":"return"}'), false);
   assert.equal(asksForWayBack(null), false);
 });
@@ -198,6 +178,5 @@ test("finds a way back declined", () => {
   assert.equal(saysOneWay("One-way to Oslo"), true);
   assert.equal(saysOneWay("no return needed"), true);
   assert.equal(saysOneWay("Flights to Lisbon next Friday"), false);
-  // A previous search's JSON in the prompt declines nothing.
   assert.equal(saysOneWay('Previous flight search JSON: {"trip_type":"one_way"}'), false);
 });

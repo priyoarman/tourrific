@@ -9,11 +9,8 @@ import type { Session } from "@/app/lib/auth-store";
 export type AuthMode = "signin" | "signup";
 
 type Props = {
-  /** Which form to show, or null when the dialog is closed. */
   mode: AuthMode | null;
-  /** Why the dialog opened, e.g. "Sign in to save this flight." */
   note?: string;
-  /** Show the note as a warning, for when something was just refused. */
   noteIsAlert?: boolean;
   onModeChange: (mode: AuthMode) => void;
   onClose: () => void;
@@ -178,12 +175,10 @@ function Form({ mode, note, noteIsAlert, onModeChange, onClose, onSignedIn }: Pr
   );
 }
 
-/** One dialog for both signing in and signing up; a link at the bottom switches between them. */
 export default function AuthDialog(props: Props) {
   const { mode, onClose } = props;
   return (
     <Modal open={mode !== null} onClose={onClose} label={mode === "signup" ? "Sign up" : "Sign in"}>
-      {/* Unmounted while closed, so reopening starts with empty fields. */}
       {mode && <Form {...props} mode={mode} />}
     </Modal>
   );

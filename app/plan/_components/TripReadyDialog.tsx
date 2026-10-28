@@ -11,11 +11,8 @@ import FlightLeg from "./flights/FlightLeg";
 import StarRating from "./hotels/StarRating";
 
 type Props = {
-  /** What was picked, or null when the dialog is closed. */
   trip: PickedTrip | null;
-  /** Stores the trip and opens its itinerary. A rejection is shown in the dialog. */
   onShowItinerary: (trip: PickedTrip) => Promise<void>;
-  /** "I have still not decided", Escape, the close button or a click outside. */
   onClose: () => void;
 };
 
@@ -59,10 +56,8 @@ function FlightSummary({ flight }: { flight: FlightOffer }) {
 }
 
 function HotelSummary({ hotel, stay }: { hotel: Hotel; stay: PickedTrip["stay"] }) {
-  /** The photo that failed to load, if one did; the gradient behind it shows instead. */
   const [brokenPhoto, setBrokenPhoto] = useState<string | null>(null);
   const photo = hotel.photoUrl && hotel.photoUrl !== brokenPhoto ? hotel.photoUrl : null;
-  // A one-way trip's nights are a guess, so only the check-in and the price of a night are known.
   const dates = stay.nightsAssumed
     ? `From ${formatDate(stay.checkIn)}`
     : `${formatDate(stay.checkIn)} – ${formatDate(stay.checkOut)} · ${formatNights(stay.nights)}`;
@@ -72,7 +67,6 @@ function HotelSummary({ hotel, stay }: { hotel: Hotel; stay: PickedTrip["stay"] 
       <div className="flex gap-3">
         <div className={`relative size-16 shrink-0 overflow-hidden rounded-xl bg-linear-to-br ${hotel.gradient}`}>
           {photo && (
-            // Hotel photos come from whichever host Duffel's suppliers use, which next/image would need listed.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={photo}
@@ -117,7 +111,6 @@ function Summary({ trip, onShowItinerary, onClose }: Props & { trip: PickedTrip 
   const { flight, hotel, stay } = trip;
   const total = tripTotal(flight, hotel, stay);
   const city = stay.city ?? flight.outbound.destination;
-  // Stays true on success: the dialog is left open until the itinerary page replaces it.
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,7 +147,6 @@ function Summary({ trip, onShowItinerary, onClose }: Props & { trip: PickedTrip 
         <HotelSummary hotel={hotel} stay={stay} />
       </div>
 
-      {/* Only added up when it can be; otherwise each box already shows its own price. */}
       {total !== null && (
         <p className="mt-4 flex items-baseline justify-between gap-3 px-1">
           <span className="text-[0.9375rem] font-semibold text-ink">Flight and hotel</span>
@@ -196,7 +188,6 @@ function Summary({ trip, onShowItinerary, onClose }: Props & { trip: PickedTrip 
   );
 }
 
-/** Shown once a flight and a hotel are both picked: what they are, and where to go next. */
 export default function TripReadyDialog(props: Props) {
   const { trip, onClose } = props;
   return (

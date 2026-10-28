@@ -1,4 +1,3 @@
-/** Marks a results column whose contents are example data, not real availability. */
 export default function SampleBadge() {
   return (
     <span

@@ -1,4 +1,3 @@
-// Run with `npm test`.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { TripQuery } from "../types/trip-query";
@@ -41,7 +40,6 @@ test("what is only asked of the flights looks for the flights", () => {
   ];
   for (const change of changes) assert.equal(searchScope(trip(), trip(change)), "flights", JSON.stringify(change));
 
-  // Taking a wish back is a change too.
   assert.equal(searchScope(trip({ direct_only: true }), trip()), "flights");
 });
 
@@ -70,12 +68,10 @@ test("the same search again looks for both", () => {
 test("another spelling of the same wish is not a change", () => {
   const before = trip({ direct_only: true, preferred_airlines: ["SK", "LH"], hotel_amenities: ["pool", "spa"] });
 
-  // Unset, false, an empty list, one traveller and economy all mean "nothing in particular".
   const unasked = { passengers: null, cabin_class: null, baggage_required: null, hotel_free_cancellation: null, preferred_airlines: null, hotel_amenities: null };
   const spelled = { passengers: 1, cabin_class: "economy", baggage_required: false, hotel_free_cancellation: false, preferred_airlines: [], hotel_amenities: [] };
   assert.equal(searchScope(trip(unasked), trip({ ...(spelled as Partial<TripQuery>), hotel_min_stars: 4 })), "hotels");
 
-  // Order and case don't matter, and neither do the fields that only led to the airport.
   const after = trip({
     direct_only: true,
     preferred_airlines: ["lh", "sk"],

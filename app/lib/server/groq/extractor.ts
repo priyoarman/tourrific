@@ -1,5 +1,3 @@
-// Asks Groq to turn a chat message into a structured flight search (a
-// TripQuery), then tidies the answer. Ported from api/src/groq/extractor.js.
 import { createGroq } from "@ai-sdk/groq";
 import type { CabinClass, DepartureTime, HotelAmenity, StayUnit, TripQuery, TripType } from "../../types/trip-query";
 import { resolveDestination } from "../destination-resolver.ts";
@@ -7,7 +5,6 @@ import TRIP_QUERY_SCHEMA from "./schema.ts";
 import SYSTEM_PROMPT from "./system-prompt.ts";
 
 const DEFAULT_MODEL = "openai/gpt-oss-20b";
-// Groq normally answers in a second or two. Both attempts share this time.
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MONTH_NAMES = [
   "january",
@@ -25,13 +22,11 @@ const MONTH_NAMES = [
 ];
 const WEEKDAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
-/** Parses the model's answer, which may wrap the JSON in other text. */
 function safeParseJsonMaybe(text: unknown): unknown {
   if (!text || typeof text !== "string") return null;
   try {
     return JSON.parse(text);
   } catch {
-    // Fall back to the first {...} block in the text.
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return null;
     try {
@@ -55,7 +50,6 @@ function normalizeTripType(value: unknown, returnDate: unknown): TripType {
   if (["return", "round_trip", "roundtrip"].includes(normalized)) return "return";
   if (["one_way", "oneway", "single"].includes(normalized)) return "one_way";
 
-  // The Express version passed unknown values through; none of them ever meant a return trip.
   return "one_way";
 }
 
@@ -85,12 +79,10 @@ function normalizeDepartureTime(value: unknown): DepartureTime | null {
 
 function normalizeStayUnit(value: unknown): StayUnit | null {
   if (typeof value !== "string") return null;
-  // "day", "Nights", "week" are the same units.
   const normalized = value.trim().toLowerCase().replace(/s$/, "");
   return ["day", "night", "week"].includes(normalized) ? (`${normalized}s` as StayUnit) : null;
 }
 
-/** A stay length and its unit, or neither: one without the other says nothing. */
 function normalizeStay(length: unknown, unit: unknown) {
   const stay_length = normalizeCount(length, 1, 99);
   const stay_unit = normalizeStayUnit(unit);
@@ -112,7 +104,6 @@ function normalizeCabinClass(value: unknown): CabinClass | null {
   return aliases[value.trim().toLowerCase().replace(/[-\s]/g, "_")] ?? null;
 }
 
-/** A whole number of travellers from 1 to 9, or null. */
 function normalizePassengers(value: unknown) {
   const count = typeof value === "string" ? Number.parseInt(value, 10) : value;
   return typeof count === "number" && Number.isFinite(count) && count >= 1 ? Math.min(Math.round(count), 9) : null;
@@ -131,13 +122,11 @@ function normalizeCurrency(value: unknown) {
   return CURRENCY_ALIASES[code] ?? (/^[A-Z]{3}$/.test(code) ? code : null);
 }
 
-/** A whole number from `min` to `max`, or null. Anything above `max` counts as `max`. */
 function normalizeCount(value: unknown, min: number, max: number) {
   const count = typeof value === "string" ? Number.parseInt(value, 10) : value;
   return typeof count === "number" && Number.isFinite(count) && count >= min ? Math.min(Math.round(count), max) : null;
 }
 
-// How the model, or a visitor it quotes, may write each amenity.
 const AMENITY_WORDS: [HotelAmenity, RegExp][] = [
   ["wifi", /wi-?fi|internet/],
   ["pool", /pool/],
@@ -149,7 +138,6 @@ const AMENITY_WORDS: [HotelAmenity, RegExp][] = [
   ["pet_friendly", /\bpets?\b|\bdogs?\b|pet[\s_-]?friendly/],
 ];
 
-/** The amenities on the list the model named, each once. Anything else is dropped. */
 function normalizeAmenities(value: unknown): HotelAmenity[] {
   const named = normalizeStringList(value).map((item) => item.toLowerCase());
   return AMENITY_WORDS.filter(([, words]) => named.some((item) => words.test(item))).map(([amenity]) => amenity);
@@ -194,7 +182,6 @@ function hashText(value: string) {
   return Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0);
 }
 
-/** A day in the given month that hasn't passed. The same text always picks the same day. */
 function futureDateInMonth(monthIndex: number, year: number, referenceDate: Date, seedText: string) {
   const today = startOfToday(referenceDate);
   const firstOfMonth = new Date(year, monthIndex, 1);
@@ -209,11 +196,6 @@ function futureDateInMonth(monthIndex: number, year: number, referenceDate: Date
 
 type TravelDates = { departure_date: string | null; return_date: string | null };
 
-/**
- * Works out dates the model tends to get wrong ("tomorrow", "next Friday",
- * "this weekend", a bare month) with plain date arithmetic. What it finds
- * overrides the model's answer.
- */
 export function parseNaturalTravelDates(text: unknown, referenceDate = new Date()): TravelDates {
   if (typeof text !== "string" || text.trim() === "") {
     return { departure_date: null, return_date: null };
@@ -249,7 +231,6 @@ export function parseNaturalTravelDates(text: unknown, referenceDate = new Date(
   return { departure_date: null, return_date: null };
 }
 
-/** Cleans up whatever the model returned into a well-formed TripQuery. */
 export function normalizeTripQuery(raw: unknown): TripQuery {
   const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
 
@@ -289,11 +270,6 @@ const COUNT_WORDS = ["a", "one", "two", "three", "four", "five", "six", "seven",
 
 type StayLength = { stay_length: number | null; stay_unit: StayUnit | null };
 
-/**
- * Finds how long the stay is ("a seven-day plan", "5 nights", "a week", "a weekend in Paris") with a
- * plain pattern, for when the model leaves it out. When to leave ("in 2 weeks",
- * "3 days from now") is not a stay. Words above fourteen are left to the model.
- */
 export function parseStayLength(text: unknown): StayLength {
   const none = { stay_length: null, stay_unit: null };
   if (typeof text !== "string") return none;
@@ -307,23 +283,16 @@ export function parseStayLength(text: unknown): StayLength {
     return normalizeStay(length, unit);
   }
 
-  // "A weekend in Paris" is a stay: out on the Saturday the dates already pick, back on the Sunday.
-  // "Flights to Paris next weekend" only says when to leave.
   if (/\bweekend\s+(?:in|at|away|trip|getaway|break)\b|\b(?:for|spend|spending)\s+(?:a|the)\s+weekend\b/.test(normalized)) {
     return { stay_length: 2, stay_unit: "days" };
   }
   return none;
 }
 
-/** True when the message asks for no way back: "one way", "one-way", "no return". */
 export function saysOneWay(text: unknown) {
   return typeof text === "string" && /\bone[\s-]?way\b|\bno return\b/i.test(text);
 }
 
-/**
- * True when the message asks for a way back in so many words: "round trip", "a
- * return flight", "there and back". Not when it says one way ("one way, no return flight").
- */
 export function asksForWayBack(text: unknown) {
   if (typeof text !== "string" || saysOneWay(text)) return false;
   return /\bround[\s-]?trip\b|\breturn\s+(?:trip|flight|ticket)s?\b|\bthere and back\b/i.test(text);
@@ -336,22 +305,10 @@ export type ExtractionResult =
 type Options = {
   modelId?: string;
   referenceDate?: Date;
-  /** Aborted when the visitor is no longer waiting for the answer. */
   signal?: AbortSignal;
-  /**
-   * The words to look for relative dates in ("tomorrow", "next Friday"), when
-   * `userText` holds more than the visitor's own message. Null looks for none.
-   */
   datesFrom?: string | null;
 };
 
-/**
- * Sends the text to Groq and returns the flight search it describes.
- * `ok: false` means the model could not be reached or didn't answer in JSON.
- * Its first error then says why: "timeout" (Groq took too long),
- * "rate_limited" (Groq's own quota is used up), "cancelled" (`signal` was
- * aborted), or "failed_generation" for anything else.
- */
 export async function extractTripQuery(userText: string, opts: Options = {}): Promise<ExtractionResult> {
   const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
   const model = groq.languageModel(opts.modelId || process.env.GROQ_MODEL || DEFAULT_MODEL);
@@ -367,7 +324,6 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
 
   const timeout = AbortSignal.timeout(Number(process.env.GROQ_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS);
   const abortSignal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
-  /** Why trying again is pointless, or null when a second attempt may work. */
   const givenUp = (error: unknown) => {
     if (opts.signal?.aborted) return "cancelled";
     if (timeout.aborted) return "timeout";
@@ -381,7 +337,6 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
 
   let response;
   try {
-    // The AI SDK maps this to Groq's structured outputs (response_format: json_schema).
     response = await model.doGenerate({
       prompt,
       abortSignal,
@@ -389,14 +344,11 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
         type: "json",
         name: "trip_query_extraction",
         description: "Extract a flight search query, and any wishes for the hotel, from natural language.",
-        // The schema is a readonly literal; the SDK's type wants a mutable one.
         schema: TRIP_QUERY_SCHEMA as unknown as Record<string, never>,
       },
-      // Room for the model to finish the JSON.
       maxOutputTokens: 1024,
     });
   } catch (error) {
-    // A second call would only wait again, or spend quota nobody is waiting for.
     const reason = givenUp(error);
     if (reason) return failed(reason, error);
 
@@ -415,7 +367,6 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
   const textPart = response.content.find((part) => part.type === "text");
   let raw = textPart?.type === "text" ? safeParseJsonMaybe(textPart.text) : null;
 
-  // Some providers put the parsed result on the raw response body instead.
   if (!raw && response.response?.body) {
     const body = response.response.body;
     raw = typeof body === "string" ? safeParseJsonMaybe(body) : body;
@@ -429,12 +380,10 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
 
   if (localDates.departure_date) parsed.departure_date = localDates.departure_date;
   if (localDates.return_date) parsed.return_date = localDates.return_date;
-  // The model now and then misses "a week"; a stay length it did find is kept.
   if (!parsed.stay_length) Object.assign(parsed, parseStayLength(datesText));
   parsed.trip_type = normalizeTripType(parsed.trip_type, parsed.return_date);
   if (asksForWayBack(datesText)) parsed.trip_type = "return";
 
-  // A country, region or mood becomes one specific airport, with a line explaining the pick.
   const resolved = resolveDestination(parsed);
   if (resolved.destination_airport) {
     parsed.destination_airport = resolved.destination_airport;

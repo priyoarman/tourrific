@@ -13,7 +13,6 @@ type Props = {
   onChooseHotel: (stopId: string) => void;
 };
 
-/** Middle column of the road trip planner: the route map and the stop-by-stop itinerary. */
 export default function RouteColumn({ trip, activeStopId, hotels, onSelectStop, onChooseHotel }: Props) {
   const first = trip.stops[0];
   const last = trip.stops[trip.stops.length - 1];

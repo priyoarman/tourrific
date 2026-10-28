@@ -1,9 +1,3 @@
-// What the model is told before every message. Ported from
-// api/src/groq/systemPrompt.js, with the hotel rules added since.
-// {{CURRENT_DATE}} is filled in per request.
-//
-// Keep it short: Groq's free tier allows 8,000 tokens a minute, and this text
-// is sent with every message. The examples leave the hotel fields out for that reason.
 const SYSTEM_PROMPT = `You are a headless JSON extraction engine. Follow these rules EXACTLY:
 
 - OUTPUT ONLY valid JSON. Do not output prose, explanations, markdown, or any text outside the JSON object.

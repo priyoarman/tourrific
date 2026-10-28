@@ -1,5 +1,3 @@
-// The JSON Schema the model must answer in. The TripQuery type in
-// app/lib/types/trip-query.ts mirrors it. Ported from api/src/groq/schema.json.
 const TRIP_QUERY_SCHEMA = {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TripQuery",

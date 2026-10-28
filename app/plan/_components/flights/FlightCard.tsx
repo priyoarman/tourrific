@@ -8,11 +8,8 @@ import FlightLeg from "./FlightLeg";
 type Props = {
   offer: FlightOffer;
   tags: string[];
-  /** True when the flight is in the visitor's saved trips, or picked by a guest. */
   selected: boolean;
-  /** The button's text once selected. */
   selectedText: string;
-  /** True while it is being saved or removed. */
   busy?: boolean;
   onSelect: () => void;
 };

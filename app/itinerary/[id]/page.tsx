@@ -15,7 +15,6 @@ import TripCalendarCard from "../_components/TripCalendarCard";
 import TripOverviewCard from "../_components/TripOverviewCard";
 import { toItineraryView } from "../itinerary-view";
 
-// Read once per request, though both the metadata and the page ask for it.
 const loadItinerary = cache(async (rawId: string) => {
   const id = parseTripId(rawId);
   const trip = id === null ? null : await getTrip(id);
@@ -27,17 +26,14 @@ const loadItinerary = cache(async (rawId: string) => {
 
 export async function generateMetadata(props: PageProps<"/itinerary/[id]">): Promise<Metadata> {
   const { view } = (await loadItinerary((await props.params).id)) ?? {};
-  // notFound() marks the page noindex by itself.
   if (!view) return { title: "Trip not found – Tourrific" };
   return {
     title: `${view.overview.title} – Tourrific`,
     description: view.overview.description,
-    // Anyone with the link can open a trip, but it isn't for search engines.
     robots: { index: false },
   };
 }
 
-/** A trip picked in the planner: its flight, hotel, budget and dates. */
 export default async function TripItineraryPage(props: PageProps<"/itinerary/[id]">) {
   const itinerary = await loadItinerary((await props.params).id);
   if (!itinerary) notFound();
@@ -45,11 +41,9 @@ export default async function TripItineraryPage(props: PageProps<"/itinerary/[id
 
   const viewer = userFromToken((await cookies()).get(SESSION_COOKIE)?.value);
   const { owner, savedAt } = tripForViewer(itinerary.trip, viewer?.userId ?? null);
-  // A signed-out visitor may be its owner, so they are still offered the button; signing in tells.
   const canSave = !(viewer && owner === "someone-else");
 
   return (
-    // The dashboard is dense, so past phone widths it renders as it would with the browser zoomed out to 90%.
     <div className="mx-auto flex w-full max-w-400 flex-1 flex-col gap-5 px-5 pt-6 pb-5 sm:px-7 sm:zoom-[0.9]">
       <PlanHeader summary={view.summary} initials={null} />
 
@@ -66,7 +60,6 @@ export default async function TripItineraryPage(props: PageProps<"/itinerary/[id
             </div>
           </div>
           <TripOverviewCard trip={view.overview} />
-          {/* Left out when the flight and hotel can't be added up. */}
           {view.budget && <BudgetCard budget={view.budget} />}
         </div>
 

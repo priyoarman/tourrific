@@ -15,27 +15,17 @@ const SESSION_EXPIRED = "Your session has expired. Please sign in again.";
 export type SaveOutcome =
   | { status: "saved"; flight: SavedFlight }
   | { status: "removed" }
-  /** A signed-out visitor was asked to sign in, and closed the dialog instead. */
   | { status: "needs-sign-in" }
   | { status: "error"; message: string };
 
 type Account = {
   user: AuthUser | null;
-  /** `alert` shows the note as a warning. */
   openAuth: (mode?: AuthMode, note?: string, alert?: boolean) => void;
   logOut: () => void;
   savedFlights: SavedFlight[];
   openSavedTrips: () => void;
   isSaved: (offer: FlightOffer) => boolean;
-  /**
-   * Saves the offer, or removes it if it is already saved. A signed-out visitor
-   * is asked to sign in first; the answer then arrives once they have (or haven't).
-   */
   toggleSaved: (offer: FlightOffer) => Promise<SaveOutcome>;
-  /**
-   * Asks a signed-out visitor to sign in, with `note` above the form. True once
-   * they have, false if they close the dialog; true straight away when signed in.
-   */
   requireSignIn: (note: string) => Promise<boolean>;
 };
 
@@ -50,11 +40,6 @@ export function useAccount() {
 type SavedState = { userId: string; flights: SavedFlight[]; status: "ready" | "error" };
 type TripsState = { userId: string; trips: SavedTrip[]; status: "ready" | "error" };
 
-/**
- * Everything about the visitor's account that more than one part of the page
- * needs: who is signed in, their saved flights, and the sign-in dialog and
- * saved-trips panel, which can be opened from anywhere.
- */
 export default function AccountProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const userId = session?.user.id ?? null;
@@ -65,12 +50,9 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [savedTrips, setSavedTrips] = useState<TripsState | null>(null);
   const [removingTripId, setRemovingTripId] = useState<string | null>(null);
-  /** A flight a signed-out visitor tried to save; saved right after they sign in. */
   const pendingSave = useRef<{ offer: FlightOffer; done: (outcome: SaveOutcome) => void } | null>(null);
-  /** Someone waiting in `requireSignIn` for the visitor to sign in. */
   const pendingSignIn = useRef<((signedIn: boolean) => void) | null>(null);
 
-  // Saved flights belong to one login. Anything loaded for another is ignored.
   const current = saved && saved.userId === userId ? saved : null;
   const savedFlights = current?.flights ?? [];
   const currentTrips = savedTrips && savedTrips.userId === userId ? savedTrips : null;
@@ -93,7 +75,6 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setSaved({ userId, flights, status: "ready" });
       })
       .catch(() => {
-        // An expired login has already been logged out by `api`.
         if (!cancelled) setSaved({ userId, flights: [], status: "error" });
       });
     return () => {
@@ -101,7 +82,6 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     };
   }, [userId]);
 
-  // Trips are saved from itinerary pages, which don't go through here, so the list is fetched each time the drawer opens.
   useEffect(() => {
     if (!drawerOpen || !userId) return;
     let cancelled = false;
@@ -135,7 +115,6 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     endSession();
   }
 
-  /** Turns a failed request into something to show, asking to sign in again if the login ended. */
   function problem(error: unknown) {
     if (error instanceof ApiError && error.status === 401) {
       openAuth("signin", SESSION_EXPIRED);
@@ -151,7 +130,6 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
       return { status: "saved", flight };
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        // The backend allows one saved fare per flight and departure time.
         return {
           status: "error",
           message: `**${offer.flightNumber}** is already in your saved trips at a different fare. Remove that one first to save this fare instead.`,
@@ -166,7 +144,6 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     try {
       await removeSavedFlight(flight.id);
     } catch (error) {
-      // Already gone (removed in another tab) is as good as removed.
       if (!(error instanceof ApiError && error.status === 404)) {
         return { status: "error", message: problem(error) };
       }
@@ -182,7 +159,6 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     try {
       await deleteTrip(trip.id);
     } catch (error) {
-      // Already gone (deleted in another tab) is as good as deleted.
       if (!(error instanceof ApiError && error.status === 404)) {
         problem(error);
         return;
@@ -208,7 +184,6 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
 
   function requireSignIn(note: string) {
     if (userId) return Promise.resolve(true);
-    // Only the latest request is answered; an earlier one counts as given up.
     pendingSignIn.current?.(false);
     setAuth({ mode: "signin", note });
     return new Promise<boolean>((done) => {
@@ -224,7 +199,6 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     setAuth(null);
     if (!pending) return;
 
-    // Finish the save that prompted the sign-in, unless it was saved on an earlier visit.
     const { offer, done } = pending;
     try {
       const flights = await listSavedFlights();

@@ -4,11 +4,9 @@ type Props = {
   icon: ReactNode;
   title: string;
   children?: ReactNode;
-  /** "error" announces itself to screen readers and uses a warning colour. */
   tone?: "neutral" | "error";
 };
 
-/** Centred note for a results column with nothing to list: empty, no results, or an error. */
 export default function ColumnMessage({ icon, title, children, tone = "neutral" }: Props) {
   const isError = tone === "error";
   return (

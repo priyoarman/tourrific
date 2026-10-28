@@ -1,4 +1,3 @@
-// Run with `npm test`. The geocoder is replaced by a stand-in `fetch`, so nothing here uses the network.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { airportCity } from "./airports.ts";
@@ -8,7 +7,6 @@ const realFetch = globalThis.fetch;
 const realWarn = console.warn;
 let calls: URL[] = [];
 
-/** Replaces `fetch`. `answer` returns the geocoder's response, or "hang" to never answer. */
 function stubGeocoder(answer: () => Response | "hang") {
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     calls.push(new URL(String(input)));
@@ -26,7 +24,6 @@ const places = (...found: [latitude: number, longitude: number, kind?: string][]
   });
 
 const LISBON: [number, number] = [38.72509, -9.1498];
-// Lisbon airport, as the airport list has it.
 const LIS = { latitude: 38.7813, longitude: -9.13592 };
 
 beforeEach(() => {
@@ -68,7 +65,6 @@ test("a city is looked up once", async () => {
 });
 
 test("a place by the same name somewhere else is passed over", async () => {
-  // Lisbon, then a namesake 300 km north of it.
   stubGeocoder(() => places([41.4, -8.5], LISBON));
   assert.equal((await stayLocation("LIS"))?.latitude, 38.72509);
 
@@ -78,7 +74,6 @@ test("a place by the same name somewhere else is passed over", async () => {
 });
 
 test("only a town or city counts as the centre", async () => {
-  // The name also finds the airport itself, which is where the search is trying not to be.
   stubGeocoder(() => places([38.78, -9.13, "AIRP"], LISBON));
   assert.equal((await stayLocation("LIS"))?.latitude, 38.72509);
 
@@ -100,7 +95,6 @@ test("without the city centre, the airport is searched around with a wider radiu
   stubGeocoder(() => "hang");
   assert.deepEqual(await stayLocation("LIS"), fromAirport);
 
-  // Nothing of that was kept: once the geocoder is back, the city is found.
   stubGeocoder(() => places(LISBON));
   assert.equal((await stayLocation("LIS"))?.around, "city");
   assert.equal(calls.length, 4);

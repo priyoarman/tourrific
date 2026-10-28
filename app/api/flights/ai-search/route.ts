@@ -11,19 +11,12 @@ function buildDuffelSearchPayload(tripQuery: TripQuery): DuffelSearchPayload {
   const origin = tripQuery.origin_airport ?? undefined;
   const destination = tripQuery.destination_airport ?? undefined;
   const slices = [{ origin, destination, departure_date: tripQuery.departure_date }];
-  // A return date adds a second slice for the way back.
   if (tripQuery.return_date) {
     slices.push({ origin: destination, destination: origin, departure_date: tripQuery.return_date });
   }
   return { slices, passengers: [{ type: "adult" }], cabin_class: "economy" };
 }
 
-/**
- * POST /api/flights/ai-search — test endpoint: the non-streaming predecessor of
- * /api/flights/search-stream. Send `{ prompt }` to extract and search in one
- * go, or `{ slices, ... }` to search directly with `?page=` and `?limit=`.
- * Requires login, because each call spends Groq and Duffel quota.
- */
 export const POST = handle(async (request: NextRequest) => {
   const user = requireUser(request);
   if (user instanceof Response) return user;

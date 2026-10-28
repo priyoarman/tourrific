@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowLeftIcon } from "@/app/components/ui/Icons";
 import Logo from "@/app/components/ui/Logo";
 
-/** An itinerary link to a trip that was deleted, or that never existed. */
 export default function TripNotFound() {
   return (
     <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-4 px-5 py-16 text-center">

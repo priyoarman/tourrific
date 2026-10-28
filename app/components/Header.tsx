@@ -66,7 +66,6 @@ export default function Header() {
           ))}
         </div>
 
-        {/* The one account control that is also visible on phones, where the links above are hidden. */}
         <button
           type="button"
           onClick={user ? openSavedTrips : () => openAuth()}

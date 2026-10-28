@@ -2,8 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { destinationHref } from "@/app/lib/routes";
 
-// Photos are from Unsplash, stored in public/images/destinations so the cards
-// don't break if a photo is later removed from Unsplash.
 const destinations = [
   {
     city: "Barcelona",
@@ -19,7 +17,6 @@ const destinations = [
   },
   {
     city: "Palma",
-    // The name the flight search should use; "Palma" alone is ambiguous.
     searchName: "Palma de Mallorca",
     deal: "Thu 5 Nov from $76",
     meta: "Majorca • 3h 15m avg",
@@ -54,7 +51,6 @@ export default function DestinationCards() {
       aria-label="Trending destinations"
       className="group overflow-hidden rounded-2xl motion-reduce:overflow-x-auto"
     >
-      {/* Two copies side by side; the second is decorative and hidden from assistive tech. */}
       <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused] group-focus-within:[animation-play-state:paused] motion-reduce:animate-none">
         <CardList items={destinations} />
         <CardList items={destinations} duplicate />
@@ -76,11 +72,8 @@ function CardList({
       className={`flex shrink-0 ${duplicate ? "motion-reduce:hidden" : ""}`}
     >
       {items.map((d) => (
-        // Spacing lives on each card (pr) rather than as a flex gap so both
-        // copies are exactly the same width and the -50% loop point is exact.
         <li key={d.city} className="shrink-0 pr-2.5 sm:pr-3.5">
           <div className="relative isolate flex h-34 w-52 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-4 sm:h-42.5 sm:w-66 sm:p-5 text-white shadow-[0_8px_24px_-12px_rgba(42,27,61,0.45)] [text-shadow:0_1px_6px_rgb(0_0_0/0.45)]">
-            {/* Eager: the row is always moving, so a card must not arrive before its photo. */}
             <Image
               src={d.photo}
               alt=""
@@ -89,7 +82,6 @@ function CardList({
               loading="eager"
               className="-z-20 object-cover"
             />
-            {/* Darkens the lower part so the white text stays readable on any photo. */}
             <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-black/10 from-20% to-black/75" />
             <Link
               href={destinationHref(d.searchName ?? d.city)}

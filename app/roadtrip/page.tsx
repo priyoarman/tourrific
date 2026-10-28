@@ -11,6 +11,5 @@ export default async function RoadTripPage(props: PageProps<"/roadtrip">) {
   const prompt = (typeof q === "string" ? q : "").trim().slice(0, 500);
   const today = new Date().toISOString().slice(0, 10);
 
-  // Keyed by prompt so arriving with a new prompt starts a fresh conversation.
   return <RoadTripView key={prompt} initialPrompt={prompt} today={today} />;
 }

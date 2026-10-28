@@ -2,8 +2,6 @@ import { formatDate, formatDuration, formatNights } from "./format";
 import { findRoute, surpriseRoute } from "./road-trips";
 import type { RoadTrip, RoadTripRoute } from "./types";
 
-// Scripted stand-in for the AI planner on the road trip page, like `assistant.ts`.
-
 export type RoadTripReplyAction =
   | { type: "set-route"; route: RoadTripRoute }
   | { type: "focus-stop"; stopId: string }

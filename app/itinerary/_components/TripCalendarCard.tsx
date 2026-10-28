@@ -2,22 +2,17 @@ import { ChevronLeftIcon, ChevronRightIcon } from "@/app/components/ui/Icons";
 import type { CalendarView, PlanView } from "../itinerary-view";
 import SectionCard, { arrowClass } from "./SectionCard";
 
-/** The "Trip plan" list under the month is left out when `plan` is null. */
 type Props = { calendar: CalendarView; plan: PlanView | null };
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-/** `date` is YYYY-MM-DD. */
 type Cell = { day: number; date: string; inMonth: boolean };
 
-/** The month as whole Monday-to-Sunday weeks, padded with the neighbouring months' days. */
 function monthCells(year: number, month: number): Cell[] {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  // getUTCDay counts from Sunday; shift it so Monday is 0.
   const leading = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
   const trailing = (7 - ((leading + daysInMonth) % 7)) % 7;
 
-  // Date.UTC rolls a day past either end of the month over into the neighbouring one.
   const cell = (dayOfMonth: number): Cell => {
     const date = new Date(Date.UTC(year, month - 1, dayOfMonth));
     return {
@@ -32,7 +27,6 @@ function monthCells(year: number, month: number): Cell[] {
 
 export default function TripCalendarCard({ calendar, plan }: Props) {
   const { start, end, today, activityDates } = calendar;
-  // The month the trip starts in.
   const year = Number(start.slice(0, 4));
   const month = Number(start.slice(5, 7));
   const title = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-GB", {
@@ -65,7 +59,6 @@ export default function TripCalendarCard({ calendar, plan }: Props) {
 
       <ol className="mt-1 grid grid-cols-7 gap-y-0.5 text-center text-sm font-medium">
         {monthCells(year, month).map(({ day, date, inMonth }, index) => {
-          // Marked in the neighbouring months' days too, so a trip into the next month shows where it ends.
           const isEnd = date === start || date === end;
           const inTrip = date > start && date < end;
           const column = index % 7;

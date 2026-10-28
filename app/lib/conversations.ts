@@ -3,7 +3,6 @@ import type { ChatMessage } from "./types";
 
 type MessageRow = { id: string; senderRole: "user" | "assistant"; textContent: string };
 
-/** The signed-in user's conversation; the backend creates one on first use. */
 export async function getCurrentConversation() {
   const { id } = await api<{ id: string }>("/api/conversations/current");
   return id;

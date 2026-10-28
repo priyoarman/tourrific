@@ -3,7 +3,6 @@
 import { HeartIcon } from "@/app/components/ui/Icons";
 import { useAccount } from "./AccountProvider";
 
-/** Compact account buttons for the planner pages: saved trips, and Sign In or Log Out. */
 export default function AccountControls() {
   const { user, savedFlights, openAuth, openSavedTrips, logOut } = useAccount();
   const pill =

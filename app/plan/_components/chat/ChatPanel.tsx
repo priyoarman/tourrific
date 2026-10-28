@@ -13,12 +13,10 @@ import TypingIndicator from "./TypingIndicator";
 
 type Props = {
   messages: Message[];
-  /** Messages from earlier visits, shown above the current conversation. */
   earlier?: Message[];
   isTyping: boolean;
   suggestions: string[];
   onSend: (text: string) => void;
-  /** Progress lines shown under the typing dots, e.g. "Comparing prices across airlines...". */
   statusLines?: string[];
   footnote?: string;
 };
@@ -34,7 +32,6 @@ export default function ChatPanel({
 }: Props) {
   const logRef = useRef<HTMLDivElement>(null);
 
-  // Keep the newest message in view.
   useEffect(() => {
     const log = logRef.current;
     log?.scrollTo({ top: log.scrollHeight, behavior: "smooth" });

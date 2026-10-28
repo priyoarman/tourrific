@@ -3,11 +3,8 @@ import { CheckIcon, PlusIcon } from "./Icons";
 type Props = {
   selected: boolean;
   onClick: () => void;
-  /** Describes what is being selected, for screen readers. */
   label: string;
-  /** The button's text once selected. */
   selectedText?: string;
-  /** True while the choice is being saved; the button is disabled meanwhile. */
   busy?: boolean;
 };
 

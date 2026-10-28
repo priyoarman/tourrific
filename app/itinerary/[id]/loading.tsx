@@ -5,7 +5,6 @@ import { cardClass } from "../_components/SectionCard";
 const bar = "rounded-full bg-lavender-soft/70";
 const block = "rounded-2xl bg-lavender-soft/50";
 
-/** A dashboard card's outline: the icon-and-title heading row, then whatever the card holds. */
 function CardSkeleton({ children }: { children: ReactNode }) {
   return (
     <div className={`${cardClass} p-5`}>
@@ -34,10 +33,6 @@ function FlightLegSkeleton() {
   );
 }
 
-/**
- * What /itinerary/[id] shows while it loads: the outline of every card, in the
- * same columns as the page, so nothing jumps when the trip arrives.
- */
 export default function ItineraryLoading() {
   return (
     <div
@@ -57,13 +52,11 @@ export default function ItineraryLoading() {
 
         <div className="grid animate-pulse gap-5 motion-reduce:animate-none lg:grid-cols-2 xl:grid-cols-3">
           <div className="flex flex-col gap-5">
-            {/* Save trip and Send by email. */}
             <div className="flex gap-3">
               <div className={`${bar} h-13 flex-1`} />
               <div className={`${bar} h-13 flex-1`} />
             </div>
 
-            {/* Trip overview: the photo, the title, then three facts. */}
             <div className={`${cardClass} p-5`}>
               <div className={`${block} h-48`} />
               <div className={`${bar} mt-4 h-6 w-48`} />
@@ -79,7 +72,6 @@ export default function ItineraryLoading() {
               </div>
             </div>
 
-            {/* Budget: the split bar, then flights and hotel. */}
             <CardSkeleton>
               <div className={`${bar} mt-4 h-2.5 w-full`} />
               <div className="mt-4 space-y-3">
@@ -100,7 +92,6 @@ export default function ItineraryLoading() {
               <FlightLegSkeleton />
             </CardSkeleton>
 
-            {/* Hotel: the photo and name, then check-in and check-out. */}
             <CardSkeleton>
               <div className="mt-4 flex items-center gap-3">
                 <div className="size-11 shrink-0 rounded-xl bg-lavender-soft/50" />
@@ -117,7 +108,6 @@ export default function ItineraryLoading() {
           </div>
 
           <div className="flex min-w-0 flex-col gap-5 lg:col-span-2 xl:col-span-1">
-            {/* Calendar: a month of days. */}
             <CardSkeleton>
               <div className="mt-4 grid grid-cols-7 gap-2">
                 {Array.from({ length: 35 }, (_, i) => (

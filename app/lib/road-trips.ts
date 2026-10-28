@@ -1,9 +1,6 @@
 import { addDays, ORIGIN } from "./destinations";
 import type { DriveLeg, RoadStop, RoadTrip, RoadTripRoute, RoadTripStop, Trip } from "./types";
 
-// Sample routes only, until a real routing API is wired in. Drive legs are
-// estimated from straight-line distance, so they stay stable between renders.
-
 export const roadTripRoutes: RoadTripRoute[] = [
   {
     id: "alpine",
@@ -62,7 +59,6 @@ export const roadTripRoutes: RoadTripRoute[] = [
 
 const DEFAULT_ROUTE = roadTripRoutes[0];
 
-// Roads wind, so real driving distance is roughly a third longer than straight-line.
 const ROAD_FACTOR = 1.35;
 const AVERAGE_KMH = 68;
 
@@ -91,7 +87,6 @@ export function resolveRoute(prompt: string): RoadTripRoute {
   return findRoute(prompt) ?? DEFAULT_ROUTE;
 }
 
-/** Picks a different route than the current one, for "Surprise me". */
 export function surpriseRoute(current: RoadTripRoute): RoadTripRoute {
   const index = roadTripRoutes.findIndex((r) => r.id === current.id);
   return roadTripRoutes[(index + 1) % roadTripRoutes.length];
@@ -119,7 +114,6 @@ export function buildRoadTrip(route: RoadTripRoute, today: string): RoadTrip {
   };
 }
 
-/** Describes one overnight stop as a Trip, so the hotel search and cards can be reused. */
 export function stopAsTrip(trip: RoadTrip, stop: RoadTripStop): Trip {
   return {
     origin: ORIGIN,

@@ -1,4 +1,3 @@
-// Run with `npm test`. Groq and Duffel are replaced by a stand-in `fetch`, so nothing here uses the network.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { DuffelTimeout, searchFlights } from "./duffel.ts";
@@ -10,14 +9,12 @@ import { extractTripQuery } from "./groq/extractor.ts";
 const realFetch = globalThis.fetch;
 let calls: string[] = [];
 
-/** Replaces `fetch`. `answer` gets the URL and returns a response, or "hang" to never answer. */
 function stubFetch(answer: (url: string) => Response | "hang") {
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     calls.push(url);
     const response = answer(url);
     if (response !== "hang") return Promise.resolve(response);
-    // Like the real thing, a request that is waiting ends when its signal is aborted.
     return new Promise((_resolve, reject) => {
       init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
     });
@@ -49,7 +46,6 @@ test("Duffel is given up on when it takes too long", async () => {
   stubFetch(() => "hang");
   await assert.rejects(searchFlights(SEARCH), DuffelTimeout);
 
-  // With sample data switched on, a timeout falls back to it like any other failure.
   process.env.DUFFEL_USE_MOCK = "true";
   assert.ok((await searchFlights(SEARCH)).data?.offers?.length);
 });
@@ -61,7 +57,6 @@ test("a Duffel search is dropped when the visitor stops waiting", async () => {
 
   const visitor = new AbortController();
   setTimeout(() => visitor.abort(), 10);
-  // Not a timeout, and no sample flights either: there is nobody to show them to.
   await assert.rejects(searchFlights(SEARCH, visitor.signal), { name: "AbortError" });
 });
 
@@ -92,7 +87,6 @@ test("Groq is asked a second time after any other failure", async () => {
   assert.equal(calls.length, 2);
 });
 
-/** Runs a search and collects what it sends. */
 async function search(signal?: AbortSignal) {
   const events: [string, { text?: string }][] = [];
   await runFlightSearch(
@@ -134,7 +128,6 @@ test("an abandoned search stops where it is and never reaches Duffel", async () 
   process.env.GROQ_TIMEOUT_MS = "5000";
   process.env.DUFFEL_TIMEOUT_MS = "5000";
 
-  // The visitor leaves while Groq is still working.
   stubFetch(() => "hang");
   let visitor = new AbortController();
   setTimeout(() => visitor.abort(), 350);
@@ -142,7 +135,6 @@ test("an abandoned search stops where it is and never reaches Duffel", async () 
   assert.deepEqual(events.map(([event]) => event), ["status"]);
   assert.equal(calls.filter((url) => url.includes("duffel")).length, 0);
 
-  // The visitor leaves while Duffel is still working.
   calls = [];
   stubFetch((url) => (url.includes("duffel") ? "hang" : groqAnswer()));
   visitor = new AbortController();
@@ -150,7 +142,6 @@ test("an abandoned search stops where it is and never reaches Duffel", async () 
   events = await search(visitor.signal);
   clearInterval(leave);
   assert.equal(calls.filter((url) => url.includes("/air/")).length, 1);
-  // No results, no error message, no `done`: nobody is listening.
   assert.ok(events.every(([event]) => event === "status" || event === "message" || event === "scope"));
   assert.ok(!events.some(([, data]) => /too long|Error searching/.test(data.text ?? "")));
 });
@@ -171,7 +162,6 @@ test("a question says what it is asking for, and keeps the destination", async (
     return events.at(-1);
   };
 
-  // A place but no date, as in "a seven-day beach holiday in Greece": the rest of the search goes back with the question.
   groqReads({ destination_airport: "ATH", stay_length: 7, stay_unit: "days" });
   const [, noDate] = (await lastEvent("a seven-day beach holiday")) as [string, StreamDone];
   assert.equal(noDate.needsInput, true);
@@ -182,7 +172,6 @@ test("a question says what it is asking for, and keeps the destination", async (
   assert.equal(noDate.context?.tripQuery?.stay_length, 7);
   assert.equal(noDate.context?.tripQuery?.stay_unit, "days");
 
-  // A date in the past is forgotten, the rest is not.
   groqReads({ destination_airport: "ATH", departure_date: "2001-01-05", stay_length: 7, stay_unit: "days" });
   const [, past] = (await lastEvent("a seven-day beach holiday in 2001")) as [string, StreamDone];
   assert.equal(past.asking, "departure_date");
@@ -190,7 +179,6 @@ test("a question says what it is asking for, and keeps the destination", async (
   assert.equal(past.context?.tripQuery?.departure_date, null);
   assert.equal(past.context?.tripQuery?.stay_length, 7);
 
-  // A return trip without a return date: the rest of the search goes back with the question.
   groqReads({ destination_airport: "ATH", departure_date: "2099-01-05", trip_type: "return", cabin_class: "business" });
   const [, asked] = (await lastEvent("a business class return trip")) as [string, StreamDone];
   assert.equal(asked.asking, "return_date");
@@ -205,7 +193,6 @@ test("a question says what it is asking for, and keeps the destination", async (
 });
 
 test("a return date is counted from the departure date", () => {
-  // 5 January 2099 is a Monday.
   const back = (answer: string) => returnDateFromAnswer(answer, "2099-01-05");
 
   assert.equal(back("A week later"), "2099-01-12");
@@ -214,7 +201,6 @@ test("a return date is counted from the departure date", () => {
   assert.equal(back("after 10 nights"), "2099-01-15");
   assert.equal(back("Sunday"), "2099-01-11");
   assert.equal(back("the Monday after"), "2099-01-12");
-  // A calendar date is left for Groq to read.
   assert.equal(back("20 January"), null);
   assert.equal(back("not sure yet"), null);
 });
@@ -230,7 +216,6 @@ test("the answer to the return date question completes the search it belongs to"
   const providers = () => {
     const realStub = globalThis.fetch;
     globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-      // The flight search; the hotel search that goes with it is not looked at here.
       if (String(input).includes("/air/")) duffelBody = JSON.parse(String(init?.body));
       return realStub(input, init);
     }) as typeof fetch;
@@ -255,21 +240,18 @@ test("the answer to the return date question completes the search it belongs to"
   };
   const groqCalls = () => calls.filter((url) => url.includes("groq")).length;
 
-  // "A week later" needs no model: Groq is not called, and Duffel gets both directions.
   let events = await answer("A week later");
   assert.equal(groqCalls(), 0);
   assert.deepEqual(duffelBody!.data.slices, [
     { destination: "ATH", departure_date: "2099-01-05", origin: "CPH" },
     { origin: "ATH", departure_date: "2099-01-12", destination: "CPH" },
   ]);
-  // What the first message asked for is still there.
   assert.equal(duffelBody!.data.cabin_class, "business");
   assert.equal(duffelBody!.data.passengers.length, 2);
   const complete = events.find(([event]) => event === "complete")?.[1] as StreamComplete;
   assert.equal(complete.extracted.trip_type, "return");
   assert.equal(complete.extracted.return_date, "2099-01-12");
 
-  // A calendar date goes to Groq, which is only trusted for the return date.
   groqReads = { departure_date: "2099-01-05", return_date: "2099-01-20", destination_airport: "LIS", cabin_class: "economy" };
   await answer("20 January");
   assert.equal(groqCalls(), 1);
@@ -277,7 +259,6 @@ test("the answer to the return date question completes the search it belongs to"
   assert.equal(duffelBody!.data.slices[0].destination, "ATH");
   assert.equal(duffelBody!.data.cabin_class, "business");
 
-  // A date before departure, or no date at all, asks again and keeps waiting.
   for (const [prompt, reads] of [["1 January", { return_date: "2099-01-01" }], ["hmm", {}]] as const) {
     groqReads = reads;
     events = await answer(prompt);

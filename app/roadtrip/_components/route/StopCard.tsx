@@ -13,11 +13,9 @@ type Props = {
   onChooseHotel: () => void;
 };
 
-/** One stop on the itinerary timeline, with the drive that leads to it. */
 export default function StopCard({ stop, index, isLast, previousCity, hotel, active, onSelect, onChooseHotel }: Props) {
   return (
     <li className="relative grid grid-cols-[2rem_1fr] gap-3">
-      {/* Timeline rail linking each stop to the next. */}
       <div className="flex flex-col items-center">
         <span
           className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${

@@ -1,7 +1,3 @@
-// A full Duffel offer is about 14 KB, and a busy route returns thousands of
-// them. This keeps only the fields the flight cards read (about 2.6 KB each),
-// so a client can ask for every offer in a single response.
-// Ported from api/src/utils/compactOffer.js.
 import type { DuffelAirline, DuffelOffer, DuffelPlace, DuffelSegment, DuffelSlice } from "../types/duffel";
 
 function pick<T extends object, K extends keyof T>(source: T | null | undefined, keys: K[]): Pick<T, K> {
@@ -20,7 +16,6 @@ function compactSegment(segment: DuffelSegment) {
     origin: compactPlace(segment.origin),
     destination: compactPlace(segment.destination),
     marketing_carrier: pick<DuffelAirline, "iata_code" | "name">(segment.marketing_carrier, ["iata_code", "name"]),
-    // Cabin and baggage are the same for every passenger in an offer.
     passengers: (segment.passengers ?? [])
       .slice(0, 1)
       .map((p) => pick(p, ["cabin_class_marketing_name", "baggages"])),

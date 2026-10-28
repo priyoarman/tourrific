@@ -1,5 +1,3 @@
-// A picked trip for the tests: CPH to Lisbon and back, four nights in a hotel.
-// Each function returns a fresh copy, so a test can change it freely.
 import { HOTEL_GRADIENTS } from "../duffel-to-hotel.ts";
 import type { FlightOffer, Hotel } from "../types";
 import type { StreamHotels } from "../types/stream-events";

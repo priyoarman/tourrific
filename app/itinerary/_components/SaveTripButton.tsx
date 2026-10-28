@@ -9,14 +9,12 @@ import { saveTrip } from "@/app/lib/trips";
 
 type Props = {
   tripId: string;
-  /** True when the visitor saved this trip before. */
   saved: boolean;
 };
 
 const buttonClass =
   "flex w-full items-center justify-center gap-2.5 rounded-full py-4 text-sm font-semibold transition-colors";
 
-/** Saves the trip to the visitor's account, asking a guest to sign in first. */
 export default function SaveTripButton({ tripId, saved: savedBefore }: Props) {
   const { requireSignIn } = useAccount();
   const router = useRouter();
@@ -31,7 +29,6 @@ export default function SaveTripButton({ tripId, saved: savedBefore }: Props) {
     try {
       await saveTrip(tripId);
       setStatus("saved");
-      // The page was drawn for a guest's trip; draw it again as the visitor's.
       router.refresh();
     } catch (reason) {
       setStatus("idle");

@@ -2,7 +2,6 @@ import { PlaneIcon } from "@/app/components/ui/Icons";
 import { dayOffset, formatDate, formatDuration, formatTime } from "@/app/lib/format";
 import type { FlightSlice } from "@/app/lib/types";
 
-/** One direction of a trip: times and airports on each side, route line in between. */
 export default function FlightLeg({ slice }: { slice: FlightSlice }) {
   const offset = dayOffset(slice.departureTime, slice.arrivalTime);
   const stops = slice.stops;

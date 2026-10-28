@@ -1,6 +1,3 @@
-// The chat's flight search: one message in, a series of events out (progress
-// lines, questions, and finally the flights and the hotels to go with them).
-// Ported from api/src/controllers/flightSearchStream.js.
 import type { DuffelOffer } from "../types/duffel";
 import type { SearchContext, SearchQuestion, StreamEventMap, StreamEventName } from "../types/stream-events";
 import type { TripQuery } from "../types/trip-query";
@@ -23,18 +20,12 @@ import { returnDateFor } from "./stay-length.ts";
 
 const PAGE_SIZE = 7;
 
-/** Sends one event to the browser. */
 export type SendEvent = <K extends StreamEventName>(event: K, data: StreamEventMap[K]) => void;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * How long found flights wait for the hotels, so one line can count both.
- * Hotels that take longer are left out of that line and still arrive after the flights.
- */
 const HOTEL_WAIT_MS = 4_000;
 
-/** What `promise` resolves to, or undefined when it takes longer than `ms`. */
 function within<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
   const waiting = new AbortController();
   const late = new Promise<undefined>((resolve) => {
@@ -46,7 +37,6 @@ function within<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
 
 const counted = (count: number, thing: string) => `${count} possible ${thing}${count === 1 ? "" : "s"}`;
 
-/** What the visitor is told when Groq can't turn their message into a search. */
 const EXTRACTION_PROBLEMS: Record<string, string> = {
   timeout: "My AI travel service is taking too long to answer. Please try again in a moment.",
   rate_limited: "Usage limit reached. Please wait a few minutes and try again.",
@@ -73,7 +63,6 @@ function buildSearchSlices(extracted: TripQuery, destination: string) {
   return slices;
 }
 
-/** The progress lines of a search. `withHotels` when hotels are searched alongside the flights. */
 function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean, withHotels: boolean) {
   const origin = extracted.origin_airport || "your location";
   const messages = [
@@ -98,36 +87,16 @@ function buildSearchStatusMessages(extracted: TripQuery, returnTrip: boolean, wi
   return messages;
 }
 
-/**
- * Runs one search and reports it through `send`. Always finishes with a
- * `done` event (or a single `error` event when there is no prompt), and never
- * throws.
- *
- * `body` is the request's JSON. `headers` are only used to guess the
- * departure airport from the visitor's IP when the message doesn't name one.
- *
- * A `scope` event says which side of the trip the message changes, once that
- * is known. Hotels are searched while the flights are, and sent in a `hotels`
- * event after `complete`. A hotel search that fails never costs the visitor their flights.
- *
- * Aborting `signal` (the visitor left, or started a newer search) stops the
- * search where it is: calls to Groq and Duffel in progress are dropped, later
- * ones are never made, and nothing more is sent.
- */
 export async function runFlightSearch(body: unknown, headers: Headers, send: SendEvent, signal?: AbortSignal) {
   const request = isPlainObject(body) ? body : {};
   const userPrompt = typeof request.prompt === "string" ? request.prompt.trim() : "";
   const context = (isPlainObject(request.context) ? request.context : {}) as SearchContext;
   const contextDestination = typeof context.destination === "string" ? context.destination : null;
   const contextTripQuery = isPlainObject(context.tripQuery) ? (context.tripQuery as TripQuery) : null;
-  // A return trip that only lacks its return date: this message is the answer to that question.
   const awaitingReturn =
     context.awaiting === "return_date" && contextTripQuery?.departure_date ? contextTripQuery : null;
   const previousTripQuery = awaitingReturn ? null : contextTripQuery;
-  // A search that only lacks its departure date: this message is most likely that date.
   const awaitingDeparture = context.awaiting === "departure_date" ? contextTripQuery : null;
-  // `limit: "all"` returns every offer in one response, in a compact form, so the
-  // client can sort and page locally instead of re-running the search per page.
   const sendAll = request.limit === "all";
   const page = sendAll ? 1 : Math.max(parseInt(String(request.page)) || 1, 1);
 
@@ -136,35 +105,26 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     return;
   }
 
-  // Ends the hotel search when the visitor leaves, and when the flight search fails.
   const hotelsWanted = new AbortController();
   const hotelSignal = signal ? AbortSignal.any([signal, hotelsWanted.signal]) : hotelsWanted.signal;
 
-  /** The assistant says something and waits for the visitor's answer. */
   const ask = (asking: SearchQuestion, text: string, nextContext?: SearchContext) => {
     send("message", { text });
     send("done", nextContext ? { needsInput: true, asking, context: nextContext } : { needsInput: true, asking });
   };
 
-  /** Asks for the return date, and sends the rest of the search along so the answer completes it. */
   const askReturnDate = (text: string, search: TripQuery, destination: string) => {
     const tripQuery: TripQuery = { ...search, destination_airport: destination, return_date: null, trip_type: "return" };
-    // Said once already; it shouldn't be repeated with the answer.
     delete tripQuery.explanation;
     ask("return_date", text, { destination, tripQuery, awaiting: "return_date" });
   };
 
-  /**
-   * Asks when to travel, and sends the rest of the search along, so that what
-   * the visitor already said ("a seven-day plan") still counts with the answer.
-   */
   const askDepartureDate = (text: string, search: TripQuery, destination: string) => {
     const tripQuery: TripQuery = { ...search, destination_airport: destination, departure_date: null, return_date: null };
     delete tripQuery.explanation;
     ask("departure_date", text, { destination, tripQuery, awaiting: "departure_date" });
   };
 
-  /** Groq couldn't be asked; say why and end the search. */
   const extractionFailed = (reason: string) => {
     send("message", { text: EXTRACTION_PROBLEMS[reason] ?? EXTRACTION_PROBLEM, isError: true });
     send("done", { needsInput: false });
@@ -181,7 +141,6 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
       const destination = awaitingReturn.destination_airport ?? contextDestination ?? "";
       let returnDate = returnDateFromAnswer(userPrompt, departure);
 
-      // Anything else ("20 October", "the day after Christmas") is read by Groq.
       if (!returnDate) {
         const question = `A return flight to ${destination} leaves on ${departure}. The traveller was asked when they want to fly back, and answered: "${userPrompt}"\nSet departure_date to ${departure} and return_date to the date they fly back, which is on or after ${departure}. Leave every other field null.`;
         const result = await extractTripQuery(question, { signal, datesFrom: null });
@@ -189,7 +148,6 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
         if (!result.ok) return extractionFailed(result.errors[0]);
 
         const { return_date: back, departure_date: leaving } = result.parsed;
-        // In case the model put the date it read in the other field.
         const read = back ?? (leaving !== departure ? leaving : null);
         returnDate = read && /^\d{4}-\d{2}-\d{2}$/.test(read) ? read : null;
       }
@@ -211,7 +169,6 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
       if (!result.ok) return extractionFailed(result.errors[0]);
 
       extracted = mergeFollowUpTripQuery({ ...result.parsed }, previousTripQuery, userPrompt);
-      // The answer to "when would you like to travel?" keeps how long the stay was said to be.
       if (awaitingDeparture?.stay_length && !extracted.stay_length) {
         extracted.stay_length = awaitingDeparture.stay_length;
         extracted.stay_unit = awaitingDeparture.stay_unit;
@@ -256,19 +213,14 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     }
 
     if (saysOneWay(userPrompt)) {
-      // "One way" drops the way back, whatever the last search had, and whatever else was said.
       Object.assign(extracted, { trip_type: "one_way", return_date: null, stay_length: null, stay_unit: null });
     } else {
-      // The visitor's own words ("make it 10 days") win over a length the model kept from the last search.
       const statedStay = parseStayLength(userPrompt);
       if (statedStay.stay_length) Object.assign(extracted, statedStay);
     }
 
-    // "A seven-day plan" says when they fly back, now that it's known when they leave.
     if (extracted.stay_length && extracted.stay_unit) {
       const stayEnds = returnDateFor(extracted.departure_date, extracted.stay_length, extracted.stay_unit);
-      // A return date said in this message wins over the length, and the length goes;
-      // one kept from the last search ("make it 10 days", "leave on the 7th instead") does not.
       const returnSaid = Boolean(extracted.return_date) && extracted.return_date !== previousTripQuery?.return_date;
       if (returnSaid && extracted.return_date !== stayEnds) {
         extracted.stay_length = null;
@@ -291,7 +243,6 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
 
     const departureDate = parseDateOnly(extracted.departure_date);
     if (departureDate < today) {
-      // The destination goes back too, so an answer of just a date still knows where to.
       askDepartureDate("I cannot search for flights in the past. Please provide a future date.", extracted, destination);
       return;
     }
@@ -309,22 +260,18 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     }
 
     extracted.destination_airport = destination;
-    // Said before the progress lines, so the page knows which column is about to change.
     send("scope", { scope: searchScope(previousTripQuery, extracted) });
-    // The other pages of the same search already have their hotels.
     const withHotels = page === 1 && stayNights(extracted) !== null;
     for (const text of buildSearchStatusMessages(extracted, returnTrip, withHotels)) {
       send("status", { text: `${text} ` });
       await delay(400);
     }
 
-    // Duffel narrows the search where it can; the rest is filtered once the offers are in.
     const { outboundDepartureTime, ...searchOptions } = duffelSearchOptions(extracted);
     const slices = buildSearchSlices(extracted, destination);
     if (outboundDepartureTime) slices[0].departure_time = outboundDepartureTime;
 
     if (signal?.aborted) return;
-    // Started now and waited for after the flights, so the two searches run side by side.
     const hotelsFound = withHotels ? searchHotels(extracted, destination, hotelSignal) : null;
     const flights = await searchFlightsCached({ slices, ...searchOptions }, signal);
     const found: DuffelOffer[] = flights?.data?.offers ?? [];
@@ -335,7 +282,6 @@ export async function runFlightSearch(body: unknown, headers: Headers, send: Sen
     const start = (page - 1) * limit;
     const end = start + limit;
 
-    // A failed hotel search has nothing to count; the hotels column says so.
     const hotelsInTime = hotelsFound ? await within(hotelsFound, HOTEL_WAIT_MS) : null;
     if (signal?.aborted) return;
     const hotelCount = hotelsInTime && !hotelsInTime.failed ? hotelsInTime.totalHotels : null;

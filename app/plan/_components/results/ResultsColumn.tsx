@@ -6,19 +6,14 @@ type Props = {
   icon: ReactNode;
   subtitle: string;
   count: number;
-  /** Replaces the default "7 results" note, e.g. "7 of 2,083". */
   meta?: string;
-  /** Small label right after the title, e.g. "Sample". */
   badge?: ReactNode;
   toolbar?: ReactNode;
-  /** Shown instead of the list when there is nothing to list. */
   emptyState?: ReactNode;
-  /** True while the list is being replaced; it is dimmed and marked busy. */
   busy?: boolean;
   children: ReactNode;
 };
 
-/** Shared frame for the flights and hotels columns: sticky header, scrolling list. */
 export default function ResultsColumn({ title, icon, subtitle, count, meta, badge, toolbar, emptyState, busy = false, children }: Props) {
   return (
     <section aria-label={title} className="flex h-full min-h-0 flex-col">

@@ -1,4 +1,3 @@
-// Run with `npm test`.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -7,7 +6,6 @@ import type { TripQuery } from "../types/trip-query.ts";
 import { duffelSearchOptions, filterOffers, passengerCount } from "./flight-filters.ts";
 import { normalizeTripQuery } from "./groq/extractor.ts";
 
-// 11 real offers, Copenhagen ⇄ London, priced in EUR: 3 direct and 8 with a stop.
 const mockPath = new URL("./data/mock-flights.json", import.meta.url);
 const offers: DuffelOffer[] = JSON.parse(readFileSync(mockPath, "utf8")).data.offers;
 
@@ -38,7 +36,6 @@ test("asks Duffel for direct flights and a departure window", () => {
   assert.equal(options.passengers.length, 3);
 
   assert.deepEqual(duffelSearchOptions(query({ departure_time: "evening" })).outboundDepartureTime, { from: "18:00", to: "21:59" });
-  // Duffel rejects a window that crosses midnight, so none is sent for "night".
   assert.equal(duffelSearchOptions(query({ departure_time: "night" })).outboundDepartureTime, undefined);
   assert.equal("max_connections" in duffelSearchOptions(query({ direct_only: false })), false);
 });
@@ -64,7 +61,6 @@ test("time of day keeps departures inside the window", () => {
   assert.ok(morning.offers.every((o) => departure(o) >= "05:00" && departure(o) < "12:00"));
   assert.deepEqual(morning.labels, ["Morning departure"]);
 
-  // Each offer falls in exactly one window, including the one that crosses midnight.
   const windows = (["morning", "afternoon", "evening", "night"] as const).map((w) => kept({ departure_time: w }).offers.length);
   assert.equal(windows.reduce((a, b) => a + b), offers.length);
 
@@ -85,7 +81,6 @@ test("airlines match by code or by name", () => {
   const byCode = kept({ preferred_airlines: ["BA"] });
   assert.ok(byCode.offers.length > 0);
   assert.ok(byCode.offers.every((o) => o.owner.iata_code === "BA"));
-  // The label shows the airline's name, not the code the model returned.
   assert.deepEqual(byCode.labels, ["British Airways"]);
 
   assert.deepEqual(kept({ preferred_airlines: ["british airways"] }).offers, byCode.offers);
@@ -109,14 +104,11 @@ test("price limit in the offers' own currency", () => {
 });
 
 test("price limit in another currency is converted", () => {
-  // 1,600 DKK is about €214: it keeps the €207.38 fare and drops the €217.69 one.
   const result = kept({ max_price: 1600, max_price_currency: "DKK" });
   assert.deepEqual(result.offers, offers.filter((o) => price(o) <= 1600 / 7.46));
   assert.equal(result.offers.length, 6);
-  // Intl puts a non-breaking space after the currency code.
   assert.deepEqual(result.labels.map((l) => l.replace(/\u00a0/g, " ")), ["Under DKK 1,600 (about €214)"]);
 
-  // A currency with no known rate can't be compared, so nothing is dropped, and the label says so.
   const unknown = kept({ max_price: 5000, max_price_currency: "THB" });
   assert.equal(unknown.offers.length, offers.length);
   assert.match(unknown.labels[0], /not applied: prices are in EUR/);

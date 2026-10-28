@@ -1,5 +1,3 @@
-// Guesses the departure airport from the visitor's IP address when their
-// message doesn't name one. Ported from api/src/utils/originFallback.js.
 import geoip from "geoip-lite";
 import { AIRPORT_TYPE_PRIORITY, airports, type Airport } from "./airports.ts";
 
@@ -50,7 +48,6 @@ function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number) {
 
 type Coordinate = number | null | undefined;
 
-/** The largest airport among the candidates; the nearest one breaks ties. */
 function pickBestAirport(candidates: Airport[], latitude: Coordinate, longitude: Coordinate) {
   const ranked = [...candidates].sort((a, b) => {
     const typeDiff = (AIRPORT_TYPE_PRIORITY[a.type] ?? 9) - (AIRPORT_TYPE_PRIORITY[b.type] ?? 9);
@@ -120,13 +117,6 @@ function sanitizeIp(ip: string | null | undefined) {
   return value;
 }
 
-/**
- * The visitor's IP address, or null when running locally.
- *
- * A host's proxy puts the address in `x-forwarded-for` as "client, proxy1,
- * proxy2", so the first entry is the visitor. This replaces the request-ip
- * package the Express backend used.
- */
 export function clientIp(headers: Headers) {
   const forwarded = headers.get("x-forwarded-for")?.split(",")[0];
   return sanitizeIp(forwarded) ?? sanitizeIp(headers.get("x-real-ip"));
@@ -152,7 +142,6 @@ export function detectOriginFromIp(headers: Headers) {
   }
 }
 
-/** The airport to fly from when the visitor didn't say: the one nearest their IP, else Copenhagen. */
 export function detectFallbackOrigin(headers: Headers) {
   return detectOriginFromIp(headers) ?? DEFAULT_ORIGIN;
 }

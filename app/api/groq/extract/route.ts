@@ -4,11 +4,6 @@ import { handle, readJson } from "@/app/lib/server/http";
 import { isPlainObject } from "@/app/lib/server/follow-up";
 import { detectFallbackOrigin } from "@/app/lib/server/origin-fallback";
 
-/**
- * POST /api/groq/extract — test endpoint: shows the flight search Groq reads
- * out of a message, without searching. Requires login, because each call
- * spends Groq quota.
- */
 export const POST = handle(async (request: Request) => {
   const user = requireUser(request);
   if (user instanceof Response) return user;
