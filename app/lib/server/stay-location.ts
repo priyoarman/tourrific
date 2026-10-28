@@ -3,7 +3,7 @@
 // the city the airport serves is looked up with Open-Meteo's geocoding API
 // (https://open-meteo.com/en/docs/geocoding-api: no key, free for non-commercial use).
 import { distanceKm, type Coordinates } from "../duffel-to-hotel.ts";
-import { airports } from "./airports.ts";
+import { airports, cityName } from "./airports.ts";
 
 const GEOCODER_URL = "https://geocoding-api.open-meteo.com/v1/search";
 // Hotels wait on this before their own search starts, so it gets little time.
@@ -27,11 +27,6 @@ export type StayLocation = Coordinates & {
 
 // City centres don't move, and there is one per airport at most, so they are kept for good.
 const centres = new Map<string, Coordinates>();
-
-/** "Paris (Roissy-en-France)" → "Paris", "Faro / Algarve" → "Faro". */
-function cityName(municipality: string) {
-  return municipality.replace(/\(.*?\)/g, "").split(/[/,]/)[0].trim();
-}
 
 /** Asks the geocoder for towns and cities called `city` in `country`, best match first. Throws when it fails or is too slow. */
 async function geocode(city: string, country: string, signal?: AbortSignal): Promise<Coordinates[]> {

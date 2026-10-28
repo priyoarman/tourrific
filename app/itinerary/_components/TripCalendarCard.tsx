@@ -65,8 +65,9 @@ export default function TripCalendarCard({ calendar, plan }: Props) {
 
       <ol className="mt-1 grid grid-cols-7 gap-y-0.5 text-center text-sm font-medium">
         {monthCells(year, month).map(({ day, date, inMonth }, index) => {
-          const isEnd = inMonth && (date === start || date === end);
-          const inTrip = inMonth && date > start && date < end;
+          // Marked in the neighbouring months' days too, so a trip into the next month shows where it ends.
+          const isEnd = date === start || date === end;
+          const inTrip = date > start && date < end;
           const column = index % 7;
           return (
             <li

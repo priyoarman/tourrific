@@ -27,3 +27,16 @@ export const AIRPORT_TYPE_PRIORITY: Record<string, number> = {
   medium_airport: 1,
   small_airport: 2,
 };
+
+/** "Paris (Roissy-en-France)" → "Paris", "Faro / Algarve" → "Faro". */
+export function cityName(municipality: string) {
+  return municipality.replace(/\(.*?\)/g, "").split(/[/,]/)[0].trim();
+}
+
+/** The city an airport serves, e.g. "Lisbon" for "LIS", or null when the code isn't known. */
+export function airportCity(code: string) {
+  const wanted = code.trim().toUpperCase();
+  // Some rows of the airport list have no code; an empty one must not match them.
+  const airport = wanted ? airports.find((candidate) => candidate.iata_code === wanted) : undefined;
+  return airport ? cityName(airport.municipality) || null : null;
+}

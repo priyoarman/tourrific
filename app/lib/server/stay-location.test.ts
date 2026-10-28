@@ -1,6 +1,7 @@
 // Run with `npm test`. The geocoder is replaced by a stand-in `fetch`, so nothing here uses the network.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
+import { airportCity } from "./airports.ts";
 import { clearStayLocations, stayLocation } from "./stay-location.ts";
 
 const realFetch = globalThis.fetch;
@@ -119,4 +120,11 @@ test("a code that isn't an airport has nowhere to search", async () => {
   assert.equal(await stayLocation("ZZZZ"), null);
   assert.equal(await stayLocation(""), null);
   assert.equal(calls.length, 0);
+});
+
+test("an airport is named by the city it serves", () => {
+  assert.equal(airportCity("LIS"), "Lisbon");
+  assert.equal(airportCity(" cdg "), "Paris");
+  assert.equal(airportCity("ZZZ"), null);
+  assert.equal(airportCity(""), null);
 });
