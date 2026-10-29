@@ -5,6 +5,7 @@ import type { TripQuery } from "../types/trip-query";
 import { clearSearchCache } from "./duffel.ts";
 import { clearStaysCache } from "./duffel-stays.ts";
 import { runFlightSearch } from "./flight-search-stream.ts";
+import { hangUntilAborted } from "./hanging-request.ts";
 import { searchHotels } from "./hotel-search.ts";
 import { clearStayLocations } from "./stay-location.ts";
 
@@ -54,9 +55,7 @@ function stubProviders({ stays: staysAnswer = () => stays("1"), flights, geocode
       });
     }
     if (answer !== "hang") return Promise.resolve(answer);
-    return new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
-    });
+    return hangUntilAborted(init?.signal);
   }) as typeof fetch;
 }
 

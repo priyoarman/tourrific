@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { DuffelTimeout } from "./duffel.ts";
 import { clearStaysCache, searchStays, searchStaysCached, staysCacheKey, type DuffelStaysSearch } from "./duffel-stays.ts";
+import { hangUntilAborted } from "./hanging-request.ts";
 
 const realFetch = globalThis.fetch;
 let calls: { url: string; init?: RequestInit }[] = [];
@@ -11,9 +12,7 @@ function stubDuffel(answer: () => Response | "hang") {
     calls.push({ url: String(input), init });
     const response = answer();
     if (response !== "hang") return Promise.resolve(response);
-    return new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
-    });
+    return hangUntilAborted(init?.signal);
   }) as typeof fetch;
 }
 

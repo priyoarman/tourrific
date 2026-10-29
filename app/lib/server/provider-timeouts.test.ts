@@ -5,6 +5,7 @@ import { runFlightSearch } from "./flight-search-stream.ts";
 import type { StreamComplete, StreamDone } from "../types/stream-events";
 import { returnDateFromAnswer } from "./follow-up.ts";
 import { extractTripQuery } from "./groq/extractor.ts";
+import { hangUntilAborted } from "./hanging-request.ts";
 
 const realFetch = globalThis.fetch;
 let calls: string[] = [];
@@ -15,9 +16,7 @@ function stubFetch(answer: (url: string) => Response | "hang") {
     calls.push(url);
     const response = answer(url);
     if (response !== "hang") return Promise.resolve(response);
-    return new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
-    });
+    return hangUntilAborted(init?.signal);
   }) as typeof fetch;
 }
 

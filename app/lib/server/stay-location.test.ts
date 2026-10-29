@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { airportCity } from "./airports.ts";
+import { hangUntilAborted } from "./hanging-request.ts";
 import { clearStayLocations, stayLocation } from "./stay-location.ts";
 
 const realFetch = globalThis.fetch;
@@ -12,9 +13,7 @@ function stubGeocoder(answer: () => Response | "hang") {
     calls.push(new URL(String(input)));
     const response = answer();
     if (response !== "hang") return Promise.resolve(response);
-    return new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
-    });
+    return hangUntilAborted(init?.signal);
   }) as typeof fetch;
 }
 

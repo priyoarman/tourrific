@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import type { TripQuery } from "../types/trip-query";
 import type { DuffelStaysSearch } from "./duffel-stays.ts";
+import { hangUntilAborted } from "./hanging-request.ts";
 import { searchHotels } from "./hotel-search.ts";
 import { amenityNamed, clearLiteApiCache, LiteApiTimeout, searchLiteApiStays, searchLiteApiStaysCached } from "./liteapi-stays.ts";
 import { clearStayLocations } from "./stay-location.ts";
@@ -63,9 +64,7 @@ function stubLiteApi({ rates = () => found("lp1"), facilities: facilityList = fa
       throw new Error(`Unexpected request to ${url}`);
     }
     if (answer !== "hang") return Promise.resolve(answer);
-    return new Promise((_resolve, reject) => {
-      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
-    });
+    return hangUntilAborted(init?.signal);
   }) as typeof fetch;
 }
 
