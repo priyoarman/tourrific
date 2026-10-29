@@ -7,12 +7,15 @@ const DAY = 24 * 60 * MINUTE;
 export function searchLimitRules(
   user: { userId: bigint } | null,
   headers: Headers,
+  { answering = false } = {},
 ): (RateLimitRule & { name: SearchLimitReason })[] {
   const who = user ? `user:${user.userId}` : ipKey(headers);
 
   return [
     { name: "busy", key: "global", limit: limitFromEnv("SEARCH_LIMIT_GLOBAL_PER_DAY", 500), windowMs: DAY },
-    { name: "burst", key: who, limit: limitFromEnv("SEARCH_LIMIT_PER_MINUTE", 5), windowMs: MINUTE },
+    ...(answering
+      ? []
+      : [{ name: "burst" as const, key: who, limit: limitFromEnv("SEARCH_LIMIT_PER_MINUTE", 15), windowMs: MINUTE }]),
     user
       ? { name: "user_limit", key: who, limit: limitFromEnv("SEARCH_LIMIT_USER_PER_DAY", 50), windowMs: DAY }
       : { name: "guest_limit", key: who, limit: limitFromEnv("SEARCH_LIMIT_GUEST_PER_DAY", 10), windowMs: DAY },

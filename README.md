@@ -100,7 +100,7 @@ These are optional. Each one has a default.
 
 | Variable | Default | What it limits |
 | --- | --- | --- |
-| `SEARCH_LIMIT_PER_MINUTE` | `5` | Searches per visitor per minute |
+| `SEARCH_LIMIT_PER_MINUTE` | `15` | Searches per visitor per minute. Answers to the planner's questions don't count |
 | `SEARCH_LIMIT_GUEST_PER_DAY` | `10` | Searches per day for a guest, by IP address |
 | `SEARCH_LIMIT_USER_PER_DAY` | `50` | Searches per day for a logged-in user |
 | `SEARCH_LIMIT_GLOBAL_PER_DAY` | `500` | Searches per day for everyone together |
@@ -264,7 +264,7 @@ is turned away before a provider is called.
 | Limit | Counted per | Default | `reason` |
 | --- | --- | --- | --- |
 | Everyone together | the whole app | 500 a day | `busy` |
-| Burst | IP address, or account when logged in | 5 a minute | `burst` |
+| Burst | IP address, or account when logged in | 15 a minute (answers to the planner's questions skip it) | `burst` |
 | Guest allowance | IP address | 10 a day | `guest_limit` |
 | Account allowance | account | 50 a day | `user_limit` |
 

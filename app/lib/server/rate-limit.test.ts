@@ -112,19 +112,31 @@ const guest = (ip: string) => searchLimitRules(null, new Headers({ "x-forwarded-
 const member = (id: number, ip = "203.0.113.7") =>
   searchLimitRules({ userId: BigInt(id) }, new Headers({ "x-forwarded-for": ip }));
 
-test("a search is cut off after 5 in a minute", async () => {
+test("a search is cut off after 15 in a minute", async () => {
   const { limiter, advance } = limiterAt();
 
-  for (let i = 0; i < 5; i++) assert.equal((await limiter.consume(guest("203.0.113.7"))).allowed, true);
-  assert.deepEqual(await limiter.consume(guest("203.0.113.7")), {
+  for (let i = 0; i < 15; i++) assert.equal((await limiter.consume(member(42))).allowed, true);
+  assert.deepEqual(await limiter.consume(member(42)), {
     allowed: false,
     rule: "burst",
     retryAfterSeconds: 60,
   });
-  assert.equal((await limiter.consume(guest("198.51.100.4"))).allowed, true);
+  assert.equal((await limiter.consume(member(43))).allowed, true);
 
   advance(MINUTE);
-  assert.equal((await limiter.consume(guest("203.0.113.7"))).allowed, true);
+  assert.equal((await limiter.consume(member(42))).allowed, true);
+});
+
+test("answering a question from the planner skips the per-minute limit but not the daily one", async () => {
+  const { limiter } = limiterAt();
+  const answer = (id: number) =>
+    searchLimitRules({ userId: BigInt(id) }, new Headers({ "x-forwarded-for": "203.0.113.7" }), { answering: true });
+
+  for (let i = 0; i < 15; i++) await limiter.consume(member(42));
+  assert.equal((await limiter.consume(member(42))).allowed, false);
+  for (let i = 0; i < 35; i++) assert.equal((await limiter.consume(answer(42))).allowed, true);
+  const blocked = await limiter.consume(answer(42));
+  assert.equal(!blocked.allowed && blocked.rule, "user_limit");
 });
 
 test("a guest gets 10 searches a day, and logging in gives more", async () => {
@@ -157,7 +169,7 @@ test("everyone's searches together are capped, and the limits can be set in the 
     for (let i = 0; i < 3; i++) assert.equal((await limiter.consume(guest(`203.0.113.${i}`))).allowed, true);
     const blocked = await limiter.consume(guest("203.0.113.9"));
     assert.equal(!blocked.allowed && blocked.rule, "busy");
-    assert.equal(guest("203.0.113.9")[1].limit, 5);
+    assert.equal(guest("203.0.113.9")[1].limit, 15);
   } finally {
     delete process.env.SEARCH_LIMIT_GLOBAL_PER_DAY;
     delete process.env.SEARCH_LIMIT_PER_MINUTE;

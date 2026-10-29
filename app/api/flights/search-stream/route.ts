@@ -26,7 +26,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const verdict = await rateLimiter.consume(searchLimitRules(optionalUser(request), request.headers));
+  const answering = Boolean(validation.data.context?.awaiting);
+  const verdict = await rateLimiter.consume(
+    searchLimitRules(optionalUser(request), request.headers, { answering }),
+  );
   if (!verdict.allowed) {
     const reason = verdict.rule as SearchLimitReason;
     return tooManyRequests({ reason, message: SEARCH_LIMIT_MESSAGES[reason] }, verdict.retryAfterSeconds);
