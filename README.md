@@ -338,3 +338,14 @@ To apply migrations by hand:
 ```bash
 DATABASE_URL="<production connection string>" npm run db:deploy
 ```
+
+### Keeping the demo awake
+
+A free Render service falls asleep after 15 minutes without visitors, and the
+next visitor waits about a minute while it wakes up. A free
+[UptimeRobot](https://uptimerobot.com) monitor opens `/api/health` every 5
+minutes, so it never falls asleep. It also emails when the demo is down.
+
+The health check only answers `"ok": true`. It doesn't touch the database or
+spend any Groq or Duffel quota. One service awake all month is about 744 hours,
+inside Render's 750 free hours a month.
