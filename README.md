@@ -125,6 +125,7 @@ resets the counts.
 | `npm test` | Unit tests. No network or database needed |
 | `npm run test:extract` | One live Groq extraction. Needs `GROQ_API_KEY` and spends a little quota |
 | `npm run lint` | ESLint |
+| `npm run typecheck` | Generate Next.js route types, then check all types with `tsc` |
 | `npm run db:deploy` | Apply pending database migrations |
 | `npm run db:status` | Show which migrations are applied |
 
@@ -315,6 +316,10 @@ converters, flight filters and hotel wishes, dates and follow-ups, the hotel
 search and its fallback, login sessions, and the abuse protection. They use a
 saved sample of real Duffel offers and need no network. The hotel tests use
 hand-written answers shaped like Duffel's and LiteAPI's API references.
+
+**CI.** Every push and pull request runs `npm ci`, lint, the type check and
+the unit tests on GitHub Actions (`.github/workflows/ci.yml`). It uses Node 22,
+like Render, so a lockfile that Render can't install fails here first.
 
 ## Deploying to Render
 
