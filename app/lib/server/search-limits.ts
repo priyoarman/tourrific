@@ -22,6 +22,10 @@ export function searchLimitRules(
   ];
 }
 
+export function dailySearchRules(rules: RateLimitRule[]) {
+  return rules.filter((rule) => rule.name === "guest_limit" || rule.name === "user_limit");
+}
+
 export const SEARCH_LIMIT_MESSAGES: Record<SearchLimitReason, string> = {
   busy: "Tourrific is very busy right now. Please try again later.",
   burst: "You're searching very quickly. Please wait a moment and try again.",

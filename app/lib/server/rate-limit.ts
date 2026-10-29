@@ -17,6 +17,7 @@ export type RateLimitVerdict =
 
 export interface RateLimiter {
   consume(rules: RateLimitRule[]): Promise<RateLimitVerdict>;
+  refund(rules: RateLimitRule[]): Promise<void>;
 }
 
 type Entry = {
@@ -84,6 +85,13 @@ export function createMemoryRateLimiter({
       }
 
       return { allowed: true };
+    },
+
+    async refund(rules) {
+      for (const rule of rules) {
+        const entry = entries.get(`${rule.name}:${rule.key}`);
+        entry?.hits.pop();
+      }
     },
 
     size: () => entries.size,

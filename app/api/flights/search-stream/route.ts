@@ -3,7 +3,7 @@ import { runFlightSearch, type SendEvent } from "@/app/lib/server/flight-search-
 import { crossSiteRefused, isCrossSite, readJsonWithin, tooManyRequests } from "@/app/lib/server/http";
 import { rateLimiter } from "@/app/lib/server/rate-limit";
 import { searchStreamSchema } from "@/app/lib/server/schemas";
-import { SEARCH_LIMIT_MESSAGES, searchLimitRules } from "@/app/lib/server/search-limits";
+import { dailySearchRules, SEARCH_LIMIT_MESSAGES, searchLimitRules } from "@/app/lib/server/search-limits";
 import type { SearchLimitReason } from "@/app/lib/types/stream-events";
 
 export const maxDuration = 60;
@@ -27,9 +27,8 @@ export async function POST(request: Request) {
   }
 
   const answering = Boolean(validation.data.context?.awaiting);
-  const verdict = await rateLimiter.consume(
-    searchLimitRules(optionalUser(request), request.headers, { answering }),
-  );
+  const rules = searchLimitRules(optionalUser(request), request.headers, { answering });
+  const verdict = await rateLimiter.consume(rules);
   if (!verdict.allowed) {
     const reason = verdict.rule as SearchLimitReason;
     return tooManyRequests({ reason, message: SEARCH_LIMIT_MESSAGES[reason] }, verdict.retryAfterSeconds);
@@ -43,12 +42,15 @@ export async function POST(request: Request) {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let providerFailed = false;
       const send: SendEvent = (event, data) => {
+        if (event === "message" && "isError" in data && data.isError) providerFailed = true;
         if (!open) return;
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
 
       await runFlightSearch(body, request.headers, send, abandoned.signal);
+      if (providerFailed) await rateLimiter.refund(dailySearchRules(rules));
       if (open) controller.close();
     },
     cancel() {

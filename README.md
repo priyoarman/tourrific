@@ -268,6 +268,9 @@ is turned away before a provider is called.
 | Guest allowance | IP address | 10 a day | `guest_limit` |
 | Account allowance | account | 50 a day | `user_limit` |
 
+A search that fails on our side (Groq or Duffel errors) is given back to the
+visitor's daily allowance.
+
 A blocked search answers `429` with a `Retry-After` header:
 
 ```json

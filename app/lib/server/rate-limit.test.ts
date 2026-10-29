@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loginLimitRules, signupLimitRules } from "./auth-limits.ts";
 import { createMemoryRateLimiter, ipKey, type RateLimitRule } from "./rate-limit.ts";
-import { searchLimitRules } from "./search-limits.ts";
+import { dailySearchRules, searchLimitRules } from "./search-limits.ts";
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -158,6 +158,25 @@ test("a guest gets 10 searches a day, and logging in gives more", async () => {
 
   assert.equal((await limiter.consume(member(42, "198.51.100.4"))).allowed, false);
   assert.equal((await limiter.consume(member(43))).allowed, true);
+});
+
+test("a search that failed on our side gives the visitor their daily search back", async () => {
+  const { limiter, advance } = limiterAt();
+
+  for (let i = 0; i < 10; i++) {
+    const rules = guest("203.0.113.7");
+    assert.equal((await limiter.consume(rules)).allowed, true);
+    if (i < 3) await limiter.refund(dailySearchRules(rules));
+    advance(MINUTE);
+  }
+  for (let i = 0; i < 3; i++) assert.equal((await limiter.consume(guest("203.0.113.7"))).allowed, true);
+  const blocked = await limiter.consume(guest("203.0.113.7"));
+  assert.equal(!blocked.allowed && blocked.rule, "guest_limit");
+
+  assert.deepEqual(
+    dailySearchRules(guest("203.0.113.7")).map((rule) => rule.name),
+    ["guest_limit"],
+  );
 });
 
 test("everyone's searches together are capped, and the limits can be set in the environment", async () => {
