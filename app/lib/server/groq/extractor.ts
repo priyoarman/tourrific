@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { createGroq } from "@ai-sdk/groq";
 import type { CabinClass, DepartureTime, HotelAmenity, StayUnit, TripQuery, TripType } from "../../types/trip-query";
 import { resolveDestination } from "../destination-resolver.ts";
@@ -322,7 +323,9 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
     { role: "user" as const, content: [{ type: "text" as const, text: userText }] },
   ];
 
-  const timeout = AbortSignal.timeout(Number(process.env.GROQ_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS);
+  const timeoutMs = Number(process.env.GROQ_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
+  const timeout = AbortSignal.timeout(timeoutMs);
   const abortSignal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
   const givenUp = (error: unknown) => {
     if (opts.signal?.aborted) return "cancelled";
@@ -335,11 +338,25 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
     return { ok: false, parsed: null, errors: [reason, message] };
   };
 
+  const generate = async (options: Omit<Parameters<typeof model.doGenerate>[0], "abortSignal">) => {
+    try {
+      return await model.doGenerate({ ...options, abortSignal });
+    } catch (error) {
+      const waitMs = retryAfterMs(error);
+      if (waitMs === null || Date.now() + waitMs >= deadline) throw error;
+
+      console.warn(`Groq is over its rate limit; asking again in ${waitMs} ms`);
+      await sleep(waitMs, undefined, { signal: abortSignal }).catch(() => {
+        throw error;
+      });
+      return await model.doGenerate({ ...options, abortSignal });
+    }
+  };
+
   let response;
   try {
-    response = await model.doGenerate({
+    response = await generate({
       prompt,
-      abortSignal,
       responseFormat: {
         type: "json",
         name: "trip_query_extraction",
@@ -358,7 +375,7 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
     );
 
     try {
-      response = await model.doGenerate({ prompt, abortSignal, maxOutputTokens: 1024 });
+      response = await generate({ prompt, maxOutputTokens: 1024 });
     } catch (retryError) {
       return failed(givenUp(retryError) ?? "failed_generation", retryError);
     }
@@ -393,4 +410,14 @@ export async function extractTripQuery(userText: string, opts: Options = {}): Pr
   }
 
   return { ok: true, parsed, errors: [] };
+}
+
+function retryAfterMs(error: unknown) {
+  const { statusCode, responseHeaders } = (error ?? {}) as {
+    statusCode?: number;
+    responseHeaders?: Record<string, string>;
+  };
+  if (statusCode !== 429) return null;
+  const seconds = Number.parseFloat(responseHeaders?.["retry-after"] ?? "");
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null;
 }

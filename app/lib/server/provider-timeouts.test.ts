@@ -81,6 +81,38 @@ test("Groq is asked once when it is too slow, over its quota, or no longer neede
   assert.equal(calls.length, 1);
 });
 
+test("Groq is asked again once its rate limit says to wait a moment", async () => {
+  const overLimit = (seconds: string) =>
+    new Response(JSON.stringify({ error: { message: "Rate limit reached" } }), {
+      status: 429,
+      headers: { "Content-Type": "application/json", "Retry-After": seconds },
+    });
+  const reads = json(200, {
+    id: "x",
+    model: "test",
+    choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: '{"destination_airport":"LIS"}' } }],
+    usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+  });
+
+  process.env.GROQ_TIMEOUT_MS = "5000";
+  const answers = [overLimit("0.01"), reads];
+  stubFetch(() => answers.shift() as Response);
+  const result = await extractTripQuery("to Lisbon tomorrow");
+  assert.equal(result.ok, true);
+  assert.equal(result.parsed?.destination_airport, "LIS");
+  assert.equal(calls.length, 2);
+
+  calls = [];
+  stubFetch(() => overLimit("60"));
+  assert.equal((await extractTripQuery("to Lisbon tomorrow")).errors[0], "rate_limited");
+  assert.equal(calls.length, 1);
+
+  calls = [];
+  stubFetch(() => overLimit("0.01"));
+  assert.equal((await extractTripQuery("to Lisbon tomorrow")).errors[0], "rate_limited");
+  assert.equal(calls.length, 2);
+});
+
 test("Groq is asked a second time after any other failure", async () => {
   stubFetch(() => json(500, { error: { message: "Internal error" } }));
   assert.equal((await extractTripQuery("to Lisbon tomorrow")).errors[0], "failed_generation");
